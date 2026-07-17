@@ -1,0 +1,29 @@
+# Dependencies
+vendor/
+node_modules/
+
+# Environment
+.env
+.env.backup
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Cache
+storage/logs/*.log
+bootstrap/cache/*.php
+
+# Database
+database/database.sqlite
+
+# Build
+dist/
+build/
