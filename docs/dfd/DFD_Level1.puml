@@ -1,0 +1,92 @@
+@startuml DFD_Level1
+title DFD Level 1 - Sistem Absensi Karyawan Berbasis IoT (RFID)
+
+skinparam defaultFontName "Helvetica"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam handwritten false
+skinparam responseMessageBelowArrow true
+
+skinparam rectangle {
+  BackgroundColor #3498DB
+  BorderColor #2980B9
+  FontColor #FFFFFF
+  FontSize 13
+  FontStyle bold
+  RoundCorner 0
+}
+
+skinparam card {
+  BackgroundColor #2ECC71
+  BorderColor #27AE60
+  FontColor #FFFFFF
+  FontSize 12
+  FontStyle bold
+  RoundCorner 25
+}
+
+skinparam database {
+  FontSize 11
+  BackgroundColor #F1C40F
+  BorderColor #F39C12
+}
+
+skinparam arrow {
+  Color #333333
+  FontSize 10
+  FontColor #333333
+}
+
+hide footbox
+
+rectangle "Admin" as admin
+rectangle "Device RFID" as device
+
+card "1.0\nAutentikasi\nLogin" as P1
+card "2.0\nKelola Data\nMaster" as P2
+card "3.0\nProses Absensi\nRFID" as P3
+card "4.0\nInput Absensi\nManual" as P4
+card "5.0\nKelola\nLaporan" as P5
+
+database "D1\nUsers" as D1
+database "D2\nEmployees" as D2
+database "D3\nDivisions" as D3
+database "D4\nSchedules" as D4
+database "D5\nAttendance" as D5
+
+admin -right-> P1 : **Username & Password**
+admin -right-> P2 : **Data Karyawan, Divisi, Jadwal**
+admin -right-> P4 : **Data Absensi Manual**
+admin -right-> P5 : **Request Laporan**
+
+P1 -left-> admin : **Status Login**
+P5 -left-> admin : **Laporan Absensi**
+
+device -left-> P3 : **UID + Timestamp**
+P3 -right-> device : **Notifikasi Hasil Absensi**
+
+P1 -down-> D1 : **Cek Kredensial**
+
+P2 -down-> D2 : **Simpan/Update Karyawan**
+P2 -down-> D3 : **Simpan/Update Divisi**
+P2 -down-> D4 : **Simpan/Update Jadwal**
+
+P3 -down-> D2 : **Cek UID Terdaftar**
+P3 -down-> D4 : **Cek Jam Standar**
+P3 -down-> D5 : **Simpan Record Absensi**
+
+P4 -down-> D5 : **Simpan Absensi Manual**
+
+P5 -up-> D5 : **Ambil Data Absensi**
+P5 -up-> D2 : **Ambil Data Karyawan**
+
+legend bottom left
+  |= Warna |= Keterangan |
+  | <#3498DB> | Entitas Eksternal (Admin, Device RFID) |
+  | <#2ECC71> | Proses (1.0 - 5.0) |
+  | <#F1C40F> | Data Store (D1 - D5) |
+  | Panah | Aliran Data |
+endlegend
+
+@enduml
