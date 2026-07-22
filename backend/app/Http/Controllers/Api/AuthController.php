@@ -58,7 +58,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         if (!Hash::check($request->old_password, $user->password)) {
-            throw new \App\Exceptions\ApiException('Password lama salah');
+            throw new \App\Exceptions\ApiException('Password lama salah', 422);
         }
 
         $user->update([

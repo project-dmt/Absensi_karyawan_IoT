@@ -27,7 +27,7 @@ class LaporanController extends Controller
         }
 
         if (isset($validated['search'])) {
-            $search = $validated['search'];
+            $search = addcslashes($validated['search'], '%_');
             $query->whereHas('employee', function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
                   ->orWhere('nip', 'like', "%{$search}%");

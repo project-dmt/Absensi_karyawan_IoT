@@ -15,7 +15,7 @@ class GlobalSearchController extends Controller
             'q' => 'required|string|min:2|max:100',
         ]);
 
-        $query = $request->q;
+        $query = addcslashes($request->q, '%_');
 
         $karyawan = Employee::with('division')
             ->where('nama', 'like', "%{$query}%")
@@ -27,7 +27,7 @@ class GlobalSearchController extends Controller
                 'type' => 'karyawan',
                 'id' => $item->id,
                 'title' => $item->nama,
-                'subtitle' => $item->nip . ' - ' . $item->division->nama_divisi,
+                'subtitle' => $item->nip . ' - ' . ($item->division->nama_divisi ?? '-'),
             ]);
 
         $divisi = Division::where('nama_divisi', 'like', "%{$query}%")
