@@ -13,7 +13,7 @@ class ValidateApiKey
         $apiKey = $request->header('X-API-Key');
         $validKey = config('services.api_key');
 
-        if (!$apiKey || $apiKey !== $validKey) {
+        if (!$apiKey || !hash_equals($validKey, $apiKey)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized: Invalid API Key'

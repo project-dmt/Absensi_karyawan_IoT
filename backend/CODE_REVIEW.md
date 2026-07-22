@@ -1,21 +1,24 @@
 # Code Review: Backend Absensi IoT (Laravel 13)
 
-> Review Date: 2026-07-22
+> Review Date: 2026-07-22 (Updated)
 > Reviewer: opencode
 > Target: Production readiness assessment
+> Scope: Backend folder + Database schema
 
 ---
 
 ## Table of Contents
 
 1. [Executive Summary](#executive-summary)
-2. [Issue List](#issue-list)
-   - [CRITICAL - Security](#critical---security)
-   - [HIGH - Business Logic](#high---business-logic)
-   - [MEDIUM - Architecture](#medium---architecture)
+2. [Issue Status Tracker](#issue-status-tracker)
+3. [Issue List](#issue-list)
+   - [CRITICAL - Security & Infrastructure](#critical---security--infrastructure)
+   - [HIGH - Security & Authorization](#high---security--authorization)
+   - [MEDIUM - Database & Architecture](#medium---database--architecture)
    - [LOW - Code Quality](#low---code-quality)
-3. [Recommended Fixes](#recommended-fixes)
-4. [Priority Roadmap](#priority-roadmap)
+4. [Recommended Fixes](#recommended-fixes)
+5. [Priority Roadmap](#priority-roadmap)
+6. [Appendix: File-by-File Changes](#appendix-file-by-file-changes)
 
 ---
 
@@ -24,23 +27,67 @@
 | Kategori | Score | Status |
 |---|---|---|
 | Keamanan (Security) | 4/10 | CRITICAL - Wajib fix sebelum production |
-| Architecture | 6/10 | Perlu refactor untuk maintainability |
-| Business Logic | 5/10 | Ada race condition & edge cases |
+| Database Schema | 5/10 | Missing tables, indexes, constraints |
+| Architecture | 7/10 | Sudah ada Service Layer & Form Requests |
+| Business Logic | 7/10 | Race condition udah di-fix |
 | Code Quality | 6/10 | Clean tapi belum siap production |
-| **Overall** | **5/10** | **MVP/Prototype ready, NOT production ready** |
+| **Overall** | **6/10** | **MVP ready, tapi BUTUH FIX sebelum production** |
 
-**Kesimpulan:** Code ini **bukan code buruk** — ini code yang **belum siap production**. Strukturnya clean, follow Laravel conventions, arsitekturnya masuk akal. Tapi ada beberapa masalah serius yang wajib di-fix sebelum go live.
+**Kesimpulan:** Code ini udah mengalami beberapa perbaikan dari review pertama (race condition fix, service layer, form requests). Tapi masih ada **critical issues** yang belum di-fix: missing database migrations (cache/jobs tables), credentials bocor di .env, dan security gaps lainnya.
+
+---
+
+## Issue Status Tracker
+
+### Sudah di-FIX (11 issues)
+
+| ID | Issue | Status | Bukti |
+|---|---|---|---|
+| C3 | Sanctum token unlimited | FIXED | `config/sanctum.php` → expiration = 1440 (24 jam) |
+| C5 | Password seeder weak | FIXED | `DatabaseSeeder.php` → pakai `env('ADMIN_PASSWORD', 'Admin@123')` |
+| C6 | UserFactory field mismatch | FIXED | `UserFactory.php` → field `nama` (bukan `name`) |
+| B1 | Race condition absensi ESP32 | FIXED | `AbsensiService.php` → pakai `lockForUpdate()` + `DB::transaction()` |
+| B2 | Checkout gak validate status | FIXED | `AbsensiService.php` → cek status Alpha/Izin sebelum checkout |
+| B3 | Manual absensi race condition | FIXED | `AbsensiService.php` → pakai `lockForUpdate()` |
+| B4 | History gak di-paginate | FIXED | `AbsensiController.php` → pakai `paginate()` |
+| A1 | Gak ada Service Layer | FIXED | `app/Services/AbsensiService.php` udah ada |
+| A3 | Magic numbers hardcoded | FIXED | `config/absensi.php` udah ada |
+| A5 | Gak ada Form Requests | FIXED | 7 FormRequest classes udah ada |
+| Q3 | Stale data return | FIXED | Pakai `->fresh()` |
+
+### BELUM di-FIX (16 issues)
+
+| ID | Issue | Severity | Priority |
+|---|---|---|---|
+| C1 | `.env` ke-commit | CRITICAL | 1 |
+| C2 | API Key weak + gak ada rate limiting | CRITICAL | 2 |
+| C4 | `APP_DEBUG=true` | CRITICAL | 3 |
+| C7 | Missing migration `cache` table | CRITICAL | 4 |
+| C8 | Missing migration `jobs` table | CRITICAL | 5 |
+| H1 | Timing attack di API key validation | HIGH | 6 |
+| H2 | No role-based authorization | HIGH | 7 |
+| H3 | `sessions.user_id` gak ada FK | HIGH | 8 |
+| M1 | `divisions.nama_divisi` tidak unique | MEDIUM | 9 |
+| M2 | `employees` gak ada index `status` | MEDIUM | 10 |
+| M3 | `employees.divisi_id` duplicate index | MEDIUM | 11 |
+| M4 | `attendance` gak ada composite index | MEDIUM | 12 |
+| M5 | CORS terlalu broad | MEDIUM | 13 |
+| M6 | Session `secure` cookie gak di-set | MEDIUM | 14 |
+| Q1 | Gak ada test | LOW | 15 |
+| Q4 | Gak ada logging | LOW | 16 |
 
 ---
 
 ## Issue List
 
-### CRITICAL - Security
+### CRITICAL - Security & Infrastructure
+
+---
 
 #### C1: `.env` file ke-commit ke repository
 
-**File:** `.env`
-**Line:** All (entire file)
+**File:** `.env` (entire file)
+**Status:** BELUM FIX
 
 **Problem:**
 `APP_KEY`, `DB_PASSWORD`, `API_KEY` semua visible di repository. Kalau repo public, attacker udah punya semua credentials.
@@ -55,18 +102,28 @@ API_KEY=absensi_iot_rfid_2026
 **Impact:** Full system compromise. Attacker bisa akses database, impersonate ESP32 devices, dan decrypt data.
 
 **Fix:**
-- Tambahin `.env` ke `.gitignore` (pastikan belum ke-track: `git rm --cached .env`)
-- Revoke semua key yang udah bocor
-- Generate新的 `APP_KEY` via `php artisan key:generate`
-- Generate new API key
-- Kalau repo udah public, assume compromise — rotate semua credentials
+```bash
+# 1. Hapus dari git tracking (file tetap ada di lokal)
+git rm --cached .env
+
+# 2. Generate credentials baru
+php artisan key:generate
+
+# 3. Ganti API_KEY di .env dengan value baru yang random
+# Contoh: API_KEY=apa_8k2jD9f2kJ3dF8j2_kD9f2kJ3
+# (gunakan random string minimal 32 karakter)
+
+# 4. Ganti DB_PASSWORD
+
+# 5. Commit .gitignore dulu, jangan commit .env
+```
 
 ---
 
 #### C2: API Key terlalu simple & tidak ada rate limiting
 
-**File:** `app/Http/Middleware/ValidateApiKey.php:16`
-**File:** `routes/api.php:14`
+**File:** `app/Http/Middleware/ValidateApiKey.php:16`, `routes/api.php:14`
+**Status:** BELUM FIX
 
 **Problem:**
 - API key `absensi_iot_rfid_2026` terlalu predictable dan gak ada rotasi mechanism
@@ -79,35 +136,8 @@ API_KEY=absensi_iot_rfid_2026
 ```php
 // routes/api.php - tambahin rate limiting
 Route::post('/absensi', [AbsensiController::class, 'storeFromDevice'])
-    ->middleware(['api.key', 'throttle:60,1'])
+    ->middleware(['api.key', 'throttle:60,1']) // 60 requests per menit per IP
     ->name('api.absensi.device');
-```
-
-```php
-// ValidateApiKey.php - tambahin logging
-Log::warning('Failed API key attempt', [
-    'ip' => $request->ip(),
-    'key_provided' => substr($apiKey ?? '', 0, 8) . '...',
-]);
-```
-
----
-
-#### C3: Sanctum token expiration = unlimited
-
-**File:** `config/sanctum.php:53`
-
-**Problem:**
-```php
-'expiration' => null,
-```
-Token gak pernah expired. Kalau token bocor, attacker bisa akses selamanya.
-
-**Impact:** Compromised token = permanent access.
-
-**Fix:**
-```php
-'expiration' => 1440, // 24 jam
 ```
 
 ---
@@ -115,6 +145,7 @@ Token gak pernah expired. Kalau token bocor, attacker bisa akses selamanya.
 #### C4: `APP_DEBUG=true` di environment
 
 **File:** `.env:4`
+**Status:** BELUM FIX
 
 **Problem:**
 ```ini
@@ -131,433 +162,318 @@ APP_DEBUG=false
 
 ---
 
-#### C5: Password seeder terlalu weak
+#### C7: Missing migration `cache` table
 
-**File:** `database/seeders/DatabaseSeeder.php:18`
-
-**Problem:**
-```php
-'password' => Hash::make('password'),
-```
-Password admin default = `password`. Kalau lupa ganti di production = game over.
-
-**Fix:**
-```php
-'password' => Hash::make(Str::random(16)),
-```
-Atau jangan seed password di production environment.
-
----
-
-#### C6: UserFactory field mismatch dengan Model
-
-**File:** `database/factories/UserFactory.php:28-32`
+**File:** TIDAK ADA (migration belum dibuat)
+**Status:** BELUM FIX
 
 **Problem:**
-```php
-return [
-    'name' => fake()->name(),           // Model pake 'nama', bukan 'name'
-    'email_verified_at' => now(),       // Gak ada di migration
-    'remember_token' => Str::random(10), // Gak ada di migration
-];
-```
+- `.env` set `CACHE_STORE=database`
+- `config/cache.php` line 18: default table = `cache`
+- **TAPI tidak ada migration untuk tabel `cache` dan `cache_locks`**
+- Laravel butuh kedua tabel ini untuk cache driver database
 
-**Impact:** Kalau factory dipake buat testing, bakal error atau data inconsistent.
+**Impact:** App bakal error waktu cache pertama kali dipake. Query ke tabel `cache` yang gak ada = SQL error.
 
 **Fix:**
+```bash
+# Generate migration otomatis
+php artisan cache:table
+php artisan make:migration create_cache_locks_table
+
+# Terus jalankan
+php artisan migrate
+```
+
+Isi migration yang harusnya ada:
 ```php
-return [
-    'nama' => fake()->name(),
-    'email' => fake()->unique()->safeEmail(),
-    'password' => static::$password ??= Hash::make('password'),
-    'role' => 'admin',
-];
+Schema::create('cache', function (Blueprint $table) {
+    $table->string('key')->primary();
+    $table->mediumText('value');
+    $table->integer('expiration');
+});
+
+Schema::create('cache_locks', function (Blueprint $table) {
+    $table->string('key')->primary();
+    $table->string('owner');
+    $table->integer('expiration');
+});
 ```
 
 ---
 
-### HIGH - Business Logic
+#### C8: Missing migration `jobs` + `failed_jobs` table
 
-#### B1: Race condition di absensi ESP32
-
-**File:** `app/Http/Controllers/Api/AbsensiController.php:34-55, 74-82`
+**File:** TIDAK ADA (migration belum dibuat)
+**Status:** BELUM FIX
 
 **Problem:**
-Ada gap antara cek `$sudahAbsen` (line 34) dan `DB::transaction` (line 75). Kalau 2 request RFID masuk bersamaan:
+- `.env` set `QUEUE_CONNECTION=database`
+- `config/queue.php` line 41: table = `jobs`
+- **TAPI tidak ada migration untuk tabel `jobs`, `failed_jobs`, `job_batches`**
+- Laravel butuh tabel-tabel ini untuk queue driver database
 
+**Impact:** Queue system gak bisa jalan. Kalau ada job dispatch, bakal error.
+
+**Fix:**
+```bash
+# Generate migration otomatis
+php artisan queue:table
+php artisan queue:failed-table
+php artisan queue:batches-table
+
+# Terus jalankan
+php artisan migrate
 ```
-Timeline:
-T1: Request A cek $sudahAbsen → null
-T2: Request B cek $sudahAbsen → null
-T3: Request A → DB::transaction → create absensi ✓
-T4: Request B → DB::transaction → create absensi → UNIQUE CONSTRAINT VIOLATION
+
+---
+
+### HIGH - Security & Authorization
+
+---
+
+#### H1: Timing attack vulnerable di API key validation
+
+**File:** `app/Http/Middleware/ValidateApiKey.php:16`
+**Status:** BELUM FIX
+
+**Problem:**
+```php
+if (!$apiKey || $apiKey !== $validKey) {
 ```
+Perbandingan `!==` punya execution time yang bervariasi tergantung berapa karakter yang match. Attacker bisaukur waktu response buat guess key satu per satu (timing attack).
 
-Unique constraint bakal catch ini, tapi error-nya gak graceful — ESP32 dapet error 500.
-
-**Impact:** Inconsistent data, ESP32 confusion, potential double attendance.
+**Impact:** Attacker bisa brute force API key lebih efisien.
 
 **Fix:**
 ```php
-public function storeFromDevice(Request $request)
+if (!$apiKey || !hash_equals($validKey, $apiKey)) {
+```
+`hash_equals()` punya execution time constant, gak bisa di-timing attack.
+
+---
+
+#### H2: No role-based authorization
+
+**File:** `routes/api.php` (semua protected routes)
+**Status:** BELUM FIX
+
+**Problem:**
+Semua user dengan Sanctum token bisa akses semua endpoint. Gak ada pembatasan berdasarkan role (admin vs superadmin).
+
+- Admin biasa bisa delete karyawan
+- Admin biasa bisa update absensi orang lain
+- Admin biasa bisa hapus data
+
+**Impact:** Privilege escalation, data integrity issue.
+
+**Fix:**
+Bikin middleware `CheckRole`:
+```php
+// app/Http/Middleware/CheckRole.php
+class CheckRole
 {
-    $validated = $request->validate([
-        'uid' => 'required|string',
-    ]);
-
-    $absensi = DB::transaction(function () use ($validated) {
-        $karyawan = Employee::where('rfid_uid', $validated['uid'])->lockForUpdate()->first();
-
-        if (!$karyawan) {
-            throw new \Exception('Kartu RFID tidak terdaftar');
+    public function handle(Request $request, Closure $next, ...$roles): Response
+    {
+        if (!in_array($request->user()->role, $roles)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized: Insufficient role',
+            ], 403);
         }
-
-        if ($karyawan->status !== 'aktif') {
-            throw new \Exception('Karyawan tidak aktif');
-        }
-
-        $today = Carbon::today('Asia/Jakarta')->toDateString();
-        $sudahAbsen = Attendance::where('employee_id', $karyawan->id)
-            ->where('tanggal', $today)
-            ->first();
-
-        if ($sudahAbsen) {
-            if ($sudahAbsen->jam_pulang) {
-                throw new \Exception('Sudah checkout hari ini');
-            }
-
-            $jamPulang = Carbon::now('Asia/Jakarta')->format('H:i:s');
-            $sudahAbsen->update(['jam_pulang' => $jamPulang]);
-
-            return [
-                'nama' => $karyawan->nama,
-                'status' => 'Checkout Berhasil',
-                'jam_pulang' => $jamPulang,
-            ];
-        }
-
-        // ... logic absensi masuk
-    });
-
-    return $this->successResponse($absensi, 'Absensi berhasil');
+        return $next($request);
+    }
 }
+
+// Register di bootstrap/app.php
+$middleware->alias([
+    'role' => \App\Http\Middleware\CheckRole::class,
+]);
+
+// Pakai di routes
+Route::delete('/karyawan/{id}', [KaryawanController::class, 'destroy'])
+    ->middleware('role:superadmin');
 ```
 
 ---
 
-#### B2: Checkout gak validate attendance status
+#### H3: `sessions.user_id` gak ada FK constraint
 
-**File:** `app/Http/Controllers/Api/AbsensiController.php:39-55`
+**File:** `database/migrations/2026_07_17_000006_create_sessions_and_password_resets_table.php:19`
+**Status:** BELUM FIX
 
 **Problem:**
-Kalau status absensi = "Alpha" atau "Izin" (dari admin input manual), terus employee tap lagi, bakal keisi `jam_pulang` — which is wrong.
+```php
+$table->foreignId('user_id')->nullable()->index();
+```
+Ada index tapi **tidak ada `->constrained()`**. Harusnya:
+```php
+$table->foreignId('user_id')->nullable()->constrained('users')->onDelete('cascade');
+```
 
-**Impact:** Data absensi inconsistent, laporan salah.
+**Impact:** Orphaned session data kalau user dihapus. Gak ada referential integrity.
+
+**Fix:** Bikin migration baru:
+```php
+Schema::table('sessions', function (Blueprint $table) {
+    $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+});
+```
+
+---
+
+### MEDIUM - Database & Architecture
+
+---
+
+#### M1: `divisions.nama_divisi` tidak unique di database
+
+**File:** `database/migrations/2026_07_17_000002_create_divisions_table.php:13`
+**Status:** BELUM FIX
+
+**Problem:**
+Di form request ada `unique:divisions,nama_divisi` tapi di migration **tidak ada unique constraint**. Kalau 2 request create divisi bersamaan, bisa kecreate duplikat.
+
+**Impact:** Data duplikat, race condition.
+
+**Fix:** Bikin migration baru:
+```php
+Schema::table('divisions', function (Blueprint $table) {
+    $table->unique('nama_divisi');
+});
+```
+
+---
+
+#### M2: `employees` gak ada index di `status`
+
+**File:** `database/migrations/2026_07_17_000003_create_employees_table.php`
+**Status:** BELUM FIX
+
+**Problem:**
+Banyak query filter by `status` (aktif/nonaktif) tapi gak ada index. Query bakal full table scan.
+
+**Impact:** Query lambat kalau data karyawan banyak.
 
 **Fix:**
 ```php
-if ($sudahAbsen) {
-    // Cek status dulu
-    if (in_array($sudahAbsen->status, ['Alpha', 'Izin'])) {
-        return $this->errorResponse('Absensi dengan status ' . $sudahAbsen->status . ' tidak bisa checkout', 400);
-    }
-
-    if ($sudahAbsen->jam_pulang) {
-        return $this->errorResponse('Anda sudah checkout hari ini', 400);
-    }
-
-    // ... checkout logic
-}
+Schema::table('employees', function (Blueprint $table) {
+    $table->index('status');
+});
 ```
 
 ---
 
-#### B3: Absensi manual race condition
+#### M3: `employees.divisi_id` duplicate index
 
-**File:** `app/Http/Controllers/Api/AbsensiController.php:103-113`
+**File:** `database/migrations/2026_07_17_000003_create_employees_table.php:16,21`
+**Status:** BELUM FIX
 
 **Problem:**
-Sama kayak B1 — cek duplikat di luar transaction.
+```php
+// Line 16: sudah auto-bikin index via constrained()
+$table->foreignId('divisi_id')->nullable()->constrained('divisions')->onDelete('set null');
+
+// Line 21: duplicate index!
+$table->index('divisi_id');
+```
+
+**Impact:** Redundant storage, write performance sedikit lebih lambat.
+
+**Fix:** Hapus line 21 di migration, atau bikin migration baru:
+```php
+Schema::table('employees', function (Blueprint $table) {
+    $table->dropIndex('employees_divisi_id_index');
+});
+```
+
+---
+
+#### M4: `attendance` gak ada composite index untuk laporan
+
+**File:** `database/migrations/2026_07_17_000005_create_attendance_table.php`
+**Status:** BELUM FIX
+
+**Problem:**
+Laporan query filter `whereBetween('tanggal')` + `orderBy('employee_id')` butuh composite index. Index terpisah di `tanggal` dan `employee_id` kurang optimal.
+
+**Impact:** Laporan query lambat kalau data absensi banyak.
 
 **Fix:**
 ```php
-public function storeManual(Request $request)
-{
-    $validated = $request->validate([...]);
-
-    $absensi = DB::transaction(function () use ($validated, $request) {
-        $sudahAda = Attendance::where('employee_id', $validated['employee_id'])
-            ->where('tanggal', $validated['tanggal'])
-            ->lockForUpdate()
-            ->first();
-
-        if ($sudahAda) {
-            throw new \Exception('Absensi untuk karyawan ini tanggal ini sudah ada');
-        }
-
-        $validated['input_by'] = $request->user()->id;
-        return Attendance::create($validated);
-    });
-
-    return $this->successResponse($absensi, 'Absensi manual berhasil ditambahkan', 201);
-}
+Schema::table('attendance', function (Blueprint $table) {
+    $table->index(['tanggal', 'employee_id']);
+});
 ```
 
 ---
 
-#### B4: History absensi gak di-paginate
+#### M5: CORS terlalu broad
 
-**File:** `app/Http/Controllers/Api/AbsensiController.php:158`
+**File:** `config/cors.php:17,25`
+**Status:** BELUM FIX
 
 **Problem:**
 ```php
-$absensi = $query->get();
+'allowed_methods' => ['*'],    // Line 17
+'allowed_headers' => ['*'],    // Line 25
 ```
-Return semua records. Kalau karyawan kerja 10 tahun, bisa ribuan records.
+Terlalu broad. Bisa terima HTTP methods dan headers yang gak perlu.
 
-**Impact:** Memory exhaustion, slow response.
+**Impact:** Security risk — attacker bisa kirim request dengan method/header berbahaya.
 
 **Fix:**
 ```php
-$absensi = $query->paginate($request->per_page ?? 15);
+'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+'allowed_headers' => ['Content-Type', 'Authorization', 'X-API-Key', 'X-Requested-With'],
 ```
 
 ---
 
-#### B5: Absensi update gak ada authorization check
+#### M6: Session `secure` cookie tidak di-set
 
-**File:** `app/Http/Controllers/Api/AbsensiController.php:119-132`
+**File:** `config/session.php:172`
+**Status:** BELUM FIX
 
 **Problem:**
-Admin bisa update absensi orang lain tanpa authorization check. Gak ada role-based access control.
+```php
+'secure' => env('SESSION_SECURE_COOKIE'),
+```
+Default `null` — cookie bisa dikirim via HTTP (gak aman).
 
-**Impact:** Data integrity issue, privilege escalation.
+**Impact:** Session hijacking via HTTP request.
 
 **Fix:**
 ```php
-public function update(Request $request, $id)
-{
-    $absensi = Attendance::findOrFail($id);
-
-    // Authorization check
-    if ($request->user()->role !== 'superadmin' && $absensi->input_by !== $request->user()->id) {
-        return $this->errorResponse('Unauthorized', 403);
-    }
-
-    // ... update logic
-}
+'secure' => env('SESSION_SECURE_COOKIE', true),
 ```
-
----
-
-### MEDIUM - Architecture
-
-#### A1: Semua logic di Controller — gak ada Service Layer
-
-**File:** `app/Http/Controllers/Api/AbsensiController.php:15-88`
-
-**Problem:**
-Method `storeFromDevice` (~70 lines) handle:
-- Validation
-- Business logic (cek absen, checkout, toleransi)
-- Database transaction
-- Response format
-
-Kalau logic absensi makin complex (cuti, lembur, shift), controller bakal jadi monster.
-
-**Impact:** Hard to maintain, hard to test, tight coupling.
-
-**Fix:** Extract ke Service Class:
-
-```php
-// app/Services/AbsensiService.php
-class AbsensiService
-{
-    public function processFromDevice(string $rfidUid): array
-    {
-        // All business logic here
-    }
-
-    public function processManual(array $data, int $userId): Attendance
-    {
-        // Manual attendance logic
-    }
-}
-
-// Controller jadi thin
-class AbsensiController extends Controller
-{
-    public function __construct(
-        private AbsensiService $absensiService
-    ) {}
-
-    public function storeFromDevice(Request $request)
-    {
-        $validated = $request->validate(['uid' => 'required|string']);
-        $result = $this->absensiService->processFromDevice($validated['uid']);
-        return $this->successResponse($result, 'Absensi berhasil');
-    }
-}
-```
-
----
-
-#### A2: Singleton pattern Jadwal fragile
-
-**File:** `app/Http/Controllers/Api/JadwalController.php:13,26`
-
-**Problem:**
-```php
-$jadwal = Schedule::first();
-```
-Assumes cuma ada 1 record. Kalau ada 2 record (human error), data inconsistency.
-
-**Impact:** Business logic breaks silently.
-
-**Fix:**
-```php
-// Di seeder, pastikan cuma 1 record
-// Di controller, pakai firstOrCreate dengan validation
-$jadwal = Schedule::firstOrCreate(
-    [], // empty conditions = always create if none exists
-    [
-        'jam_masuk_standar' => '08:00:00',
-        'jam_pulang_standar' => '17:00:00',
-        'toleransi_menit' => 15,
-    ]
-);
-```
-
-Atau tambahin constraint di migration:
-```php
-// Cuma boleh 1 row di schedules table
-// Implement via application logic, not DB constraint
-```
-
----
-
-#### A3: Magic numbers & hardcoded values
-
-**Files:** Multiple locations
-
-**Problem:**
-- `'08:00:00'` di AbsensiController:59, DatabaseSeeder
-- `'15'` menit toleransi
-- `paginate(15)` di LaporanController
-- Status enums di multiple places
-
-**Impact:** Hard to maintain, hard to change.
-
-**Fix:** Kumpulin di config file:
-
-```php
-// config/absensi.php
-return [
-    'default_schedule' => [
-        'jam_masuk' => env('DEFAULT_JAM_MASUK', '08:00:00'),
-        'jam_pulang' => env('DEFAULT_JAM_PULANG', '17:00:00'),
-        'toleransi_menit' => env('DEFAULT_TOLERANSI', 15),
-    ],
-    'pagination' => [
-        'per_page' => env('DEFAULT_PER_PAGE', 15),
-    ],
-    'statuses' => ['Hadir', 'Terlambat', 'Alpha', 'Izin'],
-];
-```
-
----
-
-#### A4: Route parameter name gak konsisten
-
-**File:** `routes/api.php:36`
-
-**Problem:**
-```php
-Route::get('/karyawan/{karyawan}/absensi', [AbsensiController::class, 'history'])
-```
-Parameter name `{karyawan}` tapi di controller:
-```php
-public function history(Request $request, $employeeId)
-```
-
-**Impact:** Confusing, inconsistent naming.
-
-**Fix:** Pakai route model binding:
-```php
-// routes/api.php
-Route::get('/karyawan/{employee}/absensi', [AbsensiController::class, 'history'])
-    ->name('karyawan.absensi.history');
-
-// Controller
-public function history(Request $request, Employee $employee)
-{
-    // $employee auto-resolved by Laravel
-}
-```
-
----
-
-#### A5: Gak ada Form Request classes
-
-**Files:** All controllers
-
-**Problem:**
-Validasi langsung di controller pake `$request->validate([...])`. Untuk project kecil fine, tapi kalau validasi makin complex, bakal susah maintain.
-
-**Impact:** Duplicate validation logic, hard to reuse.
-
-**Fix:**
-```php
-// app/Http/Requests/StoreAbsensiRequest.php
-class StoreAbsensiRequest extends FormRequest
-{
-    public function rules(): array
-    {
-        return [
-            'employee_id' => 'required|exists:employees,id',
-            'tanggal' => 'required|date',
-            'jam_masuk' => 'nullable|date_format:H:i:s',
-            'jam_pulang' => 'nullable|date_format:H:i:s',
-            'status' => 'required|in:Hadir,Terlambat,Alpha,Izin',
-            'keterangan' => 'nullable|string|max:255',
-        ];
-    }
-
-    public function authorize(): bool
-    {
-        return true; // or check role
-    }
-}
-
-// Controller
-public function storeManual(StoreAbsensiRequest $request)
-{
-    // $request->validated() automatically available
-    $validated = $request->validated();
-    // ...
-}
-```
+Set `SESSION_SECURE_COOKIE=true` di `.env` production.
 
 ---
 
 ### LOW - Code Quality
 
+---
+
 #### Q1: Gak ada test sama sekali
 
+**File:** `tests/` directory
+**Status:** BELUM FIX
+
 **Problem:**
-`phpunit.xml` ada, tapi `tests/` directory kosong. Zero test coverage.
+`phpunit.xml` ada, tapi `tests/Feature/` cuma ada `ExampleTest` default. Zero test coverage untuk fitur absensi, auth, CRUD.
 
 **Impact:** Regresi bugs gak ke-deteksi, refactor jadi scary.
 
 **Fix:** Minimal buat feature test:
-
 ```php
-// tests/Feature/AbsensiTest.php
-class AbsensiTest extends TestCase
+// tests/Feature/AbsensiDeviceTest.php
+class AbsensiDeviceTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_device_can_post_attendance(): void
     {
-        // Seed data
         $employee = Employee::factory()->create(['rfid_uid' => 'TEST123']);
 
         $response = $this->postJson('/api/absensi', ['uid' => 'TEST123'], [
@@ -568,65 +484,23 @@ class AbsensiTest extends TestCase
             ->assertJson(['success' => true]);
     }
 
-    public function test_duplicate_attendance_returns_error(): void
+    public function test_invalid_api_key_returns_401(): void
     {
-        // ...
+        $response = $this->postJson('/api/absensi', ['uid' => 'TEST123'], [
+            'X-API-Key' => 'wrong-key',
+        ]);
+
+        $response->assertStatus(401);
     }
 }
 ```
 
 ---
 
-#### Q2: Attendance model cast format
-
-**File:** `app/Models/Attendance.php:18-19`
-
-**Problem:**
-```php
-'jam_masuk' => 'datetime:H:i:s',
-'jam_pulang' => 'datetime:H:i:s',
-```
-Format `datetime:H:i:s` bakal parse time jadi datetime object. Tapi kolom di DB tipenya `time`. Bisa jadi unexpected behavior.
-
-**Impact:** Potential time parsing issues.
-
-**Fix:**
-```php
-'jam_masuk' => 'string',
-'jam_pulang' => 'string',
-```
-Atau custom accessor:
-```php
-public function getJamMasukAttribute($value)
-{
-    return $value ? Carbon::parse($value)->format('H:i:s') : null;
-}
-```
-
----
-
-#### Q3: Controller update methods gak return fresh data
-
-**File:** `app/Http/Controllers/Api/AbsensiController.php:130`
-
-**Problem:**
-```php
-$absensi->update($validated);
-return $this->successResponse($absensi, 'Absensi berhasil diupdate');
-```
-Kalau ada mutator/accessor, data yang di-return mungkin stale.
-
-**Impact:** Stale data returned to client.
-
-**Fix:**
-```php
-$absensi->update($validated);
-return $this->successResponse($absensi->fresh(), 'Absensi berhasil diupdate');
-```
-
----
-
 #### Q4: Gak ada logging di critical paths
+
+**File:** Multiple controllers
+**Status:** BELUM FIX
 
 **Problem:**
 Gak ada `Log::info()` atau `Log::warning()` di:
@@ -639,7 +513,7 @@ Gak ada `Log::info()` atau `Log::warning()` di:
 
 **Fix:**
 ```php
-// Di AbsensiController
+// Di AbsensiController / AbsensiService
 Log::info('RFID absensi processed', [
     'employee_id' => $karyawan->id,
     'rfid_uid' => $validated['uid'],
@@ -650,144 +524,198 @@ Log::info('RFID absensi processed', [
 // Di ValidateApiKey middleware
 Log::warning('Invalid API key attempt', [
     'ip' => $request->ip(),
-    'key_provided' => substr($apiKey ?? '', 0, 8) . '...',
+    'key_prefix' => substr($apiKey ?? '', 0, 8) . '...',
 ]);
-```
-
----
-
-#### Q5: Export endpoint misleading response
-
-**File:** `app/Http/Controllers/Api/LaporanController.php:42-44`
-
-**Problem:**
-```php
-public function export(Request $request)
-{
-    return $this->successResponse(null, 'Fitur export akan segera tersedia');
-}
-```
-Return 200 success dengan message "akan segera tersedia" — misleading.
-
-**Impact:** Client confusion, poor API design.
-
-**Fix:**
-```php
-public function export(Request $request)
-{
-    return response()->json([
-        'success' => false,
-        'message' => 'Fitur export belum diimplementasi',
-    ], 501); // 501 Not Implemented
-}
 ```
 
 ---
 
 ## Recommended Fixes
 
-### Quick Wins (< 30 minutes)
+### Quick Wins (< 30 minutes total)
 
-1. **Add `.env` to `.gitignore`** + `git rm --cached .env`
-2. **Set `APP_DEBUG=false`** in `.env`
-3. **Set Sanctum token expiry** to `1440` (24 hours)
-4. **Fix UserFactory** field names
-5. **Add rate limiting** to `/api/absensi` route
-6. **Add basic logging** to AbsensiController
+| # | Action | Command/Change |
+|---|---|---|
+| 1 | Generate cache + jobs migrations | `php artisan cache:table && php artisan queue:table && php artisan queue:failed-table && php artisan queue:batches-table && php artisan migrate` |
+| 2 | Hapus .env dari tracking | `git rm --cached .env` |
+| 3 | Set APP_DEBUG=false | Edit `.env` |
+| 4 | Fix timing attack | Ganti `!==` ke `hash_equals()` di `ValidateApiKey.php` |
+| 5 | Tambahin rate limiting | Tambah `throttle:60,1` di `routes/api.php` |
 
-### Medium Effort (1-3 hours)
+### Medium Effort (1-2 hours total)
 
-1. **Fix race condition** in `storeFromDevice` (move logic inside transaction)
-2. **Add checkout status validation**
-3. **Paginate history endpoint**
-4. **Extract to AbsensiService** class
-5. **Create Form Request classes** for validation
+| # | Action | Detail |
+|---|---|---|
+| 6 | Bikin migration indexes | Composite index attendance, unique divisi, index employees status |
+| 7 | Fix CORS config | Restrict methods & headers |
+| 8 | Set session secure cookie | Edit config + .env |
+| 9 | Add basic logging | Log::info/warning di critical paths |
 
 ### Long Term (1+ days)
 
-1. **Write feature tests** for critical endpoints
-2. **Implement role-based authorization**
-3. **Add audit logging system**
-4. **Create config file** for magic numbers
-5. **Add API documentation** (OpenAPI/Swagger)
+| # | Action | Detail |
+|---|---|---|
+| 10 | Bikin role middleware | CheckRole middleware + register |
+| 11 | Fix sessions FK constraint | Migration tambah foreign key |
+| 12 | Write feature tests | Minimal absensi device + auth tests |
+| 13 | Hapus duplicate index | Drop redundant divisi_id index |
 
 ---
 
 ## Priority Roadmap
 
 ```
-Week 1: SECURITY HARDENING
-├── Fix .env leak (C1)
-├── Rotate all credentials (C1, C2, C5)
-├── Set APP_DEBUG=false (C4)
-├── Set token expiry (C3)
-└── Add rate limiting (C2)
-
-Week 2: BUSINESS LOGIC FIX
-├── Fix race condition (B1)
-├── Add checkout validation (B2)
-├── Paginate history (B4)
-└── Add authorization checks (B5)
-
-Week 3: ARCHITECTURE
-├── Extract AbsensiService (A1)
-├── Create Form Requests (A5)
-├── Add config file (A3)
-└── Fix route parameters (A4)
-
-Week 4: TESTING & QUALITY
-├── Write feature tests (Q1)
-├── Add logging (Q4)
-├── Fix model casts (Q2)
-└── Fix stale data (Q3)
+╔══════════════════════════════════════════════════════════════╗
+║  HARI INI (30 menit) - CRITICAL FIXES                       ║
+╠══════════════════════════════════════════════════════════════╣
+║  [C7/C8] Generate cache + jobs migrations + migrate         ║
+║  [C1]    git rm --cached .env                               ║
+║  [C4]    APP_DEBUG=false di .env                            ║
+║  [H1]    hash_equals() di ValidateApiKey                    ║
+║  [C2]    Tambah throttle di routes/api.php                  ║
+╠══════════════════════════════════════════════════════════════╣
+║  MINGGU INI (2 jam) - HIGH + MEDIUM FIXES                   ║
+╠══════════════════════════════════════════════════════════════╣
+║  [M1-M4] Database indexes migration                         ║
+║  [M5]    CORS restrict                                      ║
+║  [M6]    Session secure cookie                              ║
+║  [Q4]    Tambah logging                                     ║
+╠══════════════════════════════════════════════════════════════╣
+║  BULAN INI (1-2 hari) - LONG TERM                           ║
+╠══════════════════════════════════════════════════════════════╣
+║  [H2]    Bikin role middleware                               ║
+║  [H3]    Fix sessions FK constraint                         ║
+║  [M3]    Hapus duplicate index                              ║
+║  [Q1]    Write feature tests                                ║
+╚══════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
 ## Appendix: File-by-File Changes
 
-### `.gitignore` — Tambahin:
-```
-.env
-.env.backup
-.env.production
+### Quick Fix Commands
+
+```bash
+# 1. Generate missing migrations
+php artisan cache:table
+php artisan queue:table
+php artisan queue:failed-table
+php artisan queue:batches-table
+php artisan migrate
+
+# 2. Hapus .env dari git
+git rm --cached .env
+
+# 3. Generate new APP_KEY
+php artisan key:generate
 ```
 
-### `.env` — Ubah:
+### `.env` Changes
+
 ```ini
+# TAMBAHIN ini:
 APP_DEBUG=false
+SESSION_SECURE_COOKIE=true
+
+# GANTI ini (generate random string 32+ karakter):
+API_KEY=<random-string-baru>
+
+# GANTI ini:
+DB_PASSWORD=<password-baru>
 ```
 
-### `config/sanctum.php:53` — Ubah:
+### `app/Http/Middleware/ValidateApiKey.php`
+
 ```php
-'expiration' => 1440, // 24 hours
+// GANTI line 16:
+// SEKARANG:
+if (!$apiKey || $apiKey !== $validKey) {
+
+// HARUSNYA:
+if (!$apiKey || !hash_equals($validKey, $apiKey)) {
 ```
 
-### `routes/api.php:14` — Ubah:
+### `routes/api.php`
+
 ```php
+// TAMBAHIN throttle di line 14-16:
 Route::post('/absensi', [AbsensiController::class, 'storeFromDevice'])
     ->middleware(['api.key', 'throttle:60,1'])
     ->name('api.absensi.device');
 ```
 
-### `app/Http/Middleware/ValidateApiKey.php` — Tambahin logging:
-```php
-use Illuminate\Support\Facades\Log;
+### `config/cors.php`
 
-// Di dalam method handle, sebelum return 401:
-Log::warning('Invalid API key attempt', [
-    'ip' => $request->ip(),
-]);
+```php
+// GANTI line 17:
+'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+
+// GANTI line 25:
+'allowed_headers' => ['Content-Type', 'Authorization', 'X-API-Key', 'X-Requested-With'],
 ```
 
-### `app/Http/Controllers/Api/AbsensiController.php` — Fix race condition:
-- Pindahkan semua logic ke dalam `DB::transaction()`
-- Pakai `lockForUpdate()` untuk prevent race condition
+### `config/session.php`
 
-### `database/factories/UserFactory.php` — Fix fields:
 ```php
-'nama' => fake()->name(),
-// Hapus 'email_verified_at' dan 'remember_token'
+// GANTI line 172:
+'secure' => env('SESSION_SECURE_COOKIE', true),
+```
+
+### Database Migration Baru (indexes)
+
+```php
+// database/migrations/2026_07_22_add_indexes.php
+return new class extends Migration
+{
+    public function up(): void
+    {
+        // Unique constraint di divisions
+        Schema::table('divisions', function (Blueprint $table) {
+            $table->unique('nama_divisi');
+        });
+
+        // Index di employees.status
+        Schema::table('employees', function (Blueprint $table) {
+            $table->index('status');
+        });
+
+        // Hapus duplicate index
+        Schema::table('employees', function (Blueprint $table) {
+            $table->dropIndex('employees_divisi_id_index');
+        });
+
+        // Composite index di attendance
+        Schema::table('attendance', function (Blueprint $table) {
+            $table->index(['tanggal', 'employee_id']);
+        });
+
+        // FK constraint di sessions
+        Schema::table('sessions', function (Blueprint $table) {
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('sessions', function (Blueprint $table) {
+            $table->dropForeign(['user_id']);
+        });
+
+        Schema::table('attendance', function (Blueprint $table) {
+            $table->dropIndex(['tanggal', 'employee_id']);
+        });
+
+        Schema::table('employees', function (Blueprint $table) {
+            $table->index('divisi_id');
+            $table->dropIndex('employees_status_index');
+        });
+
+        Schema::table('divisions', function (Blueprint $table) {
+            $table->dropIndex('divisions_nama_divisi_unique');
+        });
+    }
+};
 ```
 
 ---
@@ -795,3 +723,4 @@ Log::warning('Invalid API key attempt', [
 **End of Review**
 
 *Last updated: 2026-07-22*
+*Total issues: 27 (11 fixed, 16 remaining)*

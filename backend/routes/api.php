@@ -14,7 +14,7 @@ use App\Http\Controllers\Api\GlobalSearchController;
 // PUBLIC API - Endpoint untuk ESP32 (API Key Auth)
 // =====================================================
 Route::post('/absensi', [AbsensiController::class, 'storeFromDevice'])
-    ->middleware('api.key')
+    ->middleware(['api.key', 'throttle:60,1'])
     ->name('api.absensi.device');
 
 // =====================================================
@@ -44,6 +44,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Data Karyawan
     Route::apiResource('karyawan', KaryawanController::class);
+    Route::delete('/karyawan/{karyawan}', [KaryawanController::class, 'destroy'])
+        ->middleware('role:superadmin')
+        ->name('karyawan.destroy');
 
     // Riwayat Absensi per Karyawan (route model binding: Employee)
     Route::get('/karyawan/{employee}/absensi', [AbsensiController::class, 'history'])
@@ -51,6 +54,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Data Divisi
     Route::apiResource('divisi', DivisiController::class);
+    Route::delete('/divisi/{divisi}', [DivisiController::class, 'destroy'])
+        ->middleware('role:superadmin')
+        ->name('divisi.destroy');
 
     // Jadwal Kerja
     Route::get('/jadwal', [JadwalController::class, 'index'])->name('jadwal.index');
@@ -58,8 +64,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Absensi (CRUD)
     Route::post('/absensi/manual', [AbsensiController::class, 'storeManual'])->name('absensi.manual');
-    Route::put('/absensi/{attendance}', [AbsensiController::class, 'update'])->name('absensi.update');
-    Route::delete('/absensi/{attendance}', [AbsensiController::class, 'destroy'])->name('absensi.destroy');
+    Route::put('/absensi/{attendance}', [AbsensiController::class, 'update'])
+        ->middleware('role:admin,superadmin')
+        ->name('absensi.update');
+    Route::delete('/absensi/{attendance}', [AbsensiController::class, 'destroy'])
+        ->middleware('role:superadmin')
+        ->name('absensi.destroy');
 
     // Laporan
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
