@@ -12,10 +12,7 @@ class JadwalController extends Controller
     {
         $jadwal = Schedule::first();
 
-        return response()->json([
-            'success' => true,
-            'data' => $jadwal,
-        ]);
+        return $this->successResponse($jadwal, 'Data jadwal berhasil diambil');
     }
 
     public function update(Request $request)
@@ -26,13 +23,13 @@ class JadwalController extends Controller
             'toleransi_menit' => 'required|integer|min:0',
         ]);
 
-        $jadwal = Schedule::firstOrCreate([], $validated);
-        $jadwal->update($validated);
+        $jadwal = Schedule::first();
+        if ($jadwal) {
+            $jadwal->update($validated);
+        } else {
+            $jadwal = Schedule::create($validated);
+        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Jadwal kerja berhasil diupdate',
-            'data' => $jadwal,
-        ]);
+        return $this->successResponse($jadwal, 'Jadwal kerja berhasil diupdate');
     }
 }

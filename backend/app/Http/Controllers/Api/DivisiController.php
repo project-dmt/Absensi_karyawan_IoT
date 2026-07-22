@@ -12,10 +12,7 @@ class DivisiController extends Controller
     {
         $divisi = Division::withCount('employees')->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $divisi,
-        ]);
+        return $this->successResponse($divisi, 'Data divisi berhasil diambil');
     }
 
     public function store(Request $request)
@@ -26,21 +23,14 @@ class DivisiController extends Controller
 
         $divisi = Division::create($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Divisi berhasil ditambahkan',
-            'data' => $divisi,
-        ], 201);
+        return $this->successResponse($divisi, 'Divisi berhasil ditambahkan', 201);
     }
 
     public function show($id)
     {
         $divisi = Division::with('employees')->findOrFail($id);
 
-        return response()->json([
-            'success' => true,
-            'data' => $divisi,
-        ]);
+        return $this->successResponse($divisi, 'Data divisi berhasil diambil');
     }
 
     public function update(Request $request, $id)
@@ -53,11 +43,7 @@ class DivisiController extends Controller
 
         $divisi->update($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Divisi berhasil diupdate',
-            'data' => $divisi,
-        ]);
+        return $this->successResponse($divisi, 'Divisi berhasil diupdate');
     }
 
     public function destroy($id)
@@ -65,9 +51,6 @@ class DivisiController extends Controller
         $divisi = Division::findOrFail($id);
         $divisi->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Divisi berhasil dihapus',
-        ]);
+        return $this->successResponse(null, 'Divisi berhasil dihapus');
     }
 }

@@ -27,30 +27,24 @@ class AuthController extends Controller
 
         $token = $user->createToken('admin-token')->plainTextToken;
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'user' => $user,
-                'token' => $token,
-            ],
-        ]);
+        return $this->successResponse([
+            'user' => $user->only(['id', 'nama', 'email', 'role']),
+            'token' => $token,
+        ], 'Login berhasil');
     }
 
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Logout berhasil',
-        ]);
+        return $this->successResponse(null, 'Logout berhasil');
     }
 
     public function user(Request $request)
     {
-        return response()->json([
-            'success' => true,
-            'data' => $request->user(),
-        ]);
+        return $this->successResponse(
+            $request->user()->only(['id', 'nama', 'email', 'role']),
+            'Data user berhasil diambil'
+        );
     }
 }

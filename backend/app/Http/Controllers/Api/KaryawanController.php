@@ -12,10 +12,7 @@ class KaryawanController extends Controller
     {
         $karyawan = Employee::with('division')->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $karyawan,
-        ]);
+        return $this->successResponse($karyawan, 'Data karyawan berhasil diambil');
     }
 
     public function store(Request $request)
@@ -26,26 +23,19 @@ class KaryawanController extends Controller
             'jabatan' => 'nullable|string|max:100',
             'divisi_id' => 'nullable|exists:divisions,id',
             'rfid_uid' => 'required|string|max:50|unique:employees,rfid_uid',
-            'status' => 'in:aktif,nonaktif',
+            'status' => 'sometimes|in:aktif,nonaktif',
         ]);
 
         $karyawan = Employee::create($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Karyawan berhasil ditambahkan',
-            'data' => $karyawan,
-        ], 201);
+        return $this->successResponse($karyawan, 'Karyawan berhasil ditambahkan', 201);
     }
 
     public function show($id)
     {
         $karyawan = Employee::with('division')->findOrFail($id);
 
-        return response()->json([
-            'success' => true,
-            'data' => $karyawan,
-        ]);
+        return $this->successResponse($karyawan, 'Data karyawan berhasil diambil');
     }
 
     public function update(Request $request, $id)
@@ -58,16 +48,12 @@ class KaryawanController extends Controller
             'jabatan' => 'nullable|string|max:100',
             'divisi_id' => 'nullable|exists:divisions,id',
             'rfid_uid' => 'sometimes|required|string|max:50|unique:employees,rfid_uid,' . $id,
-            'status' => 'in:aktif,nonaktif',
+            'status' => 'sometimes|in:aktif,nonaktif',
         ]);
 
         $karyawan->update($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Karyawan berhasil diupdate',
-            'data' => $karyawan,
-        ]);
+        return $this->successResponse($karyawan, 'Karyawan berhasil diupdate');
     }
 
     public function destroy($id)
@@ -75,9 +61,6 @@ class KaryawanController extends Controller
         $karyawan = Employee::findOrFail($id);
         $karyawan->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Karyawan berhasil dihapus',
-        ]);
+        return $this->successResponse(null, 'Karyawan berhasil dihapus');
     }
 }

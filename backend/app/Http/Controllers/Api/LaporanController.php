@@ -15,6 +15,7 @@ class LaporanController extends Controller
             'dari' => 'required|date',
             'sampai' => 'required|date|after_or_equal:dari',
             'divisi_id' => 'nullable|exists:divisions,id',
+            'status' => 'nullable|in:Hadir,Terlambat,Alpha,Izin',
         ]);
 
         $query = Attendance::with('employee.division', 'inputBy')
@@ -26,22 +27,20 @@ class LaporanController extends Controller
             });
         }
 
+        if ($request->status) {
+            $query->where('status', $request->status);
+        }
+
         $laporan = $query->orderBy('tanggal', 'desc')
             ->orderBy('employee_id')
-            ->get();
+            ->paginate($request->per_page ?? 15);
 
-        return response()->json([
-            'success' => true,
-            'data' => $laporan,
-        ]);
+        return $this->successResponse($laporan, 'Laporan absensi berhasil diambil');
     }
 
     public function export(Request $request)
     {
         // TODO: Export ke PDF/Excel
-        return response()->json([
-            'success' => true,
-            'message' => 'Fitur export akan segera tersedia',
-        ]);
+        return $this->successResponse(null, 'Fitur export akan segera tersedia');
     }
 }

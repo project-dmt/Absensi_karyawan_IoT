@@ -32,6 +32,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Data Karyawan
     Route::apiResource('karyawan', KaryawanController::class);
 
+    // Riwayat Absensi per Karyawan
+    Route::get('/karyawan/{karyawan}/absensi', [AbsensiController::class, 'history'])
+        ->name('karyawan.absensi.history');
+
     // Data Divisi
     Route::apiResource('divisi', DivisiController::class);
 
@@ -39,8 +43,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/jadwal', [JadwalController::class, 'index'])->name('jadwal.index');
     Route::put('/jadwal', [JadwalController::class, 'update'])->name('jadwal.update');
 
-    // Absensi Manual (oleh Admin)
+    // Absensi (CRUD)
     Route::post('/absensi/manual', [AbsensiController::class, 'storeManual'])->name('absensi.manual');
+    Route::put('/absensi/{id}', [AbsensiController::class, 'update'])->name('absensi.update');
+    Route::delete('/absensi/{id}', [AbsensiController::class, 'destroy'])->name('absensi.destroy');
 
     // Laporan
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
