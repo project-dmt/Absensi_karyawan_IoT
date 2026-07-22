@@ -10,9 +10,29 @@ use App\Http\Requests\UpdateKaryawanRequest;
 
 class KaryawanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $karyawan = Employee::with('division')->get();
+        $query = Employee::with('division');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                  ->orWhere('nip', 'like', "%{$search}%")
+                  ->orWhere('rfid_uid', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('divisi_id')) {
+            $query->where('divisi_id', $request->divisi_id);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $perPage = $request->per_page ?? config('absensi.pagination.per_page');
+        $karyawan = $query->orderBy('nama')->paginate($perPage);
 
         return $this->successResponse($karyawan, 'Data karyawan berhasil diambil');
     }

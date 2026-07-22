@@ -26,6 +26,14 @@ class LaporanController extends Controller
             $query->where('status', $validated['status']);
         }
 
+        if (isset($validated['search'])) {
+            $search = $validated['search'];
+            $query->whereHas('employee', function ($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                  ->orWhere('nip', 'like', "%{$search}%");
+            });
+        }
+
         $perPage = $request->per_page ?? config('absensi.pagination.per_page');
         $laporan = $query->orderBy('tanggal', 'desc')
             ->orderBy('employee_id')

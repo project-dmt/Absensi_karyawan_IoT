@@ -18,6 +18,7 @@ class LaporanRequest extends FormRequest
             'sampai' => 'required|date|after_or_equal:dari',
             'divisi_id' => 'nullable|exists:divisions,id',
             'status' => 'nullable|in:' . implode(',', config('absensi.statuses')),
+            'search' => 'nullable|string|max:100',
         ];
     }
 }

@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\DivisiController;
 use App\Http\Controllers\Api\JadwalController;
 use App\Http\Controllers\Api\AbsensiController;
 use App\Http\Controllers\Api\LaporanController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\GlobalSearchController;
 
 // =====================================================
 // PUBLIC API - Endpoint untuk ESP32 (API Key Auth)
@@ -28,6 +30,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
     Route::get('/user', [AuthController::class, 'user'])->name('api.user');
+    Route::post('/change-password', [AuthController::class, 'changePassword'])->name('api.change-password');
+
+    // Dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('api.dashboard');
+
+    // Global Search
+    Route::get('/search', [GlobalSearchController::class, 'index'])->name('api.search');
 
     // Data Karyawan
     Route::apiResource('karyawan', KaryawanController::class);
