@@ -9,6 +9,7 @@ class Attendance extends Model
 {
     use HasFactory;
 
+    protected $table = 'attendance';
     protected $fillable = ['employee_id', 'tanggal', 'jam_masuk', 'jam_pulang', 'status', 'keterangan', 'input_by'];
 
     protected function casts(): array
