@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Schedule;
+use App\Services\AuditLogService;
 
 class JadwalController extends Controller
 {
@@ -24,11 +25,15 @@ class JadwalController extends Controller
         ]);
 
         $jadwal = Schedule::first();
+        $old = $jadwal?->toArray();
+
         if ($jadwal) {
             $jadwal->update($validated);
         } else {
             $jadwal = Schedule::create($validated);
         }
+
+        AuditLogService::log('update_jadwal', $jadwal, $old, $jadwal->toArray(), $request);
 
         return $this->successResponse($jadwal, 'Jadwal kerja berhasil diupdate');
     }

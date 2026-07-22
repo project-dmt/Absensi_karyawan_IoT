@@ -26,7 +26,7 @@ class AbsensiService
                 throw new ApiException('Karyawan tidak aktif', 403);
             }
 
-            $today = Carbon::today('Asia/Jakarta')->toDateString();
+            $today = Carbon::today(config('app.timezone'))->toDateString();
 
             $sudahAbsen = Attendance::where('employee_id', $karyawan->id)
                 ->where('tanggal', $today)
@@ -72,7 +72,7 @@ class AbsensiService
             throw new ApiException('Anda sudah checkout hari ini', 400);
         }
 
-        $jamPulang = Carbon::now('Asia/Jakarta')->format('H:i:s');
+        $jamPulang = Carbon::now(config('app.timezone'))->format('H:i:s');
         $absensi->update(['jam_pulang' => $jamPulang]);
 
         return [
@@ -92,7 +92,7 @@ class AbsensiService
             ? $jadwal->toleransi_menit
             : config('absensi.default_schedule.toleransi_menit');
 
-        $jamMasuk = Carbon::now('Asia/Jakarta')->format('H:i:s');
+        $jamMasuk = Carbon::now(config('app.timezone'))->format('H:i:s');
 
         $jamMasukCarbon = Carbon::parse($jamMasuk);
         $jamStandarCarbon = Carbon::parse($jamStandar);

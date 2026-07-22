@@ -93,20 +93,16 @@ class LaporanController extends Controller
             foreach ($records as $row) {
                 fputcsv($file, [
                     $no++,
-                    $row->tanggal instanceof \Carbon\Carbon
+                    $this->sanitizeCsvCell($row->tanggal instanceof \Carbon\Carbon
                         ? $row->tanggal->format('Y-m-d')
-                        : $row->tanggal,
-                    $row->employee->nip ?? '',
-                    $row->employee->nama ?? '',
-                    $row->employee->division->nama_divisi ?? '',
-                    $row->jam_masuk instanceof \Carbon\Carbon
-                        ? $row->jam_masuk->format('H:i:s')
-                        : ($row->jam_masuk ?? '-'),
-                    $row->jam_pulang instanceof \Carbon\Carbon
-                        ? $row->jam_pulang->format('H:i:s')
-                        : ($row->jam_pulang ?? '-'),
-                    $row->status,
-                    $row->keterangan ?? '',
+                        : $row->tanggal),
+                    $this->sanitizeCsvCell($row->employee->nip ?? ''),
+                    $this->sanitizeCsvCell($row->employee->nama ?? ''),
+                    $this->sanitizeCsvCell($row->employee->division->nama_divisi ?? ''),
+                    $row->jam_masuk ?? '-',
+                    $row->jam_pulang ?? '-',
+                    $this->sanitizeCsvCell($row->status),
+                    $this->sanitizeCsvCell($row->keterangan ?? ''),
                 ]);
             }
 
@@ -114,5 +110,14 @@ class LaporanController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    private function sanitizeCsvCell($value): string
+    {
+        $value = (string) $value;
+        if (in_array(substr($value, 0, 1), ['=', '+', '-', '@', "\t"], true)) {
+            return "\t" . $value;
+        }
+        return $value;
     }
 }

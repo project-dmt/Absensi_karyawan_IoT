@@ -16,8 +16,8 @@ class Attendance extends Model
     {
         return [
             'tanggal' => 'date',
-            'jam_masuk' => 'datetime:H:i:s',
-            'jam_pulang' => 'datetime:H:i:s',
+            'jam_masuk' => 'string',
+            'jam_pulang' => 'string',
         ];
     }
 

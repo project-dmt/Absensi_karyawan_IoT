@@ -69,7 +69,10 @@ class AbsensiController extends Controller
                   ->whereMonth('tanggal', $bulan->month);
         }
 
-        $perPage = $request->per_page ?? config('absensi.pagination.per_page');
+        $perPage = min(
+            (int) ($request->per_page ?? config('absensi.pagination.per_page')),
+            100
+        );
         $absensi = $query->paginate($perPage);
 
         return $this->successResponse([

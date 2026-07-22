@@ -18,9 +18,11 @@ class GlobalSearchController extends Controller
         $query = addcslashes($request->q, '%_');
 
         $karyawan = Employee::with('division')
-            ->where('nama', 'like', "%{$query}%")
-            ->orWhere('nip', 'like', "%{$query}%")
-            ->orWhere('rfid_uid', 'like', "%{$query}%")
+            ->where(function ($q) use ($query) {
+                $q->where('nama', 'like', "%{$query}%")
+                  ->orWhere('nip', 'like', "%{$query}%")
+                  ->orWhere('rfid_uid', 'like', "%{$query}%");
+            })
             ->limit(10)
             ->get()
             ->map(fn ($item) => [

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Employee;
 use App\Http\Requests\StoreKaryawanRequest;
 use App\Http\Requests\UpdateKaryawanRequest;
+use App\Exceptions\ApiException;
 use App\Services\AuditLogService;
 
 class KaryawanController extends Controller
@@ -73,6 +74,10 @@ class KaryawanController extends Controller
 
     public function destroy(Request $request, Employee $karyawan)
     {
+        if ($karyawan->attendances()->exists()) {
+            throw new ApiException('Karyawan masih memiliki data absensi, tidak bisa dihapus', 422);
+        }
+
         $old = $karyawan->toArray();
         $karyawan->delete();
 

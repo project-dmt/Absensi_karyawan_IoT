@@ -13,7 +13,7 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $today = Carbon::today('Asia/Jakarta')->toDateString();
+        $today = Carbon::today(config('app.timezone'))->toDateString();
 
         $totalKaryawan = Employee::count();
         $karyawanAktif = Employee::where('status', 'aktif')->count();

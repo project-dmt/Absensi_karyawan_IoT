@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Division;
 use App\Http\Requests\StoreDivisiRequest;
 use App\Http\Requests\UpdateDivisiRequest;
+use App\Exceptions\ApiException;
 use App\Services\AuditLogService;
 
 class DivisiController extends Controller
@@ -46,6 +47,10 @@ class DivisiController extends Controller
 
     public function destroy(Request $request, Division $divisi)
     {
+        if ($divisi->employees()->exists()) {
+            throw new ApiException('Divisi masih memiliki karyawan, tidak bisa dihapus', 422);
+        }
+
         $old = $divisi->toArray();
         $divisi->delete();
 
