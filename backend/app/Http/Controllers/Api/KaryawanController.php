@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\Division;
 use App\Http\Requests\StoreKaryawanRequest;
 use App\Http\Requests\UpdateKaryawanRequest;
+use App\Services\AuditLogService;
 
 class KaryawanController extends Controller
 {
@@ -49,6 +50,8 @@ class KaryawanController extends Controller
     {
         $karyawan = Employee::create($request->validated());
 
+        AuditLogService::log('create_karyawan', $karyawan, null, $karyawan->toArray(), $request);
+
         return $this->successResponse($karyawan, 'Karyawan berhasil ditambahkan', 201);
     }
 
@@ -61,14 +64,20 @@ class KaryawanController extends Controller
 
     public function update(UpdateKaryawanRequest $request, Employee $karyawan)
     {
+        $old = $karyawan->toArray();
         $karyawan->update($request->validated());
+
+        AuditLogService::log('update_karyawan', $karyawan, $old, $karyawan->fresh()->toArray(), $request);
 
         return $this->successResponse($karyawan->fresh(), 'Karyawan berhasil diupdate');
     }
 
-    public function destroy(Employee $karyawan)
+    public function destroy(Request $request, Employee $karyawan)
     {
+        $old = $karyawan->toArray();
         $karyawan->delete();
+
+        AuditLogService::log('delete_karyawan', null, $old, null, $request);
 
         return $this->successResponse(null, 'Karyawan berhasil dihapus');
     }

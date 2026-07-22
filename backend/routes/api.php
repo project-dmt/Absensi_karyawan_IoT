@@ -20,7 +20,9 @@ Route::post('/absensi', [AbsensiController::class, 'storeFromDevice'])
 // =====================================================
 // PUBLIC API - Endpoint untuk React (Login)
 // =====================================================
-Route::post('/login', [AuthController::class, 'login'])->name('api.login');
+Route::post('/login', [AuthController::class, 'login'])
+    ->middleware('throttle:login')
+    ->name('api.login');
 
 // =====================================================
 // PROTECTED API - Endpoint untuk React (Sanctum Auth)
@@ -30,7 +32,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
     Route::get('/user', [AuthController::class, 'user'])->name('api.user');
-    Route::post('/change-password', [AuthController::class, 'changePassword'])->name('api.change-password');
+    Route::post('/change-password', [AuthController::class, 'changePassword'])
+        ->middleware('throttle:change-password')
+        ->name('api.change-password');
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('api.dashboard');

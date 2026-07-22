@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Employee;
 use App\Models\Attendance;
 use App\Services\AbsensiService;
+use App\Services\AuditLogService;
 use App\Http\Requests\StoreAbsensiManualRequest;
 use App\Http\Requests\UpdateAbsensiRequest;
 
@@ -32,19 +33,27 @@ class AbsensiController extends Controller
         $validated = $request->validated();
         $absensi = $this->absensiService->processManual($validated, $request->user()->id);
 
+        AuditLogService::log('create_absensi_manual', $absensi, null, $absensi->toArray(), $request);
+
         return $this->successResponse($absensi, 'Absensi manual berhasil ditambahkan', 201);
     }
 
     public function update(UpdateAbsensiRequest $request, Attendance $absensi)
     {
+        $old = $absensi->toArray();
         $absensi->update($request->validated());
+
+        AuditLogService::log('update_absensi', $absensi, $old, $absensi->fresh()->toArray(), $request);
 
         return $this->successResponse($absensi->fresh(), 'Absensi berhasil diupdate');
     }
 
-    public function destroy(Attendance $absensi)
+    public function destroy(Request $request, Attendance $absensi)
     {
+        $old = $absensi->toArray();
         $absensi->delete();
+
+        AuditLogService::log('delete_absensi', null, $old, null, $request);
 
         return $this->successResponse(null, 'Absensi berhasil dihapus');
     }

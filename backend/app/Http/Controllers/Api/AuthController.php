@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use App\Services\AuditLogService;
 
 class AuthController extends Controller
 {
@@ -26,6 +27,8 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('admin-token')->plainTextToken;
+
+        AuditLogService::log('login', $user, null, ['email' => $user->email], $request);
 
         return $this->successResponse([
             'user' => $user->only(['id', 'nama', 'email', 'role']),
@@ -64,6 +67,8 @@ class AuthController extends Controller
         $user->update([
             'password' => Hash::make($request->new_password),
         ]);
+
+        AuditLogService::log('change_password', $user, null, null, $request);
 
         return $this->successResponse(null, 'Password berhasil diubah');
     }
