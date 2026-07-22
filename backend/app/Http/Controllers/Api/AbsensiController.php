@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\Attendance;
 use App\Models\Schedule;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class AbsensiController extends Controller
 {
@@ -18,74 +19,84 @@ class AbsensiController extends Controller
             'uid' => 'required|string',
         ]);
 
-        // Cari karyawan berdasarkan RFID UID
-        $karyawan = Employee::where('rfid_uid', $validated['uid'])->first();
+        $result = DB::transaction(function () use ($validated) {
+            // Cari karyawan + lock row untuk cegah race condition
+            $karyawan = Employee::where('rfid_uid', $validated['uid'])
+                ->lockForUpdate()
+                ->first();
 
-        if (!$karyawan) {
-            return $this->errorResponse('Kartu RFID tidak terdaftar', 404);
-        }
-
-        if ($karyawan->status !== 'aktif') {
-            return $this->errorResponse('Karyawan tidak aktif', 403);
-        }
-
-        // Cek apakah sudah absen hari ini
-        $today = Carbon::today('Asia/Jakarta')->toDateString();
-        $sudahAbsen = Attendance::where('employee_id', $karyawan->id)
-            ->where('tanggal', $today)
-            ->first();
-
-        // Kalau sudah absen masuk → checkout (isi jam pulang)
-        if ($sudahAbsen) {
-            if ($sudahAbsen->jam_pulang) {
-                return $this->errorResponse('Anda sudah checkout hari ini', 400, [
-                    'nama' => $karyawan->nama,
-                    'status' => 'Sudah Checkout',
-                ]);
+            if (!$karyawan) {
+                throw new \App\Exceptions\ApiException('Kartu RFID tidak terdaftar', 404);
             }
 
-            $jamPulang = Carbon::now('Asia/Jakarta')->format('H:i:s');
-            $sudahAbsen->update(['jam_pulang' => $jamPulang]);
+            if ($karyawan->status !== 'aktif') {
+                throw new \App\Exceptions\ApiException('Karyawan tidak aktif', 403);
+            }
 
-            return $this->successResponse([
-                'nama' => $karyawan->nama,
-                'status' => 'Checkout Berhasil',
-                'jam_pulang' => $jamPulang,
-            ], 'Checkout berhasil');
-        }
+            $today = Carbon::today('Asia/Jakarta')->toDateString();
 
-        // Ambil jadwal kerja dengan fallback defaults
-        $jadwal = Schedule::first();
-        $jamStandar = $jadwal ? $jadwal->jam_masuk_standar : '08:00:00';
-        $toleransi = $jadwal ? $jadwal->toleransi_menit : 15;
+            // Cek apakah sudah absen hari ini + lock row
+            $sudahAbsen = Attendance::where('employee_id', $karyawan->id)
+                ->where('tanggal', $today)
+                ->lockForUpdate()
+                ->first();
 
-        $jamMasuk = Carbon::now('Asia/Jakarta')->format('H:i:s');
+            // Kalau sudah absen masuk → checkout (isi jam pulang)
+            if ($sudahAbsen) {
+                // Cek status — Alpha/Izin gak boleh checkout
+                if (in_array($sudahAbsen->status, ['Alpha', 'Izin'])) {
+                    throw new \App\Exceptions\ApiException(
+                        'Absensi dengan status ' . $sudahAbsen->status . ' tidak bisa checkout'
+                    );
+                }
 
-        // Tentukan status kehadiran
-        $jamMasukCarbon = Carbon::parse($jamMasuk);
-        $jamStandarCarbon = Carbon::parse($jamStandar);
-        $batasTerlambat = $jamStandarCarbon->copy()->addMinutes($toleransi);
+                if ($sudahAbsen->jam_pulang) {
+                    throw new \App\Exceptions\ApiException('Anda sudah checkout hari ini', 400);
+                }
 
-        $status = 'Hadir';
-        if ($jamMasukCarbon->gt($batasTerlambat)) {
-            $status = 'Terlambat';
-        }
+                $jamPulang = Carbon::now('Asia/Jakarta')->format('H:i:s');
+                $sudahAbsen->update(['jam_pulang' => $jamPulang]);
 
-        // Simpan absensi (dalam transaction untuk hindari race condition)
-        $absensi = \Illuminate\Support\Facades\DB::transaction(function () use ($karyawan, $today, $jamMasuk, $status) {
-            return Attendance::create([
+                return [
+                    'nama' => $karyawan->nama,
+                    'status' => 'Checkout Berhasil',
+                    'jam_pulang' => $jamPulang,
+                ];
+            }
+
+            // Ambil jadwal kerja dengan fallback defaults
+            $jadwal = Schedule::first();
+            $jamStandar = $jadwal ? $jadwal->jam_masuk_standar : '08:00:00';
+            $toleransi = $jadwal ? $jadwal->toleransi_menit : 15;
+
+            $jamMasuk = Carbon::now('Asia/Jakarta')->format('H:i:s');
+
+            // Tentukan status kehadiran
+            $jamMasukCarbon = Carbon::parse($jamMasuk);
+            $jamStandarCarbon = Carbon::parse($jamStandar);
+            $batasTerlambat = $jamStandarCarbon->copy()->addMinutes($toleransi);
+
+            $status = 'Hadir';
+            if ($jamMasukCarbon->gt($batasTerlambat)) {
+                $status = 'Terlambat';
+            }
+
+            // Simpan absensi
+            $absensi = Attendance::create([
                 'employee_id' => $karyawan->id,
                 'tanggal' => $today,
                 'jam_masuk' => $jamMasuk,
                 'status' => $status,
             ]);
+
+            return [
+                'nama' => $karyawan->nama,
+                'status' => $status,
+                'jam_masuk' => $jamMasuk,
+            ];
         });
 
-        return $this->successResponse([
-            'nama' => $karyawan->nama,
-            'status' => $status,
-            'jam_masuk' => $jamMasuk,
-        ], 'Absensi berhasil', 201);
+        return $this->successResponse($result, 'Absensi berhasil', 201);
     }
 
     // Endpoint untuk Admin (via Sanctum)
@@ -100,17 +111,20 @@ class AbsensiController extends Controller
             'keterangan' => 'nullable|string|max:255',
         ]);
 
-        // Cek duplikat
-        $sudahAda = Attendance::where('employee_id', $validated['employee_id'])
-            ->where('tanggal', $validated['tanggal'])
-            ->first();
+        $absensi = DB::transaction(function () use ($validated, $request) {
+            // Cek duplikat + lock
+            $sudahAda = Attendance::where('employee_id', $validated['employee_id'])
+                ->where('tanggal', $validated['tanggal'])
+                ->lockForUpdate()
+                ->first();
 
-        if ($sudahAda) {
-            return $this->errorResponse('Absensi untuk karyawan ini tanggal ini sudah ada');
-        }
+            if ($sudahAda) {
+                throw new \App\Exceptions\ApiException('Absensi untuk karyawan ini tanggal ini sudah ada');
+            }
 
-        $validated['input_by'] = $request->user()->id;
-        $absensi = Attendance::create($validated);
+            $validated['input_by'] = $request->user()->id;
+            return Attendance::create($validated);
+        });
 
         return $this->successResponse($absensi, 'Absensi manual berhasil ditambahkan', 201);
     }
@@ -129,7 +143,7 @@ class AbsensiController extends Controller
 
         $absensi->update($validated);
 
-        return $this->successResponse($absensi, 'Absensi berhasil diupdate');
+        return $this->successResponse($absensi->fresh(), 'Absensi berhasil diupdate');
     }
 
     // Hapus absensi oleh admin
@@ -155,7 +169,7 @@ class AbsensiController extends Controller
                   ->whereMonth('tanggal', $bulan->month);
         }
 
-        $absensi = $query->get();
+        $absensi = $query->paginate($request->per_page ?? 15);
 
         return $this->successResponse([
             'karyawan' => $employee->only(['id', 'nama', 'nip']),

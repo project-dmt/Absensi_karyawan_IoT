@@ -43,7 +43,7 @@ class DivisiController extends Controller
 
         $divisi->update($validated);
 
-        return $this->successResponse($divisi, 'Divisi berhasil diupdate');
+        return $this->successResponse($divisi->fresh(), 'Divisi berhasil diupdate');
     }
 
     public function destroy($id)

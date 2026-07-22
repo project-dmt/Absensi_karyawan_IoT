@@ -53,7 +53,7 @@ class KaryawanController extends Controller
 
         $karyawan->update($validated);
 
-        return $this->successResponse($karyawan, 'Karyawan berhasil diupdate');
+        return $this->successResponse($karyawan->fresh(), 'Karyawan berhasil diupdate');
     }
 
     public function destroy($id)

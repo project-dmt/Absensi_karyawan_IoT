@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use App\Exceptions\ApiException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -64,6 +65,22 @@ return Application::configure(basePath: dirname(__DIR__))
                     'success' => false,
                     'message' => 'Endpoint tidak ditemukan',
                 ], 404);
+            }
+        });
+
+        // ApiException → response custom konsisten
+        $exceptions->renderable(function (ApiException $e, Request $request) {
+            if ($request->is('api/*')) {
+                $response = [
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ];
+
+                if ($e->getData()) {
+                    $response['data'] = $e->getData();
+                }
+
+                return response()->json($response, $e->getStatusCode());
             }
         });
 
