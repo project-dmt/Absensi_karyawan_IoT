@@ -39,11 +39,13 @@
 
 ## Issue Status Tracker
 
-### Sudah di-FIX (11 issues)
+### Sudah di-FIX (15 issues)
 
 | ID | Issue | Status | Bukti |
 |---|---|---|---|
+| C1 | `.env` ke-commit | FIXED | `.gitignore` + `git rm --cached` (file never was tracked) |
 | C3 | Sanctum token unlimited | FIXED | `config/sanctum.php` → expiration = 1440 (24 jam) |
+| C4 | `APP_DEBUG=true` | FIXED | `.env` → `APP_DEBUG=false` |
 | C5 | Password seeder weak | FIXED | `DatabaseSeeder.php` → pakai `env('ADMIN_PASSWORD', 'Admin@123')` |
 | C6 | UserFactory field mismatch | FIXED | `UserFactory.php` → field `nama` (bukan `name`) |
 | B1 | Race condition absensi ESP32 | FIXED | `AbsensiService.php` → pakai `lockForUpdate()` + `DB::transaction()` |
@@ -55,13 +57,11 @@
 | A5 | Gak ada Form Requests | FIXED | 7 FormRequest classes udah ada |
 | Q3 | Stale data return | FIXED | Pakai `->fresh()` |
 
-### BELUM di-FIX (16 issues)
+### BELUM di-FIX (12 issues)
 
 | ID | Issue | Severity | Priority |
 |---|---|---|---|
-| C1 | `.env` ke-commit | CRITICAL | 1 |
-| C2 | API Key weak + gak ada rate limiting | CRITICAL | 2 |
-| C4 | `APP_DEBUG=true` | CRITICAL | 3 |
+| C2 | API Key weak + gak ada rotasi | CRITICAL | 2 |
 | C7 | Missing migration `cache` table | CRITICAL | 4 |
 | C8 | Missing migration `jobs` table | CRITICAL | 5 |
 | H1 | Timing attack di API key validation | HIGH | 6 |
