@@ -6,5 +6,3 @@
 /backend/vendor/
 /backend/node_modules/
 /backend/.phpunit.cache/
-/backend/bootstrap/cache/*
-!backend/bootstrap/cache/.gitignore

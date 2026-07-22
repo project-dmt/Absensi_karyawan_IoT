@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Employee;
-use App\Models\Division;
 use App\Http\Requests\StoreKaryawanRequest;
 use App\Http\Requests\UpdateKaryawanRequest;
 use App\Services\AuditLogService;

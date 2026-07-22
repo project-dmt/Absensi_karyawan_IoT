@@ -21,6 +21,8 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
+            AuditLogService::log('login_failed', null, null, ['email' => $request->email], $request);
+
             throw ValidationException::withMessages([
                 'email' => ['Email atau password salah.'],
             ]);
