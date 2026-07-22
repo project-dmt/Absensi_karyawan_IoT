@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Employee;
+use App\Http\Requests\StoreKaryawanRequest;
+use App\Http\Requests\UpdateKaryawanRequest;
 
 class KaryawanController extends Controller
 {
@@ -15,50 +17,29 @@ class KaryawanController extends Controller
         return $this->successResponse($karyawan, 'Data karyawan berhasil diambil');
     }
 
-    public function store(Request $request)
+    public function store(StoreKaryawanRequest $request)
     {
-        $validated = $request->validate([
-            'nama' => 'required|string|max:100',
-            'nip' => 'required|string|max:50|unique:employees,nip',
-            'jabatan' => 'nullable|string|max:100',
-            'divisi_id' => 'nullable|exists:divisions,id',
-            'rfid_uid' => 'required|string|max:50|unique:employees,rfid_uid',
-            'status' => 'sometimes|in:aktif,nonaktif',
-        ]);
-
-        $karyawan = Employee::create($validated);
+        $karyawan = Employee::create($request->validated());
 
         return $this->successResponse($karyawan, 'Karyawan berhasil ditambahkan', 201);
     }
 
-    public function show($id)
+    public function show(Employee $karyawan)
     {
-        $karyawan = Employee::with('division')->findOrFail($id);
+        $karyawan->load('division');
 
         return $this->successResponse($karyawan, 'Data karyawan berhasil diambil');
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateKaryawanRequest $request, Employee $karyawan)
     {
-        $karyawan = Employee::findOrFail($id);
-
-        $validated = $request->validate([
-            'nama' => 'sometimes|required|string|max:100',
-            'nip' => 'sometimes|required|string|max:50|unique:employees,nip,' . $id,
-            'jabatan' => 'nullable|string|max:100',
-            'divisi_id' => 'nullable|exists:divisions,id',
-            'rfid_uid' => 'sometimes|required|string|max:50|unique:employees,rfid_uid,' . $id,
-            'status' => 'sometimes|in:aktif,nonaktif',
-        ]);
-
-        $karyawan->update($validated);
+        $karyawan->update($request->validated());
 
         return $this->successResponse($karyawan->fresh(), 'Karyawan berhasil diupdate');
     }
 
-    public function destroy($id)
+    public function destroy(Employee $karyawan)
     {
-        $karyawan = Employee::findOrFail($id);
         $karyawan->delete();
 
         return $this->successResponse(null, 'Karyawan berhasil dihapus');

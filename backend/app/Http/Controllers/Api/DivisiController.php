@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Division;
+use App\Http\Requests\StoreDivisiRequest;
+use App\Http\Requests\UpdateDivisiRequest;
 
 class DivisiController extends Controller
 {
@@ -15,40 +17,29 @@ class DivisiController extends Controller
         return $this->successResponse($divisi, 'Data divisi berhasil diambil');
     }
 
-    public function store(Request $request)
+    public function store(StoreDivisiRequest $request)
     {
-        $validated = $request->validate([
-            'nama_divisi' => 'required|string|max:100|unique:divisions,nama_divisi',
-        ]);
-
-        $divisi = Division::create($validated);
+        $divisi = Division::create($request->validated());
 
         return $this->successResponse($divisi, 'Divisi berhasil ditambahkan', 201);
     }
 
-    public function show($id)
+    public function show(Division $divisi)
     {
-        $divisi = Division::with('employees')->findOrFail($id);
+        $divisi->load('employees');
 
         return $this->successResponse($divisi, 'Data divisi berhasil diambil');
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateDivisiRequest $request, Division $divisi)
     {
-        $divisi = Division::findOrFail($id);
-
-        $validated = $request->validate([
-            'nama_divisi' => 'sometimes|required|string|max:100|unique:divisions,nama_divisi,' . $id,
-        ]);
-
-        $divisi->update($validated);
+        $divisi->update($request->validated());
 
         return $this->successResponse($divisi->fresh(), 'Divisi berhasil diupdate');
     }
 
-    public function destroy($id)
+    public function destroy(Division $divisi)
     {
-        $divisi = Division::findOrFail($id);
         $divisi->delete();
 
         return $this->successResponse(null, 'Divisi berhasil dihapus');

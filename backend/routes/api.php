@@ -32,8 +32,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Data Karyawan
     Route::apiResource('karyawan', KaryawanController::class);
 
-    // Riwayat Absensi per Karyawan
-    Route::get('/karyawan/{karyawan}/absensi', [AbsensiController::class, 'history'])
+    // Riwayat Absensi per Karyawan (route model binding: Employee)
+    Route::get('/karyawan/{employee}/absensi', [AbsensiController::class, 'history'])
         ->name('karyawan.absensi.history');
 
     // Data Divisi
@@ -45,8 +45,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Absensi (CRUD)
     Route::post('/absensi/manual', [AbsensiController::class, 'storeManual'])->name('absensi.manual');
-    Route::put('/absensi/{id}', [AbsensiController::class, 'update'])->name('absensi.update');
-    Route::delete('/absensi/{id}', [AbsensiController::class, 'destroy'])->name('absensi.destroy');
+    Route::put('/absensi/{attendance}', [AbsensiController::class, 'update'])->name('absensi.update');
+    Route::delete('/absensi/{attendance}', [AbsensiController::class, 'destroy'])->name('absensi.destroy');
 
     // Laporan
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');

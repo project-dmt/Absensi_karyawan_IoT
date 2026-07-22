@@ -5,42 +5,40 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Attendance;
-use Carbon\Carbon;
+use App\Http\Requests\LaporanRequest;
 
 class LaporanController extends Controller
 {
-    public function index(Request $request)
+    public function index(LaporanRequest $request)
     {
-        $request->validate([
-            'dari' => 'required|date',
-            'sampai' => 'required|date|after_or_equal:dari',
-            'divisi_id' => 'nullable|exists:divisions,id',
-            'status' => 'nullable|in:Hadir,Terlambat,Alpha,Izin',
-        ]);
+        $validated = $request->validated();
 
         $query = Attendance::with('employee.division', 'inputBy')
-            ->whereBetween('tanggal', [$request->dari, $request->sampai]);
+            ->whereBetween('tanggal', [$validated['dari'], $validated['sampai']]);
 
-        if ($request->divisi_id) {
-            $query->whereHas('employee', function ($q) use ($request) {
-                $q->where('divisi_id', $request->divisi_id);
+        if (isset($validated['divisi_id'])) {
+            $query->whereHas('employee', function ($q) use ($validated) {
+                $q->where('divisi_id', $validated['divisi_id']);
             });
         }
 
-        if ($request->status) {
-            $query->where('status', $request->status);
+        if (isset($validated['status'])) {
+            $query->where('status', $validated['status']);
         }
 
+        $perPage = $request->per_page ?? config('absensi.pagination.per_page');
         $laporan = $query->orderBy('tanggal', 'desc')
             ->orderBy('employee_id')
-            ->paginate($request->per_page ?? 15);
+            ->paginate($perPage);
 
         return $this->successResponse($laporan, 'Laporan absensi berhasil diambil');
     }
 
     public function export(Request $request)
     {
-        // TODO: Export ke PDF/Excel
-        return $this->successResponse(null, 'Fitur export akan segera tersedia');
+        return response()->json([
+            'success' => false,
+            'message' => 'Fitur export belum diimplementasi',
+        ], 501);
     }
 }
