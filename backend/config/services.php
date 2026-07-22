@@ -36,5 +36,6 @@ return [
     ],
 
     'api_key' => env('API_KEY'),
+    'api_keys' => array_filter(explode(',', env('API_KEY', ''))),
 
 ];
