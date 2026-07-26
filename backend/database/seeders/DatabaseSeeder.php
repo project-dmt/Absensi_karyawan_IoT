@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
             'nama' => 'Admin',
             'email' => 'admin@example.com',
             'password' => Hash::make(env('ADMIN_PASSWORD', 'Admin@123')),
-            'role' => 'admin',
+            'role' => 'superadmin',
         ]);
 
         // Seed divisi default
