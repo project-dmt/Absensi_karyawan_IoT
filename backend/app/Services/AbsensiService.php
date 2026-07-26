@@ -72,7 +72,21 @@ class AbsensiService
             throw new ApiException('Anda sudah checkout hari ini', 400);
         }
 
-        $jamPulang = Carbon::now(config('app.timezone'))->format('H:i:s');
+        $jadwal = Schedule::first();
+        $jamPulangStandar = $jadwal
+            ? $jadwal->jam_pulang_standar
+            : config('absensi.default_schedule.jam_pulang');
+
+        $jamSekarang = Carbon::now(config('app.timezone'));
+        $jamPulangCarbon = Carbon::parse($jamPulangStandar);
+
+        if ($jamSekarang->lt($jamPulangCarbon)) {
+            throw new ApiException(
+                "Checkout belum bisa. Jam pulang standar: {$jamPulangStandar}"
+            );
+        }
+
+        $jamPulang = $jamSekarang->format('H:i:s');
         $absensi->update(['jam_pulang' => $jamPulang]);
 
         return [
