@@ -1,0 +1,283 @@
+import { useState, useEffect, useCallback } from "react";
+import api from "../api/axios";
+import { useDebounce } from "../hooks/useDebounce";
+import StatusBadge from "../components/StatusBadge";
+import Modal from "../components/Modal";
+import FormInput from "../components/FormInput";
+import EmptyState from "../components/EmptyState";
+import LoadingSpinner from "../components/LoadingSpinner";
+
+const INITIAL_FORM = {
+  nama: "",
+  nip: "",
+  jabatan: "",
+  divisi_id: "",
+  rfid_uid: "",
+  status: "aktif",
+};
+
+export default function DataKaryawan() {
+  const [data, setData] = useState([]);
+  const [divisi, setDivisi] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
+  const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [karyawanRes, divisiRes] = await Promise.all([
+        api.get("/karyawan"),
+        api.get("/divisi"),
+      ]);
+      setData(karyawanRes.data.data);
+      setDivisi(divisiRes.data.data);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const filtered = data.filter(
+    (item) =>
+      item.nama.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      item.nip.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      item.rfid_uid.toLowerCase().includes(debouncedSearch.toLowerCase())
+  );
+
+  const openAdd = () => {
+    setEditId(null);
+    setForm(INITIAL_FORM);
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const openEdit = (item) => {
+    setEditId(item.id);
+    setForm({
+      nama: item.nama,
+      nip: item.nip,
+      jabatan: item.jabatan || "",
+      divisi_id: item.divisi_id || "",
+      rfid_uid: item.rfid_uid,
+      status: item.status,
+    });
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const handleChange = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setErrors((prev) => ({ ...prev, [e.target.name]: undefined }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrors({});
+    try {
+      if (editId) {
+        await api.put(`/karyawan/${editId}`, form);
+      } else {
+        await api.post("/karyawan", form);
+      }
+      setShowModal(false);
+      fetchData();
+    } catch (err) {
+      if (err.response?.status === 422) {
+        setErrors(err.response.data.errors || {});
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Yakin ingin menghapus karyawan ini?")) return;
+    try {
+      await api.delete(`/karyawan/${id}`);
+      fetchData();
+    } catch {}
+  };
+
+  return (
+    <div>
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <h4 className="fw-bold mb-0">Data Karyawan</h4>
+        <button className="btn btn-primary" onClick={openAdd}>
+          <i className="bi bi-plus-lg me-1" />
+          Tambah Karyawan
+        </button>
+      </div>
+
+      <div className="mb-3" style={{ maxWidth: "320px" }}>
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Cari nama, NIP, atau UID..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {loading ? (
+        <LoadingSpinner />
+      ) : filtered.length === 0 ? (
+        <EmptyState message="Tidak ada karyawan ditemukan" />
+      ) : (
+        <div className="card border-0 shadow-sm">
+          <div className="card-body p-0">
+            <div className="table-responsive">
+              <table className="table table-hover mb-0 align-middle">
+                <thead className="table-light">
+                  <tr>
+                    <th>No</th>
+                    <th>Nama</th>
+                    <th>NIP</th>
+                    <th>Jabatan</th>
+                    <th>Divisi</th>
+                    <th>RFID UID</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((item, idx) => (
+                    <tr key={item.id}>
+                      <td>{idx + 1}</td>
+                      <td>{item.nama}</td>
+                      <td>{item.nip}</td>
+                      <td>{item.jabatan || "-"}</td>
+                      <td>{item.division?.nama_divisi || "-"}</td>
+                      <td>
+                        <code>{item.rfid_uid}</code>
+                      </td>
+                      <td>
+                        <StatusBadge status={item.status} />
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-sm btn-outline-primary me-1"
+                          onClick={() => openEdit(item)}
+                        >
+                          <i className="bi bi-pencil" />
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          <i className="bi bi-trash" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Modal
+        show={showModal}
+        onClose={() => setShowModal(false)}
+        title={editId ? "Edit Karyawan" : "Tambah Karyawan"}
+        footer={
+          <>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setShowModal(false)}
+            >
+              Batal
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <span
+                    className="spinner-border spinner-border-sm me-1"
+                    role="status"
+                  />
+                  Menyimpan...
+                </>
+              ) : (
+                "Simpan"
+              )}
+            </button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit}>
+          <FormInput
+            label="Nama"
+            name="nama"
+            value={form.nama}
+            onChange={handleChange}
+            error={errors.nama?.[0]}
+            required
+          />
+          <FormInput
+            label="NIP"
+            name="nip"
+            value={form.nip}
+            onChange={handleChange}
+            error={errors.nip?.[0]}
+            required
+          />
+          <FormInput
+            label="Jabatan"
+            name="jabatan"
+            value={form.jabatan}
+            onChange={handleChange}
+            error={errors.jabatan?.[0]}
+          />
+          <FormInput
+            label="Divisi"
+            name="divisi_id"
+            as="select"
+            value={form.divisi_id}
+            onChange={handleChange}
+            error={errors.divisi_id?.[0]}
+            placeholder="Pilih divisi..."
+            options={divisi.map((d) => ({
+              value: d.id,
+              label: d.nama_divisi,
+            }))}
+          />
+          <FormInput
+            label="RFID UID"
+            name="rfid_uid"
+            value={form.rfid_uid}
+            onChange={handleChange}
+            error={errors.rfid_uid?.[0]}
+            placeholder="Contoh: A1B2C3"
+            required
+          />
+          <FormInput
+            label="Status"
+            name="status"
+            as="select"
+            value={form.status}
+            onChange={handleChange}
+            options={[
+              { value: "aktif", label: "Aktif" },
+              { value: "nonaktif", label: "Nonaktif" },
+            ]}
+          />
+        </form>
+      </Modal>
+    </div>
+  );
+}
