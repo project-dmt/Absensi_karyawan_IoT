@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import api from "../api/axios";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
+import EmptyState from "../components/EmptyState";
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -45,70 +46,67 @@ export default function Dashboard() {
     {
       label: "Total Karyawan",
       value: stats.totalKaryawan,
-      color: "primary",
+      bg: "linear-gradient(135deg, #4f6d7a, #7b9aab)",
       icon: "bi-people",
     },
     {
       label: "Hadir Hari Ini",
       value: stats.hadir,
-      color: "success",
+      bg: "linear-gradient(135deg, #10b981, #34d399)",
       icon: "bi-check-circle",
     },
     {
       label: "Terlambat",
       value: stats.terlambat,
-      color: "warning",
+      bg: "linear-gradient(135deg, #f59e0b, #fbbf24)",
       icon: "bi-exclamation-triangle",
     },
     {
       label: "Tidak Hadir",
       value: stats.tidakHadir,
-      color: "danger",
+      bg: "linear-gradient(135deg, #ef4444, #f87171)",
       icon: "bi-x-circle",
     },
   ];
 
   return (
     <div>
-      <h4 className="mb-4 fw-bold">Dashboard</h4>
+      <div className="page-header">
+        <h4>Dashboard</h4>
+        <small className="text-muted">
+          {new Date().toLocaleDateString("id-ID", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </small>
+      </div>
 
       <div className="row g-3 mb-4">
         {cards.map((card) => (
           <div key={card.label} className="col-sm-6 col-xl-3">
-            <div className="card border-0 shadow-sm h-100">
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <small className="text-muted">{card.label}</small>
-                    <h3 className="fw-bold mb-0 mt-1">{card.value}</h3>
-                  </div>
-                  <div
-                    className={`bg-${card.color} bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center`}
-                    style={{ width: "48px", height: "48px" }}
-                  >
-                    <i className={`bi ${card.icon} text-${card.color} fs-4`} />
-                  </div>
-                </div>
-              </div>
+            <div className="stat-card" style={{ background: card.bg }}>
+              <i className={`bi ${card.icon} stat-card__icon`} />
+              <div className="stat-card__value">{card.value}</div>
+              <div className="stat-card__label">{card.label}</div>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="card border-0 shadow-sm">
-        <div className="card-header bg-white fw-bold">
-          <i className="bi bi-clock-history me-2" />
-          Absensi Terbaru
+      <div className="card">
+        <div className="card-header d-flex align-items-center gap-2">
+          <i className="bi bi-clock-history" />
+          Absensi Terbaru Hari Ini
         </div>
         <div className="card-body p-0">
           {recent.length === 0 ? (
-            <div className="text-center py-4 text-muted">
-              Belum ada data absensi hari ini
-            </div>
+            <EmptyState message="Belum ada data absensi hari ini" icon="bi-calendar-x" />
           ) : (
             <div className="table-responsive">
               <table className="table table-hover mb-0 align-middle">
-                <thead className="table-light">
+                <thead>
                   <tr>
                     <th>Nama</th>
                     <th>NIP</th>
@@ -119,8 +117,8 @@ export default function Dashboard() {
                 <tbody>
                   {recent.map((item) => (
                     <tr key={item.id}>
-                      <td>{item.employee?.nama}</td>
-                      <td>{item.employee?.nip}</td>
+                      <td className="fw-medium">{item.employee?.nama}</td>
+                      <td><code>{item.employee?.nip}</code></td>
                       <td>{item.jam_masuk || "-"}</td>
                       <td>
                         <StatusBadge status={item.status} />
