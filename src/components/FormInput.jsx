@@ -50,6 +50,7 @@ export default function FormInput({
           placeholder={placeholder}
           required={required}
           rows={3}
+          style={{ resize: "vertical" }}
           {...props}
         />
       ) : (

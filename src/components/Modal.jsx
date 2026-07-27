@@ -23,10 +23,13 @@ export default function Modal({ show, onClose, title, children, footer }) {
         if (e.target === backdropRef.current) onClose();
       }}
     >
-      <div className="modal-dialog modal-dialog-centered">
+      <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div className="modal-content">
           <div className="modal-header">
-            <h5 className="modal-title">{title}</h5>
+            <h5 className="modal-title">
+              <i className="bi bi-pencil-square me-2 text-primary" />
+              {title}
+            </h5>
             <button
               type="button"
               className="btn-close"
