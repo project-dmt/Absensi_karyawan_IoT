@@ -3,6 +3,7 @@ import api from "../api/axios";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
+import { useRealtime } from "../hooks/useRealtime";
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -13,6 +14,7 @@ export default function Dashboard() {
   });
   const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
+  const realtimeEvents = useRealtime();
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -39,6 +41,30 @@ export default function Dashboard() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (realtimeEvents.length === 0) return;
+    setRecent((prev) => {
+      const merged = [...realtimeEvents, ...prev]
+        .filter((v, i, a) => a.findIndex((t) => t.id === v.id) === i)
+        .slice(0, 10);
+      return merged;
+    });
+    setStats((prev) => {
+      let newHadir = prev.hadir;
+      let newTerlambat = prev.terlambat;
+      realtimeEvents.forEach((ev) => {
+        if (ev.status === "Hadir") newHadir += 1;
+        if (ev.status === "Terlambat") newTerlambat += 1;
+      });
+      return {
+        ...prev,
+        hadir: newHadir,
+        terlambat: newTerlambat,
+        tidakHadir: prev.totalKaryawan - newHadir - newTerlambat,
+      };
+    });
+  }, [realtimeEvents]);
 
   if (loading) return <LoadingSpinner />;
 

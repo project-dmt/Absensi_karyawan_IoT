@@ -1,9 +1,13 @@
 const express = require("express");
 const cors = require("cors");
+const { EventEmitter } = require("events");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const sseEmitter = new EventEmitter();
+sseEmitter.setMaxListeners(50);
 
 // --- In-memory data ---
 let users = [
@@ -264,6 +268,9 @@ app.post("/api/absensi/manual", authMiddleware, (req, res) => {
   }
   const abs = { id: nextId.attendance++, employee_id, tanggal, jam_masuk: jam_masuk || null, jam_pulang: jam_pulang || null, status, keterangan: keterangan || null, input_by: req.user.id, created_at: today(), updated_at: today() };
   attendance.push(abs);
+  const emp = employees.find((e) => e.id === employee_id);
+  const enriched = { ...abs, employee: emp ? { ...emp, division: divisions.find((d) => d.id === emp.divisi_id) || null } : null };
+  sseEmitter.emit("absensi", { type: "check_in", data: enriched });
   res.status(201).json({ success: true, message: "Absensi manual berhasil ditambahkan", data: abs });
 });
 
@@ -295,6 +302,39 @@ app.get("/api/dashboard", authMiddleware, (req, res) => {
       terlambat: todayAtt.filter((a) => a.status === "Terlambat").length,
       tidak_hadir: employees.length - todayAtt.length,
     },
+  });
+});
+
+// === SSE STREAM ===
+app.get("/api/absensi/stream", (req, res) => {
+  const { token, lastId } = req.query;
+  if (!token || !tokens[token]) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  res.write("retry: 3000\n\n");
+
+  const sinceId = parseInt(lastId) || 0;
+  const recent = attendance.filter((a) => a.id > sinceId);
+  recent.forEach((a) => {
+    const emp = employees.find((e) => e.id === a.employee_id);
+    const enriched = { ...a, employee: emp ? { ...emp, division: divisions.find((d) => d.id === emp.divisi_id) || null } : null };
+    const eventType = a.jam_masuk && !a.jam_pulang ? "check_in" : "checkout";
+    res.write(`event: ${eventType}\ndata: ${JSON.stringify(enriched)}\n\n`);
+  });
+
+  const handler = (event) => {
+    res.write(`event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`);
+  };
+  sseEmitter.on("absensi", handler);
+
+  req.on("close", () => {
+    sseEmitter.off("absensi", handler);
   });
 });
 
