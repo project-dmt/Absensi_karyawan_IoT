@@ -29,6 +29,7 @@ export default function DataKaryawan() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -60,6 +61,7 @@ export default function DataKaryawan() {
     setEditId(null);
     setForm(INITIAL_FORM);
     setErrors({});
+    setFormError("");
     setShowModal(true);
   };
 
@@ -86,6 +88,7 @@ export default function DataKaryawan() {
     e.preventDefault();
     setSubmitting(true);
     setErrors({});
+    setFormError("");
     try {
       if (editId) {
         await api.put(`/karyawan/${editId}`, form);
@@ -97,6 +100,8 @@ export default function DataKaryawan() {
     } catch (err) {
       if (err.response?.status === 422) {
         setErrors(err.response.data.errors || {});
+      } else {
+        setFormError(err.response?.data?.message || "Terjadi kesalahan. Silakan coba lagi.");
       }
     } finally {
       setSubmitting(false);
@@ -208,14 +213,16 @@ export default function DataKaryawan() {
         footer={
           <>
             <button
+              type="button"
               className="btn btn-secondary"
               onClick={() => setShowModal(false)}
             >
               Batal
             </button>
             <button
+              type="submit"
               className="btn btn-primary"
-              onClick={handleSubmit}
+              form="form-karyawan"
               disabled={submitting}
             >
               {submitting ? (
@@ -236,7 +243,13 @@ export default function DataKaryawan() {
           </>
         }
       >
-        <form onSubmit={handleSubmit}>
+        <form id="form-karyawan" onSubmit={handleSubmit}>
+          {formError && (
+            <div className="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
+              <i className="bi bi-exclamation-circle-fill" />
+              <span>{formError}</span>
+            </div>
+          )}
           <FormInput
             label="Nama"
             name="nama"

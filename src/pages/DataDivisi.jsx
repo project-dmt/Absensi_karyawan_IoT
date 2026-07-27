@@ -173,14 +173,16 @@ export default function DataDivisi() {
         footer={
           <>
             <button
+              type="button"
               className="btn btn-secondary"
               onClick={() => setShowModal(false)}
             >
               Batal
             </button>
             <button
+              type="submit"
               className="btn btn-primary"
-              onClick={handleSubmit}
+              form="form-divisi"
               disabled={submitting}
             >
               {submitting ? (
@@ -201,18 +203,20 @@ export default function DataDivisi() {
           </>
         }
       >
-        <FormInput
-          label="Nama Divisi"
-          name="nama_divisi"
-          value={namaDivisi}
-          onChange={(e) => {
-            setNamaDivisi(e.target.value);
-            setErrors((prev) => ({ ...prev, nama_divisi: undefined }));
-          }}
-          error={errors.nama_divisi?.[0]}
-          placeholder="Contoh: Teknologi Informasi"
-          required
-        />
+        <form id="form-divisi" onSubmit={handleSubmit}>
+          <FormInput
+            label="Nama Divisi"
+            name="nama_divisi"
+            value={namaDivisi}
+            onChange={(e) => {
+              setNamaDivisi(e.target.value);
+              setErrors((prev) => ({ ...prev, nama_divisi: undefined }));
+            }}
+            error={errors.nama_divisi?.[0]}
+            placeholder="Contoh: Teknologi Informasi"
+            required
+          />
+        </form>
       </Modal>
     </div>
   );
