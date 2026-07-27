@@ -27,10 +27,42 @@ let employees = [
 
 let schedule = { id: 1, jam_masuk_standar: "08:00:00", jam_pulang_standar: "17:00:00", toleransi_menit: 15, created_at: "2026-07-17", updated_at: "2026-07-17" };
 
+function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().split("T")[0]; }
+
 let attendance = [
-  { id: 1, employee_id: 1, tanggal: today(), jam_masuk: "07:55:00", jam_pulang: null, status: "Hadir", keterangan: null, input_by: null, created_at: "2026-07-17", updated_at: "2026-07-17" },
-  { id: 2, employee_id: 2, tanggal: today(), jam_masuk: "08:20:00", jam_pulang: null, status: "Terlambat", keterangan: null, input_by: null, created_at: "2026-07-17", updated_at: "2026-07-17" },
-  { id: 3, employee_id: 3, tanggal: yesterday(), jam_masuk: "07:50:00", jam_pulang: "17:05:00", status: "Hadir", keterangan: null, input_by: null, created_at: "2026-07-16", updated_at: "2026-07-16" },
+  // Budi Santoso (id:1) - good attendance
+  { id: 1, employee_id: 1, tanggal: today(), jam_masuk: "07:55:00", jam_pulang: null, status: "Hadir", keterangan: null, input_by: null, created_at: today(), updated_at: today() },
+  { id: 2, employee_id: 1, tanggal: daysAgo(1), jam_masuk: "07:50:00", jam_pulang: "17:05:00", status: "Hadir", keterangan: null, input_by: null, created_at: daysAgo(1), updated_at: daysAgo(1) },
+  { id: 3, employee_id: 1, tanggal: daysAgo(2), jam_masuk: "07:58:00", jam_pulang: "17:00:00", status: "Hadir", keterangan: null, input_by: null, created_at: daysAgo(2), updated_at: daysAgo(2) },
+  { id: 4, employee_id: 1, tanggal: daysAgo(3), jam_masuk: "08:05:00", jam_pulang: "17:10:00", status: "Terlambat", keterangan: null, input_by: null, created_at: daysAgo(3), updated_at: daysAgo(3) },
+  { id: 5, employee_id: 1, tanggal: daysAgo(5), jam_masuk: null, jam_pulang: null, status: "Alpha", keterangan: "Tidak hadir tanpa keterangan", input_by: null, created_at: daysAgo(5), updated_at: daysAgo(5) },
+  { id: 6, employee_id: 1, tanggal: daysAgo(7), jam_masuk: "07:45:00", jam_pulang: "17:00:00", status: "Hadir", keterangan: null, input_by: null, created_at: daysAgo(7), updated_at: daysAgo(7) },
+  { id: 7, employee_id: 1, tanggal: daysAgo(8), jam_masuk: null, jam_pulang: null, status: "Izin", keterangan: "Izin keperluan keluarga", input_by: null, created_at: daysAgo(8), updated_at: daysAgo(8) },
+  { id: 8, employee_id: 1, tanggal: daysAgo(10), jam_masuk: "08:15:00", jam_pulang: "17:00:00", status: "Terlambat", keterangan: null, input_by: null, created_at: daysAgo(10), updated_at: daysAgo(10) },
+  { id: 9, employee_id: 1, tanggal: daysAgo(12), jam_masuk: "07:52:00", jam_pulang: "17:05:00", status: "Hadir", keterangan: null, input_by: null, created_at: daysAgo(12), updated_at: daysAgo(12) },
+
+  // Siti Aminah (id:2) - some absences
+  { id: 10, employee_id: 2, tanggal: today(), jam_masuk: "08:20:00", jam_pulang: null, status: "Terlambat", keterangan: null, input_by: null, created_at: today(), updated_at: today() },
+  { id: 11, employee_id: 2, tanggal: daysAgo(1), jam_masuk: "08:00:00", jam_pulang: "17:00:00", status: "Hadir", keterangan: null, input_by: null, created_at: daysAgo(1), updated_at: daysAgo(1) },
+  { id: 12, employee_id: 2, tanggal: daysAgo(3), jam_masuk: null, jam_pulang: null, status: "Alpha", keterangan: "Tidak hadir tanpa keterangan", input_by: null, created_at: daysAgo(3), updated_at: daysAgo(3) },
+  { id: 13, employee_id: 2, tanggal: daysAgo(4), jam_masuk: null, jam_pulang: null, status: "Alpha", keterangan: "Tidak hadir tanpa keterangan", input_by: null, created_at: daysAgo(4), updated_at: daysAgo(4) },
+  { id: 14, employee_id: 2, tanggal: daysAgo(6), jam_masuk: null, jam_pulang: null, status: "Izin", keterangan: "Izin sakit, ada surat dokter", input_by: null, created_at: daysAgo(6), updated_at: daysAgo(6) },
+  { id: 15, employee_id: 2, tanggal: daysAgo(8), jam_masuk: "07:55:00", jam_pulang: "17:00:00", status: "Hadir", keterangan: null, input_by: null, created_at: daysAgo(8), updated_at: daysAgo(8) },
+  { id: 16, employee_id: 2, tanggal: daysAgo(10), jam_masuk: null, jam_pulang: null, status: "Alpha", keterangan: "Tidak hadir tanpa keterangan", input_by: null, created_at: daysAgo(10), updated_at: daysAgo(10) },
+
+  // Andi Wijaya (id:3) - mostly present
+  { id: 17, employee_id: 3, tanggal: daysAgo(1), jam_masuk: "07:50:00", jam_pulang: "17:05:00", status: "Hadir", keterangan: null, input_by: null, created_at: daysAgo(1), updated_at: daysAgo(1) },
+  { id: 18, employee_id: 3, tanggal: daysAgo(2), jam_masuk: "07:48:00", jam_pulang: "17:00:00", status: "Hadir", keterangan: null, input_by: null, created_at: daysAgo(2), updated_at: daysAgo(2) },
+  { id: 19, employee_id: 3, tanggal: daysAgo(3), jam_masuk: "08:10:00", jam_pulang: "17:15:00", status: "Terlambat", keterangan: null, input_by: null, created_at: daysAgo(3), updated_at: daysAgo(3) },
+  { id: 20, employee_id: 3, tanggal: daysAgo(5), jam_masuk: "07:55:00", jam_pulang: "17:00:00", status: "Hadir", keterangan: null, input_by: null, created_at: daysAgo(5), updated_at: daysAgo(5) },
+
+  // Rina Susanti (id:4) - mix
+  { id: 21, employee_id: 4, tanggal: today(), jam_masuk: "07:45:00", jam_pulang: null, status: "Hadir", keterangan: null, input_by: null, created_at: today(), updated_at: today() },
+  { id: 22, employee_id: 4, tanggal: daysAgo(2), jam_masuk: null, jam_pulang: null, status: "Izin", keterangan: "Izin dinas luar kota", input_by: null, created_at: daysAgo(2), updated_at: daysAgo(2) },
+  { id: 23, employee_id: 4, tanggal: daysAgo(4), jam_masuk: null, jam_pulang: null, status: "Alpha", keterangan: "Tidak hadir tanpa keterangan", input_by: null, created_at: daysAgo(4), updated_at: daysAgo(4) },
+
+  // Dedi Kurniawan (id:5) - inactive, no recent attendance
+  { id: 24, employee_id: 5, tanggal: daysAgo(15), jam_masuk: "08:30:00", jam_pulang: "17:00:00", status: "Terlambat", keterangan: null, input_by: null, created_at: daysAgo(15), updated_at: daysAgo(15) },
 ];
 
 let tokens = {};
@@ -121,6 +153,24 @@ app.delete("/api/karyawan/:id", authMiddleware, (req, res) => {
   if (idx === -1) return res.status(404).json({ success: false, message: "Karyawan tidak ditemukan" });
   employees.splice(idx, 1);
   res.json({ success: true, message: "Karyawan berhasil dihapus" });
+});
+
+app.get("/api/karyawan/:id/laporan", authMiddleware, (req, res) => {
+  const emp = employees.find((e) => e.id === parseInt(req.params.id));
+  if (!emp) return res.status(404).json({ success: false, message: "Karyawan tidak ditemukan" });
+  const { dari, sampai } = req.query;
+  let data = attendance.filter((a) => a.employee_id === emp.id);
+  if (dari) data = data.filter((a) => a.tanggal >= dari);
+  if (sampai) data = data.filter((a) => a.tanggal <= sampai);
+  data.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+  const summary = {
+    total: data.length,
+    hadir: data.filter((a) => a.status === "Hadir").length,
+    terlambat: data.filter((a) => a.status === "Terlambat").length,
+    alpha: data.filter((a) => a.status === "Alpha").length,
+    izin: data.filter((a) => a.status === "Izin").length,
+  };
+  res.json({ success: true, data: { employee: { ...emp, division: divisions.find((d) => d.id === emp.divisi_id) || null }, absensi: data, summary } });
 });
 
 // === DIVISI ===

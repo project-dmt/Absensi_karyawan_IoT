@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { useDebounce } from "../hooks/useDebounce";
 import StatusBadge from "../components/StatusBadge";
@@ -17,6 +18,7 @@ const INITIAL_FORM = {
 };
 
 export default function DataKaryawan() {
+  const navigate = useNavigate();
   const [data, setData] = useState([]);
   const [divisi, setDivisi] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -167,6 +169,13 @@ export default function DataKaryawan() {
                       </td>
                       <td>
                         <div className="d-flex gap-1">
+                          <button
+                            className="btn-action btn-action--edit"
+                            title="Lihat Detail"
+                            onClick={() => navigate(`/data-karyawan/${item.id}`)}
+                          >
+                            <i className="bi bi-eye" />
+                          </button>
                           <button
                             className="btn-action btn-action--edit"
                             title="Edit"
