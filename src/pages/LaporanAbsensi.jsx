@@ -79,9 +79,15 @@ export default function LaporanAbsensi() {
 
   return (
     <div>
-      <h4 className="fw-bold mb-4">Laporan Absensi</h4>
+      <div className="page-header">
+        <h4>Laporan Absensi</h4>
+      </div>
 
-      <div className="card border-0 shadow-sm mb-4">
+      <div className="card mb-4">
+        <div className="card-header d-flex align-items-center gap-2">
+          <i className="bi bi-funnel" />
+          Filter Laporan
+        </div>
         <div className="card-body">
           <div className="row g-3 align-items-end">
             <div className="col-md-3">
@@ -165,15 +171,15 @@ export default function LaporanAbsensi() {
       {loading ? (
         <LoadingSpinner />
       ) : !fetched ? (
-        <EmptyState message="Pilih rentang tanggal lalu klik Terapkan untuk melihat laporan" />
+        <EmptyState message="Pilih rentang tanggal lalu klik Terapkan untuk melihat laporan" icon="bi-calendar-range" />
       ) : data.length === 0 ? (
-        <EmptyState message="Tidak ada data absensi untuk rentang tanggal ini" />
+        <EmptyState message="Tidak ada data absensi untuk rentang tanggal ini" icon="bi-calendar-x" />
       ) : (
-        <div className="card border-0 shadow-sm">
+        <div className="card">
           <div className="card-body p-0">
             <div className="table-responsive">
               <table className="table table-hover mb-0 align-middle">
-                <thead className="table-light">
+                <thead>
                   <tr>
                     <th>No</th>
                     <th>Nama</th>
@@ -189,8 +195,8 @@ export default function LaporanAbsensi() {
                   {data.map((item, idx) => (
                     <tr key={item.id}>
                       <td>{idx + 1}</td>
-                      <td>{item.employee?.nama}</td>
-                      <td>{item.employee?.nip}</td>
+                      <td className="fw-medium">{item.employee?.nama}</td>
+                      <td><code>{item.employee?.nip}</code></td>
                       <td>{item.tanggal}</td>
                       <td>{item.jam_masuk || "-"}</td>
                       <td>{item.jam_pulang || "-"}</td>

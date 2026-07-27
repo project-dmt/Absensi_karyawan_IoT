@@ -49,10 +49,10 @@ export default function JamKerja() {
         jam_pulang_standar: form.jam_pulang_standar + ":00",
         toleransi_menit: form.toleransi_menit,
       });
-      setMessage({ type: "success", text: "Jadwal kerja berhasil disimpan" });
+      setMessage({ type: "success", text: "Jam kerja berhasil disimpan" });
     } catch (err) {
       const msg =
-        err.response?.data?.message || "Gagal menyimpan jadwal kerja";
+        err.response?.data?.message || "Gagal menyimpan jam kerja";
       setMessage({ type: "danger", text: msg });
     } finally {
       setSaving(false);
@@ -63,33 +63,46 @@ export default function JamKerja() {
 
   return (
     <div>
-      <h4 className="fw-bold mb-4">Jam Kerja</h4>
+      <div className="page-header">
+        <h4>Jam Kerja</h4>
+      </div>
 
       {message.text && (
-        <div className={`alert alert-${message.type} py-2`} role="alert">
+        <div className={`alert alert-${message.type} d-flex align-items-center gap-2 py-2`} role="alert">
+          <i className={`bi ${message.type === "success" ? "bi-check-circle-fill" : "bi-exclamation-circle-fill"}`} />
           {message.text}
         </div>
       )}
 
-      <div className="card border-0 shadow-sm" style={{ maxWidth: "500px" }}>
+      <div className="card" style={{ maxWidth: "520px" }}>
+        <div className="card-header d-flex align-items-center gap-2">
+          <i className="bi bi-clock" />
+          Pengaturan Jam Kerja
+        </div>
         <div className="card-body">
           <form onSubmit={handleSubmit}>
-            <FormInput
-              label="Jam Masuk Standar"
-              name="jam_masuk_standar"
-              type="time"
-              value={form.jam_masuk_standar}
-              onChange={handleChange}
-              required
-            />
-            <FormInput
-              label="Jam Pulang Standar"
-              name="jam_pulang_standar"
-              type="time"
-              value={form.jam_pulang_standar}
-              onChange={handleChange}
-              required
-            />
+            <div className="row g-3">
+              <div className="col-md-6">
+                <FormInput
+                  label="Jam Masuk Standar"
+                  name="jam_masuk_standar"
+                  type="time"
+                  value={form.jam_masuk_standar}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              <div className="col-md-6">
+                <FormInput
+                  label="Jam Pulang Standar"
+                  name="jam_pulang_standar"
+                  type="time"
+                  value={form.jam_pulang_standar}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+            </div>
             <FormInput
               label="Toleransi Keterlambatan (menit)"
               name="toleransi_menit"
@@ -99,13 +112,14 @@ export default function JamKerja() {
               min={0}
               required
             />
-            <small className="text-muted d-block mb-3">
-              Karyawan yang masuk setelah jam{" "}
-              <strong>
-                {form.jam_masuk_standar} + {form.toleransi_menit} menit
-              </strong>{" "}
-              akan ditandai sebagai <strong>Terlambat</strong>.
-            </small>
+            <div className="alert alert-info py-2 mb-3 d-flex align-items-start gap-2" style={{ fontSize: "0.85rem" }}>
+              <i className="bi bi-info-circle mt-1" />
+              <span>
+                Karyawan yang masuk setelah jam{" "}
+                <strong>{form.jam_masuk_standar} + {form.toleransi_menit} menit</strong>{" "}
+                akan ditandai sebagai <strong>Terlambat</strong>.
+              </span>
+            </div>
             <button
               type="submit"
               className="btn btn-primary"

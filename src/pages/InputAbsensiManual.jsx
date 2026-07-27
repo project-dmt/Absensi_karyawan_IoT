@@ -70,21 +70,41 @@ export default function InputAbsensiManual() {
     }
   };
 
+  const handleReset = () => {
+    setForm({
+      employee_id: "",
+      tanggal: new Date().toISOString().split("T")[0],
+      jam_masuk: "",
+      jam_pulang: "",
+      status: "Hadir",
+      keterangan: "",
+    });
+    setErrors({});
+    setMessage({ type: "", text: "" });
+  };
+
   return (
     <div>
-      <h4 className="fw-bold mb-4">Input Absensi Manual</h4>
-      <p className="text-muted mb-4">
-        Gunakan form ini untuk input absensi karyawan yang tidak dapat melakukan
-        tap RFID.
+      <div className="page-header">
+        <h4>Input Absensi Manual</h4>
+      </div>
+
+      <p className="text-muted mb-4" style={{ fontSize: "0.9rem" }}>
+        Gunakan form ini untuk input absensi karyawan yang tidak dapat melakukan tap RFID.
       </p>
 
       {message.text && (
-        <div className={`alert alert-${message.type} py-2`} role="alert">
+        <div className={`alert alert-${message.type} d-flex align-items-center gap-2 py-2`} role="alert">
+          <i className={`bi ${message.type === "success" ? "bi-check-circle-fill" : "bi-exclamation-circle-fill"}`} />
           {message.text}
         </div>
       )}
 
-      <div className="card border-0 shadow-sm" style={{ maxWidth: "600px" }}>
+      <div className="card" style={{ maxWidth: "640px" }}>
+        <div className="card-header d-flex align-items-center gap-2">
+          <i className="bi bi-pencil-square" />
+          Form Absensi Manual
+        </div>
         <div className="card-body">
           <form onSubmit={handleSubmit}>
             <FormInput
@@ -101,7 +121,7 @@ export default function InputAbsensiManual() {
                 label: `${k.nama} (${k.nip})`,
               }))}
             />
-            <div className="row">
+            <div className="row g-3">
               <div className="col-md-6">
                 <FormInput
                   label="Tanggal"
@@ -129,7 +149,7 @@ export default function InputAbsensiManual() {
                 />
               </div>
             </div>
-            <div className="row">
+            <div className="row g-3">
               <div className="col-md-6">
                 <FormInput
                   label="Jam Masuk"
@@ -160,10 +180,10 @@ export default function InputAbsensiManual() {
               error={errors.keterangan?.[0]}
               placeholder="Alasan input manual (opsional)"
             />
-            <div className="d-flex gap-2">
+            <div className="d-flex gap-2 mt-2">
               <button
                 type="submit"
-                className="btn btn-success"
+                className="btn btn-primary"
                 disabled={submitting}
               >
                 {submitting ? (
@@ -184,19 +204,9 @@ export default function InputAbsensiManual() {
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => {
-                  setForm({
-                    employee_id: "",
-                    tanggal: new Date().toISOString().split("T")[0],
-                    jam_masuk: "",
-                    jam_pulang: "",
-                    status: "Hadir",
-                    keterangan: "",
-                  });
-                  setErrors({});
-                  setMessage({ type: "", text: "" });
-                }}
+                onClick={handleReset}
               >
+                <i className="bi bi-arrow-counterclockwise me-1" />
                 Reset
               </button>
             </div>
