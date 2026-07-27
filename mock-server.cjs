@@ -66,7 +66,7 @@ let attendance = [
 ];
 
 let tokens = {};
-let nextId = { employee: 6, division: 5, attendance: 4, user: 2 };
+let nextId = { employee: 6, division: 5, attendance: 25, user: 2 };
 
 function today() { return new Date().toISOString().split("T")[0]; }
 function yesterday() { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().split("T")[0]; }
