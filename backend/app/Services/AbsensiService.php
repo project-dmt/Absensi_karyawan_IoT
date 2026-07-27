@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\Attendance;
 use App\Models\Schedule;
 use App\Exceptions\ApiException;
+use App\Services\RealtimeEventService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -89,6 +90,13 @@ class AbsensiService
         $jamPulang = $jamSekarang->format('H:i:s');
         $absensi->update(['jam_pulang' => $jamPulang]);
 
+        RealtimeEventService::dispatch('checkout', [
+            'nama' => $karyawan->nama,
+            'nip' => $karyawan->nip,
+            'status' => 'Checkout',
+            'jam' => $jamPulang,
+        ]);
+
         return [
             'nama' => $karyawan->nama,
             'status' => 'Checkout Berhasil',
@@ -122,6 +130,13 @@ class AbsensiService
             'tanggal' => $today,
             'jam_masuk' => $jamMasuk,
             'status' => $status,
+        ]);
+
+        RealtimeEventService::dispatch('check_in', [
+            'nama' => $karyawan->nama,
+            'nip' => $karyawan->nip,
+            'status' => $status,
+            'jam' => $jamMasuk,
         ]);
 
         return [

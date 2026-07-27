@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\AbsensiController;
 use App\Http\Controllers\Api\LaporanController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\GlobalSearchController;
+use App\Http\Controllers\Api\SseController;
 
 // =====================================================
 // PUBLIC API - Endpoint untuk ESP32 (API Key Auth)
@@ -74,4 +75,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Laporan
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
     Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
+
+    // Realtime SSE Stream
+    Route::get('/absensi/stream', [SseController::class, 'stream'])
+        ->name('api.absensi.stream');
 });
