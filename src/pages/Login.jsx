@@ -28,30 +28,29 @@ export default function Login({ onLogin }) {
   };
 
   return (
-    <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
-      <div
-        className="card shadow-sm border-0"
-        style={{ width: "100%", maxWidth: "400px" }}
-      >
-        <div className="card-body p-4">
-          <div className="text-center mb-4">
-            <i className="bi bi-person-badge text-primary fs-1" />
-            <h4 className="mt-2 fw-bold">Sistem Absensi IoT</h4>
-            <small className="text-muted">Silakan login untuk melanjutkan</small>
+    <div className="login-page">
+      <div className="login-page__bg" />
+      <div className="login-card">
+        <div className="login-card__header">
+          <div className="login-card__icon">
+            <i className="bi bi-person-badge" />
           </div>
+          <h4>Sistem Absensi IoT</h4>
+          <p>Silakan login untuk melanjutkan</p>
+        </div>
 
-          {error && (
-            <div className="alert alert-danger py-2" role="alert">
-              <i className="bi bi-exclamation-circle me-1" />
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
+            <i className="bi bi-exclamation-circle-fill flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label htmlFor="email" className="form-label">
-                Email
-              </label>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-3">
+            <label htmlFor="email" className="form-label">Email</label>
+            <div className="input-group">
+              <span className="input-group-text"><i className="bi bi-envelope" /></span>
               <input
                 type="email"
                 id="email"
@@ -64,10 +63,11 @@ export default function Login({ onLogin }) {
                 autoFocus
               />
             </div>
-            <div className="mb-3">
-              <label htmlFor="password" className="form-label">
-                Password
-              </label>
+          </div>
+          <div className="mb-4">
+            <label htmlFor="password" className="form-label">Password</label>
+            <div className="input-group">
+              <span className="input-group-text"><i className="bi bi-lock" /></span>
               <input
                 type="password"
                 id="password"
@@ -79,25 +79,26 @@ export default function Login({ onLogin }) {
                 required
               />
             </div>
-            <button
-              type="submit"
-              className="btn btn-primary w-100"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <span
-                    className="spinner-border spinner-border-sm me-2"
-                    role="status"
-                  />
-                  Memproses...
-                </>
-              ) : (
-                "Login"
-              )}
-            </button>
-          </form>
-        </div>
+          </div>
+          <button
+            type="submit"
+            className="btn btn-primary w-100 py-2"
+            disabled={loading}
+            style={{ fontSize: "0.95rem" }}
+          >
+            {loading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" />
+                Memproses...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-box-arrow-in-right me-2" />
+                Login
+              </>
+            )}
+          </button>
+        </form>
       </div>
     </div>
   );
