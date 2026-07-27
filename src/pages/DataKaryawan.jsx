@@ -111,34 +111,37 @@ export default function DataKaryawan() {
 
   return (
     <div>
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-        <h4 className="fw-bold mb-0">Data Karyawan</h4>
+      <div className="page-header">
+        <h4>Data Karyawan</h4>
         <button className="btn btn-primary" onClick={openAdd}>
           <i className="bi bi-plus-lg me-1" />
           Tambah Karyawan
         </button>
       </div>
 
-      <div className="mb-3" style={{ maxWidth: "320px" }}>
-        <input
-          type="text"
-          className="form-control"
-          placeholder="Cari nama, NIP, atau UID..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="mb-3" style={{ maxWidth: "360px" }}>
+        <div className="search-input-wrapper">
+          <i className="bi bi-search search-icon" />
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Cari nama, NIP, atau UID..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
       {loading ? (
         <LoadingSpinner />
       ) : filtered.length === 0 ? (
-        <EmptyState message="Tidak ada karyawan ditemukan" />
+        <EmptyState message="Tidak ada karyawan ditemukan" icon="bi-people" />
       ) : (
-        <div className="card border-0 shadow-sm">
+        <div className="card">
           <div className="card-body p-0">
             <div className="table-responsive">
               <table className="table table-hover mb-0 align-middle">
-                <thead className="table-light">
+                <thead>
                   <tr>
                     <th>No</th>
                     <th>Nama</th>
@@ -154,29 +157,31 @@ export default function DataKaryawan() {
                   {filtered.map((item, idx) => (
                     <tr key={item.id}>
                       <td>{idx + 1}</td>
-                      <td>{item.nama}</td>
-                      <td>{item.nip}</td>
+                      <td className="fw-medium">{item.nama}</td>
+                      <td><code>{item.nip}</code></td>
                       <td>{item.jabatan || "-"}</td>
                       <td>{item.division?.nama_divisi || "-"}</td>
-                      <td>
-                        <code>{item.rfid_uid}</code>
-                      </td>
+                      <td><code>{item.rfid_uid}</code></td>
                       <td>
                         <StatusBadge status={item.status} />
                       </td>
                       <td>
-                        <button
-                          className="btn btn-sm btn-outline-primary me-1"
-                          onClick={() => openEdit(item)}
-                        >
-                          <i className="bi bi-pencil" />
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => handleDelete(item.id)}
-                        >
-                          <i className="bi bi-trash" />
-                        </button>
+                        <div className="d-flex gap-1">
+                          <button
+                            className="btn-action btn-action--edit"
+                            title="Edit"
+                            onClick={() => openEdit(item)}
+                          >
+                            <i className="bi bi-pencil" />
+                          </button>
+                          <button
+                            className="btn-action btn-action--delete"
+                            title="Hapus"
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            <i className="bi bi-trash" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -213,7 +218,10 @@ export default function DataKaryawan() {
                   Menyimpan...
                 </>
               ) : (
-                "Simpan"
+                <>
+                  <i className="bi bi-check-lg me-1" />
+                  Simpan
+                </>
               )}
             </button>
           </>
@@ -226,6 +234,7 @@ export default function DataKaryawan() {
             value={form.nama}
             onChange={handleChange}
             error={errors.nama?.[0]}
+            placeholder="Nama lengkap"
             required
           />
           <FormInput
@@ -234,6 +243,7 @@ export default function DataKaryawan() {
             value={form.nip}
             onChange={handleChange}
             error={errors.nip?.[0]}
+            placeholder="Nomor induk pegawai"
             required
           />
           <FormInput
@@ -242,6 +252,7 @@ export default function DataKaryawan() {
             value={form.jabatan}
             onChange={handleChange}
             error={errors.jabatan?.[0]}
+            placeholder="Jabatan karyawan"
           />
           <FormInput
             label="Divisi"

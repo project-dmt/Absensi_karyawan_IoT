@@ -82,34 +82,37 @@ export default function DataDivisi() {
 
   return (
     <div>
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-        <h4 className="fw-bold mb-0">Data Divisi</h4>
+      <div className="page-header">
+        <h4>Data Divisi</h4>
         <button className="btn btn-primary" onClick={openAdd}>
           <i className="bi bi-plus-lg me-1" />
           Tambah Divisi
         </button>
       </div>
 
-      <div className="mb-3" style={{ maxWidth: "320px" }}>
-        <input
-          type="text"
-          className="form-control"
-          placeholder="Cari divisi..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="mb-3" style={{ maxWidth: "360px" }}>
+        <div className="search-input-wrapper">
+          <i className="bi bi-search search-icon" />
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Cari divisi..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
       {loading ? (
         <LoadingSpinner />
       ) : filtered.length === 0 ? (
-        <EmptyState message="Tidak ada divisi ditemukan" />
+        <EmptyState message="Tidak ada divisi ditemukan" icon="bi-diagram-3" />
       ) : (
-        <div className="card border-0 shadow-sm">
+        <div className="card">
           <div className="card-body p-0">
             <div className="table-responsive">
               <table className="table table-hover mb-0 align-middle">
-                <thead className="table-light">
+                <thead>
                   <tr>
                     <th>No</th>
                     <th>Nama Divisi</th>
@@ -121,21 +124,29 @@ export default function DataDivisi() {
                   {filtered.map((item, idx) => (
                     <tr key={item.id}>
                       <td>{idx + 1}</td>
-                      <td>{item.nama_divisi}</td>
-                      <td>{item.employees_count ?? 0}</td>
+                      <td className="fw-medium">{item.nama_divisi}</td>
                       <td>
-                        <button
-                          className="btn btn-sm btn-outline-primary me-1"
-                          onClick={() => openEdit(item)}
-                        >
-                          <i className="bi bi-pencil" />
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => handleDelete(item.id)}
-                        >
-                          <i className="bi bi-trash" />
-                        </button>
+                        <span className="badge bg-primary-subtle text-primary">
+                          {item.employees_count ?? 0} orang
+                        </span>
+                      </td>
+                      <td>
+                        <div className="d-flex gap-1">
+                          <button
+                            className="btn-action btn-action--edit"
+                            title="Edit"
+                            onClick={() => openEdit(item)}
+                          >
+                            <i className="bi bi-pencil" />
+                          </button>
+                          <button
+                            className="btn-action btn-action--delete"
+                            title="Hapus"
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            <i className="bi bi-trash" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -172,7 +183,10 @@ export default function DataDivisi() {
                   Menyimpan...
                 </>
               ) : (
-                "Simpan"
+                <>
+                  <i className="bi bi-check-lg me-1" />
+                  Simpan
+                </>
               )}
             </button>
           </>
