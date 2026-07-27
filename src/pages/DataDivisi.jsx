@@ -170,8 +170,22 @@ export default function DataDivisi() {
         show={showModal}
         onClose={() => setShowModal(false)}
         title={editId ? "Edit Divisi" : "Tambah Divisi"}
-        footer={
-          <>
+      >
+        <form onSubmit={handleSubmit}>
+          <FormInput
+            label="Nama Divisi"
+            name="nama_divisi"
+            value={namaDivisi}
+            onChange={(e) => {
+              setNamaDivisi(e.target.value);
+              setErrors((prev) => ({ ...prev, nama_divisi: undefined }));
+            }}
+            error={errors.nama_divisi?.[0]}
+            placeholder="Contoh: Teknologi Informasi"
+            required
+          />
+          <hr className="my-3" />
+          <div className="d-flex justify-content-end gap-2">
             <button
               type="button"
               className="btn btn-secondary"
@@ -182,7 +196,6 @@ export default function DataDivisi() {
             <button
               type="submit"
               className="btn btn-primary"
-              form="form-divisi"
               disabled={submitting}
             >
               {submitting ? (
@@ -200,22 +213,7 @@ export default function DataDivisi() {
                 </>
               )}
             </button>
-          </>
-        }
-      >
-        <form id="form-divisi" onSubmit={handleSubmit}>
-          <FormInput
-            label="Nama Divisi"
-            name="nama_divisi"
-            value={namaDivisi}
-            onChange={(e) => {
-              setNamaDivisi(e.target.value);
-              setErrors((prev) => ({ ...prev, nama_divisi: undefined }));
-            }}
-            error={errors.nama_divisi?.[0]}
-            placeholder="Contoh: Teknologi Informasi"
-            required
-          />
+          </div>
         </form>
       </Modal>
     </div>

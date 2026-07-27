@@ -210,40 +210,8 @@ export default function DataKaryawan() {
         show={showModal}
         onClose={() => setShowModal(false)}
         title={editId ? "Edit Karyawan" : "Tambah Karyawan"}
-        footer={
-          <>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setShowModal(false)}
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              form="form-karyawan"
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <span
-                    className="spinner-border spinner-border-sm me-1"
-                    role="status"
-                  />
-                  Menyimpan...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-check-lg me-1" />
-                  Simpan
-                </>
-              )}
-            </button>
-          </>
-        }
       >
-        <form id="form-karyawan" onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit}>
           {formError && (
             <div className="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
               <i className="bi bi-exclamation-circle-fill" />
@@ -309,6 +277,36 @@ export default function DataKaryawan() {
               { value: "nonaktif", label: "Nonaktif" },
             ]}
           />
+          <hr className="my-3" />
+          <div className="d-flex justify-content-end gap-2">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setShowModal(false)}
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <span
+                    className="spinner-border spinner-border-sm me-1"
+                    role="status"
+                  />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-check-lg me-1" />
+                  Simpan
+                </>
+              )}
+            </button>
+          </div>
         </form>
       </Modal>
     </div>
