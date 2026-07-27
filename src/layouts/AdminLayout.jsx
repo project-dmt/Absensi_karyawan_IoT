@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 const NAV_ITEMS = [
@@ -14,84 +14,90 @@ export default function AdminLayout({ user, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.body.style.overflow = sidebarOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [sidebarOpen]);
+
   const handleLogout = async () => {
     await onLogout();
     navigate("/login");
   };
 
   return (
-    <div className="d-flex vh-100 overflow-hidden">
+    <div className="app-layout">
       {sidebarOpen && (
-        <div
-          className="position-fixed top-0 start-0 w-100 h-100 d-md-none"
-          style={{ zIndex: 1040, backgroundColor: "rgba(0,0,0,0.4)" }}
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <aside
-        className={`d-flex flex-column flex-shrink-0 bg-light border-end position-fixed position-md-relative h-100 ${
-          sidebarOpen ? "d-block" : "d-none"
-        } d-md-flex`}
-        style={{
-          width: "240px",
-          zIndex: 1050,
-          transition: "transform 0.2s ease",
-        }}
-      >
-        <div className="p-3 border-bottom fw-bold fs-6 text-primary">
-          <i className="bi bi-person-badge me-2" />
-          Absensi IoT
+      <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`}>
+        <div className="sidebar__brand">
+          <div className="sidebar__brand-icon">
+            <i className="bi bi-person-badge" />
+          </div>
+          <div>
+            <div className="sidebar__brand-title">Absensi IoT</div>
+            <div className="sidebar__brand-sub">RFID System</div>
+          </div>
         </div>
-        <nav className="flex-grow-1 p-2 overflow-auto">
+
+        <nav className="sidebar__nav">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === "/"}
               className={({ isActive }) =>
-                `d-flex align-items-center gap-2 px-3 py-2 rounded text-decoration-none mb-1 ${
-                  isActive
-                    ? "bg-primary text-white"
-                    : "text-dark hover-bg-light"
-                }`
+                `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
               }
               onClick={() => setSidebarOpen(false)}
             >
-              <i className={`bi ${item.icon}`} />
+              <i className={`bi ${item.icon} sidebar__link-icon`} />
               <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
+
+        <div className="sidebar__footer">
+          <small className="text-muted">v1.0.0</small>
+        </div>
       </aside>
 
-      <div className="flex-grow-1 d-flex flex-column overflow-hidden">
-        <header
-          className="d-flex align-items-center justify-content-between px-3 bg-primary text-white flex-shrink-0"
-          style={{ height: "56px" }}
-        >
-          <div className="d-flex align-items-center gap-2">
+      <div className="app-main">
+        <header className="topbar">
+          <div className="d-flex align-items-center gap-3">
             <button
-              className="btn btn-sm btn-outline-light d-md-none"
+              className="btn btn-sm btn-icon topbar__menu-btn"
               onClick={() => setSidebarOpen(true)}
             >
-              <i className="bi bi-list fs-5" />
+              <i className="bi bi-list fs-4" />
             </button>
-            <span className="fw-bold d-none d-md-inline">
+            <h6 className="topbar__title mb-0 d-none d-md-block">
               Sistem Absensi IoT
-            </span>
+            </h6>
           </div>
+
           <div className="dropdown">
             <button
-              className="btn btn-sm btn-outline-light dropdown-toggle"
+              className="topbar__user-btn"
               data-bs-toggle="dropdown"
             >
-              <i className="bi bi-person-circle me-1" />
-              {user?.nama || "Admin"}
+              <div className="topbar__avatar">
+                <i className="bi bi-person-fill" />
+              </div>
+              <span className="d-none d-sm-inline">{user?.nama || "Admin"}</span>
+              <i className="bi bi-chevron-down ms-1" style={{ fontSize: "0.7rem" }} />
             </button>
-            <ul className="dropdown-menu dropdown-menu-end">
+            <ul className="dropdown-menu dropdown-menu-end topbar__dropdown">
               <li>
-                <button className="dropdown-item" onClick={handleLogout}>
+                <div className="dropdown-item-text">
+                  <div className="fw-semibold">{user?.nama}</div>
+                  <small className="text-muted">{user?.email}</small>
+                </div>
+              </li>
+              <li><hr className="dropdown-divider" /></li>
+              <li>
+                <button className="dropdown-item text-danger" onClick={handleLogout}>
                   <i className="bi bi-box-arrow-right me-2" />
                   Logout
                 </button>
@@ -100,7 +106,7 @@ export default function AdminLayout({ user, onLogout }) {
           </div>
         </header>
 
-        <main className="flex-grow-1 overflow-auto p-4 bg-light">
+        <main className="app-content">
           <Outlet />
         </main>
       </div>
