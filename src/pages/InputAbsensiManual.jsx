@@ -100,7 +100,7 @@ export default function InputAbsensiManual() {
         </div>
       )}
 
-      <div className="card" style={{ maxWidth: "640px" }}>
+      <div className="card">
         <div className="card-header d-flex align-items-center gap-2">
           <i className="bi bi-pencil-square" />
           Form Absensi Manual

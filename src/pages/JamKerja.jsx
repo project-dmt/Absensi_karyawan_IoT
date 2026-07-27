@@ -74,7 +74,7 @@ export default function JamKerja() {
         </div>
       )}
 
-      <div className="card" style={{ maxWidth: "520px" }}>
+      <div className="card">
         <div className="card-header d-flex align-items-center gap-2">
           <i className="bi bi-clock" />
           Pengaturan Jam Kerja
