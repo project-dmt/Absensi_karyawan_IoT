@@ -1,0 +1,196 @@
+import { useState, useEffect, useCallback } from "react";
+import api from "../api/axios";
+import { useDebounce } from "../hooks/useDebounce";
+import Modal from "../components/Modal";
+import FormInput from "../components/FormInput";
+import EmptyState from "../components/EmptyState";
+import LoadingSpinner from "../components/LoadingSpinner";
+
+export default function DataDivisi() {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
+  const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [namaDivisi, setNamaDivisi] = useState("");
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/divisi");
+      setData(res.data.data);
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const filtered = data.filter((item) =>
+    item.nama_divisi.toLowerCase().includes(debouncedSearch.toLowerCase())
+  );
+
+  const openAdd = () => {
+    setEditId(null);
+    setNamaDivisi("");
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const openEdit = (item) => {
+    setEditId(item.id);
+    setNamaDivisi(item.nama_divisi);
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrors({});
+    try {
+      const payload = { nama_divisi: namaDivisi };
+      if (editId) {
+        await api.put(`/divisi/${editId}`, payload);
+      } else {
+        await api.post("/divisi", payload);
+      }
+      setShowModal(false);
+      fetchData();
+    } catch (err) {
+      if (err.response?.status === 422) {
+        setErrors(err.response.data.errors || {});
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
+    try {
+      await api.delete(`/divisi/${id}`);
+      fetchData();
+    } catch {}
+  };
+
+  return (
+    <div>
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <h4 className="fw-bold mb-0">Data Divisi</h4>
+        <button className="btn btn-primary" onClick={openAdd}>
+          <i className="bi bi-plus-lg me-1" />
+          Tambah Divisi
+        </button>
+      </div>
+
+      <div className="mb-3" style={{ maxWidth: "320px" }}>
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Cari divisi..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {loading ? (
+        <LoadingSpinner />
+      ) : filtered.length === 0 ? (
+        <EmptyState message="Tidak ada divisi ditemukan" />
+      ) : (
+        <div className="card border-0 shadow-sm">
+          <div className="card-body p-0">
+            <div className="table-responsive">
+              <table className="table table-hover mb-0 align-middle">
+                <thead className="table-light">
+                  <tr>
+                    <th>No</th>
+                    <th>Nama Divisi</th>
+                    <th>Jumlah Karyawan</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((item, idx) => (
+                    <tr key={item.id}>
+                      <td>{idx + 1}</td>
+                      <td>{item.nama_divisi}</td>
+                      <td>{item.employees_count ?? 0}</td>
+                      <td>
+                        <button
+                          className="btn btn-sm btn-outline-primary me-1"
+                          onClick={() => openEdit(item)}
+                        >
+                          <i className="bi bi-pencil" />
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          <i className="bi bi-trash" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Modal
+        show={showModal}
+        onClose={() => setShowModal(false)}
+        title={editId ? "Edit Divisi" : "Tambah Divisi"}
+        footer={
+          <>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setShowModal(false)}
+            >
+              Batal
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <span
+                    className="spinner-border spinner-border-sm me-1"
+                    role="status"
+                  />
+                  Menyimpan...
+                </>
+              ) : (
+                "Simpan"
+              )}
+            </button>
+          </>
+        }
+      >
+        <FormInput
+          label="Nama Divisi"
+          name="nama_divisi"
+          value={namaDivisi}
+          onChange={(e) => {
+            setNamaDivisi(e.target.value);
+            setErrors((prev) => ({ ...prev, nama_divisi: undefined }));
+          }}
+          error={errors.nama_divisi?.[0]}
+          placeholder="Contoh: Teknologi Informasi"
+          required
+        />
+      </Modal>
+    </div>
+  );
+}
