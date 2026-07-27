@@ -182,7 +182,33 @@ app.get("/api/divisi", authMiddleware, (req, res) => {
 app.get("/api/divisi/:id", authMiddleware, (req, res) => {
   const div = divisions.find((d) => d.id === parseInt(req.params.id));
   if (!div) return res.status(404).json({ success: false, message: "Divisi tidak ditemukan" });
-  res.json({ success: true, data: { ...div, employees: employees.filter((e) => e.divisi_id === div.id) } });
+  const emps = employees
+    .filter((e) => e.divisi_id === div.id)
+    .map((e) => {
+      const empAttend = attendance.filter((a) => a.employee_id === e.id);
+      return {
+        ...e,
+        summary: {
+          total: empAttend.length,
+          hadir: empAttend.filter((a) => a.status === "Hadir").length,
+          terlambat: empAttend.filter((a) => a.status === "Terlambat").length,
+          alpha: empAttend.filter((a) => a.status === "Alpha").length,
+          izin: empAttend.filter((a) => a.status === "Izin").length,
+        },
+      };
+    });
+  const totalAttend = attendance.filter((a) => employees.find((e) => e.id === a.employee_id && e.divisi_id === div.id));
+  const divSummary = {
+    total_karyawan: emps.length,
+    aktif: emps.filter((e) => e.status === "aktif").length,
+    nonaktif: emps.filter((e) => e.status === "nonaktif").length,
+    total_absensi: totalAttend.length,
+    hadir: totalAttend.filter((a) => a.status === "Hadir").length,
+    terlambat: totalAttend.filter((a) => a.status === "Terlambat").length,
+    alpha: totalAttend.filter((a) => a.status === "Alpha").length,
+    izin: totalAttend.filter((a) => a.status === "Izin").length,
+  };
+  res.json({ success: true, data: { division: div, employees: emps, summary: divSummary } });
 });
 
 app.post("/api/divisi", authMiddleware, (req, res) => {

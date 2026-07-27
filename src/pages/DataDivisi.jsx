@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { useDebounce } from "../hooks/useDebounce";
 import Modal from "../components/Modal";
@@ -7,6 +8,7 @@ import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function DataDivisi() {
+  const navigate = useNavigate();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -132,6 +134,13 @@ export default function DataDivisi() {
                       </td>
                       <td>
                         <div className="d-flex gap-1">
+                          <button
+                            className="btn-action btn-action--edit"
+                            title="Lihat Detail"
+                            onClick={() => navigate(`/data-divisi/${item.id}`)}
+                          >
+                            <i className="bi bi-eye" />
+                          </button>
                           <button
                             className="btn-action btn-action--edit"
                             title="Edit"

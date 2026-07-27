@@ -9,6 +9,7 @@ import JamKerja from "./pages/JamKerja";
 import InputAbsensiManual from "./pages/InputAbsensiManual";
 import LaporanAbsensi from "./pages/LaporanAbsensi";
 import DetailKaryawan from "./pages/DetailKaryawan";
+import DetailDivisi from "./pages/DetailDivisi";
 
 function ProtectedRoute({ user, loading, children }) {
   if (loading) {
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="/data-karyawan" element={<DataKaryawan />} />
           <Route path="/data-karyawan/:id" element={<DetailKaryawan />} />
           <Route path="/data-divisi" element={<DataDivisi />} />
+          <Route path="/data-divisi/:id" element={<DetailDivisi />} />
           <Route path="/jam-kerja" element={<JamKerja />} />
           <Route path="/input-absensi-manual" element={<InputAbsensiManual />} />
           <Route path="/laporan-absensi" element={<LaporanAbsensi />} />
