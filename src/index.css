@@ -484,6 +484,11 @@ body {
 }
 
 /* ===== MODAL ===== */
+.modal.fade.show.d-block {
+  background: rgba(15,23,42,0.5);
+  backdrop-filter: blur(4px);
+}
+
 .modal-content {
   border: none;
   border-radius: var(--radius) !important;

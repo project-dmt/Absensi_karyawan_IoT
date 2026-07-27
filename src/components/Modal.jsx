@@ -40,7 +40,6 @@ export default function Modal({ show, onClose, title, children, footer }) {
           {footer && <div className="modal-footer">{footer}</div>}
         </div>
       </div>
-      <div className="modal-backdrop fade show" />
     </div>
   );
 }
