@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 const NAV_ITEMS = [
@@ -11,13 +10,7 @@ const NAV_ITEMS = [
 ];
 
 export default function AdminLayout({ user, onLogout }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    document.body.style.overflow = sidebarOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [sidebarOpen]);
 
   const handleLogout = async () => {
     await onLogout();
@@ -26,11 +19,7 @@ export default function AdminLayout({ user, onLogout }) {
 
   return (
     <div className="app-layout">
-      {sidebarOpen && (
-        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""}`}>
+      <aside className="sidebar">
         <div className="sidebar__brand">
           <div className="sidebar__brand-icon">
             <i className="bi bi-person-badge" />
@@ -50,7 +39,6 @@ export default function AdminLayout({ user, onLogout }) {
               className={({ isActive }) =>
                 `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
               }
-              onClick={() => setSidebarOpen(false)}
             >
               <i className={`bi ${item.icon} sidebar__link-icon`} />
               <span>{item.label}</span>
@@ -66,13 +54,7 @@ export default function AdminLayout({ user, onLogout }) {
       <div className="app-main">
         <header className="topbar">
           <div className="d-flex align-items-center gap-3">
-            <button
-              className="btn btn-sm btn-icon topbar__menu-btn"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <i className="bi bi-list fs-4" />
-            </button>
-            <h6 className="topbar__title mb-0 d-none d-md-block">
+            <h6 className="topbar__title mb-0">
               Sistem Absensi IoT
             </h6>
           </div>
