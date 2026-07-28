@@ -58,6 +58,12 @@ export default function InputAbsensiManual() {
       }));
     } catch (err) {
       if (err.response?.status === 422) {
+        if (err.response.data.message) {
+          setMessage({
+            type: "danger",
+            text: err.response.data.message,
+          });
+        }
         setErrors(err.response.data.errors || {});
       } else {
         setMessage({
