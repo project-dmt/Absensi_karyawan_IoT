@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import axios from "axios";
 import api from "../api/axios";
 import StatusBadge from "../components/StatusBadge";
 import EmptyState from "../components/EmptyState";
@@ -68,17 +69,18 @@ export default function LaporanAbsensi() {
 
   const handleExport = async (format) => {
     try {
-      const params = {
-        dari: filter.dari,
-        sampai: filter.sampai,
-        format,
-      };
-      if (filter.divisi_id) params.divisi_id = filter.divisi_id;
-      const res = await api.get("/laporan/export", {
-        params,
-        responseType: "blob",
-      });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const params = new URLSearchParams({ dari: filter.dari, sampai: filter.sampai, format });
+      if (filter.divisi_id) params.append("divisi_id", filter.divisi_id);
+      const token = localStorage.getItem("token");
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/laporan/export`,
+        {
+          params,
+          responseType: "blob",
+          headers: { Authorization: token ? `Bearer ${token}` : "" },
+        }
+      );
+      const url = window.URL.createObjectURL(res.data);
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute(

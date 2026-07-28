@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const ExcelJS = require("exceljs");
 const { EventEmitter } = require("events");
 
 const app = express();
@@ -331,7 +332,7 @@ app.delete("/api/absensi/:id", authMiddleware, (req, res) => {
   res.json({ success: true, message: "Absensi berhasil dihapus" });
 });
 
-app.get("/api/laporan/export", authMiddleware, (req, res) => {
+app.get("/api/laporan/export", authMiddleware, async (req, res) => {
   const { dari, sampai, divisi_id, format } = req.query;
   let data = [...attendance];
   if (dari) data = data.filter((a) => a.tanggal >= dari);
@@ -340,28 +341,67 @@ app.get("/api/laporan/export", authMiddleware, (req, res) => {
   data = attachEmployee(data);
   data.sort((a, b) => b.tanggal.localeCompare(a.tanggal) || a.employee_id - b.employee_id);
 
-  const filename = `laporan_absensi_${dari || ""}_sd_${sampai || ""}.csv`;
-  const bom = "\uFEFF";
-  const header = "No,Tanggal,NIP,Nama,Divisi,Jam Masuk,Jam Pulang,Status,Keterangan";
-  const rows = data.map((a, i) => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Laporan Absensi");
+
+  sheet.columns = [
+    { header: "No", key: "no", width: 6 },
+    { header: "Tanggal", key: "tanggal", width: 14 },
+    { header: "NIP", key: "nip", width: 16 },
+    { header: "Nama", key: "nama", width: 24 },
+    { header: "Divisi", key: "divisi", width: 20 },
+    { header: "Jam Masuk", key: "jam_masuk", width: 14 },
+    { header: "Jam Pulang", key: "jam_pulang", width: 14 },
+    { header: "Status", key: "status", width: 14 },
+    { header: "Keterangan", key: "keterangan", width: 28 },
+  ];
+
+  data.forEach((a, i) => {
     const emp = a.employee || {};
     const div = emp.division || {};
-    return [
-      i + 1,
-      a.tanggal,
-      emp.nip || "",
-      emp.nama || "",
-      div.nama_divisi || "",
-      a.jam_masuk || "-",
-      a.jam_pulang || "-",
-      a.status,
-      a.keterangan || "",
-    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+    sheet.addRow({
+      no: i + 1,
+      tanggal: a.tanggal,
+      nip: emp.nip || "",
+      nama: emp.nama || "",
+      divisi: div.nama_divisi || "",
+      jam_masuk: a.jam_masuk || "-",
+      jam_pulang: a.jam_pulang || "-",
+      status: a.status,
+      keterangan: a.keterangan || "",
+    });
   });
 
-  res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-  res.send(bom + header + "\n" + rows.join("\n"));
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1B5E20" } };
+  headerRow.alignment = { horizontal: "center" };
+
+  const isXlsx = format !== "csv";
+  const ext = isXlsx ? "xlsx" : "csv";
+  const filename = `laporan_absensi_${dari || ""}_sd_${sampai || ""}.${ext}`;
+
+  if (isXlsx) {
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    await workbook.xlsx.write(res);
+  } else {
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    const csvRows = [];
+    const columns = sheet.columns.map((c) => c.header);
+    csvRows.push(columns.join(","));
+    data.forEach((a, i) => {
+      const emp = a.employee || {};
+      const div = emp.division || {};
+      csvRows.push([
+        i + 1, a.tanggal, emp.nip || "", emp.nama || "", div.nama_divisi || "",
+        a.jam_masuk || "-", a.jam_pulang || "-", a.status, a.keterangan || "",
+      ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
+    });
+    res.send("\uFEFF" + csvRows.join("\n"));
+  }
+  res.end();
 });
 
 // === DASHBOARD (bonus - not in backend) ===
