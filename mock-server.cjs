@@ -263,12 +263,27 @@ app.post("/api/absensi/manual", authMiddleware, (req, res) => {
   if (!tanggal) errors.tanggal = ["Tanggal wajib diisi"];
   if (!status) errors.status = ["Status wajib dipilih"];
   if (Object.keys(errors).length) return res.status(422).json({ success: false, errors });
-  if (attendance.find((a) => a.employee_id === employee_id && a.tanggal === tanggal)) {
-    return res.status(400).json({ success: false, message: "Absensi untuk karyawan ini tanggal ini sudah ada" });
+
+  const existingIdx = attendance.findIndex((a) => a.employee_id === parseInt(employee_id) && a.tanggal === tanggal);
+  if (existingIdx !== -1) {
+    attendance[existingIdx] = {
+      ...attendance[existingIdx],
+      jam_masuk: jam_masuk || attendance[existingIdx].jam_masuk,
+      jam_pulang: jam_pulang || attendance[existingIdx].jam_pulang,
+      status,
+      keterangan: keterangan || attendance[existingIdx].keterangan,
+      input_by: req.user.id,
+      updated_at: today(),
+    };
+    const emp = employees.find((e) => e.id === parseInt(employee_id));
+    const enriched = { ...attendance[existingIdx], employee: emp ? { ...emp, division: divisions.find((d) => d.id === emp.divisi_id) || null } : null };
+    sseEmitter.emit("absensi", { type: "check_in", data: enriched });
+    return res.json({ success: true, message: "Absensi manual berhasil diupdate", data: attendance[existingIdx] });
   }
-  const abs = { id: nextId.attendance++, employee_id, tanggal, jam_masuk: jam_masuk || null, jam_pulang: jam_pulang || null, status, keterangan: keterangan || null, input_by: req.user.id, created_at: today(), updated_at: today() };
+
+  const abs = { id: nextId.attendance++, employee_id: parseInt(employee_id), tanggal, jam_masuk: jam_masuk || null, jam_pulang: jam_pulang || null, status, keterangan: keterangan || null, input_by: req.user.id, created_at: today(), updated_at: today() };
   attendance.push(abs);
-  const emp = employees.find((e) => e.id === employee_id);
+  const emp = employees.find((e) => e.id === parseInt(employee_id));
   const enriched = { ...abs, employee: emp ? { ...emp, division: divisions.find((d) => d.id === emp.divisi_id) || null } : null };
   sseEmitter.emit("absensi", { type: "check_in", data: enriched });
   res.status(201).json({ success: true, message: "Absensi manual berhasil ditambahkan", data: abs });
