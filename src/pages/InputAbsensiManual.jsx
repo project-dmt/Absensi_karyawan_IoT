@@ -2,6 +2,22 @@ import { useState, useEffect } from "react";
 import api from "../api/axios";
 import FormInput from "../components/FormInput";
 
+const STATUS_OPTIONS = [
+  { value: "Hadir", label: "Hadir" },
+  { value: "Terlambat", label: "Terlambat" },
+  { value: "Alpha", label: "Alpha" },
+  { value: "Izin", label: "Izin" },
+  { value: "Sakit", label: "Sakit" },
+];
+
+const STATUS_INFO = {
+  Hadir: { showJamMasuk: true, showJamPulang: true, showKeterangan: true, keteranganPlaceholder: "Keterangan (opsional)" },
+  Terlambat: { showJamMasuk: true, showJamPulang: false, showKeterangan: true, keteranganPlaceholder: "Alasan keterlambatan (opsional)" },
+  Alpha: { showJamMasuk: false, showJamPulang: false, showKeterangan: true, keteranganPlaceholder: "Keterangan ketidakhadiran (opsional)" },
+  Izin: { showJamMasuk: false, showJamPulang: false, showKeterangan: true, keteranganPlaceholder: "Alasan izin (wajib diisi)" },
+  Sakit: { showJamMasuk: false, showJamPulang: false, showKeterangan: true, keteranganPlaceholder: "Keterangan sakit (opsional)" },
+};
+
 export default function InputAbsensiManual() {
   const [karyawan, setKaryawan] = useState([]);
   const [form, setForm] = useState({
@@ -16,6 +32,8 @@ export default function InputAbsensiManual() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
+  const statusInfo = STATUS_INFO[form.status] || STATUS_INFO.Hadir;
+
   useEffect(() => {
     api
       .get("/karyawan")
@@ -24,8 +42,17 @@ export default function InputAbsensiManual() {
   }, []);
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    setErrors((prev) => ({ ...prev, [e.target.name]: undefined }));
+    const { name, value } = e.target;
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "status") {
+        const info = STATUS_INFO[value];
+        if (!info.showJamMasuk) next.jam_masuk = "";
+        if (!info.showJamPulang) next.jam_pulang = "";
+      }
+      return next;
+    });
+    setErrors((prev) => ({ ...prev, [name]: undefined }));
     setMessage({ type: "", text: "" });
   };
 
@@ -40,8 +67,8 @@ export default function InputAbsensiManual() {
         tanggal: form.tanggal,
         status: form.status,
       };
-      if (form.jam_masuk) payload.jam_masuk = form.jam_masuk + ":00";
-      if (form.jam_pulang) payload.jam_pulang = form.jam_pulang + ":00";
+      if (statusInfo.showJamMasuk && form.jam_masuk) payload.jam_masuk = form.jam_masuk + ":00";
+      if (statusInfo.showJamPulang && form.jam_pulang) payload.jam_pulang = form.jam_pulang + ":00";
       if (form.keterangan) payload.keterangan = form.keterangan;
 
       await api.post("/absensi/manual", payload);
@@ -146,37 +173,38 @@ export default function InputAbsensiManual() {
                   as="select"
                   value={form.status}
                   onChange={handleChange}
-                  options={[
-                    { value: "Hadir", label: "Hadir" },
-                    { value: "Terlambat", label: "Terlambat" },
-                    { value: "Alpha", label: "Alpha" },
-                    { value: "Izin", label: "Izin" },
-                  ]}
+                  options={STATUS_OPTIONS}
                 />
               </div>
             </div>
-            <div className="row g-3">
-              <div className="col-md-6">
-                <FormInput
-                  label="Jam Masuk"
-                  name="jam_masuk"
-                  type="time"
-                  value={form.jam_masuk}
-                  onChange={handleChange}
-                  error={errors.jam_masuk?.[0]}
-                />
+            {(statusInfo.showJamMasuk || statusInfo.showJamPulang) && (
+              <div className="row g-3">
+                {statusInfo.showJamMasuk && (
+                  <div className={statusInfo.showJamPulang ? "col-md-6" : "col-md-6"}>
+                    <FormInput
+                      label="Jam Masuk"
+                      name="jam_masuk"
+                      type="time"
+                      value={form.jam_masuk}
+                      onChange={handleChange}
+                      error={errors.jam_masuk?.[0]}
+                    />
+                  </div>
+                )}
+                {statusInfo.showJamPulang && (
+                  <div className="col-md-6">
+                    <FormInput
+                      label="Jam Pulang"
+                      name="jam_pulang"
+                      type="time"
+                      value={form.jam_pulang}
+                      onChange={handleChange}
+                      error={errors.jam_pulang?.[0]}
+                    />
+                  </div>
+                )}
               </div>
-              <div className="col-md-6">
-                <FormInput
-                  label="Jam Pulang"
-                  name="jam_pulang"
-                  type="time"
-                  value={form.jam_pulang}
-                  onChange={handleChange}
-                  error={errors.jam_pulang?.[0]}
-                />
-              </div>
-            </div>
+            )}
             <FormInput
               label="Keterangan"
               name="keterangan"
@@ -184,7 +212,7 @@ export default function InputAbsensiManual() {
               value={form.keterangan}
               onChange={handleChange}
               error={errors.keterangan?.[0]}
-              placeholder="Alasan input manual (opsional)"
+              placeholder={statusInfo.keteranganPlaceholder}
             />
             <div className="d-flex gap-2 mt-2">
               <button

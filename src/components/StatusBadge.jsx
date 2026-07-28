@@ -3,6 +3,7 @@ const VARIANTS = {
   Terlambat: "bg-warning-subtle text-warning",
   Alpha: "bg-danger-subtle text-danger",
   Izin: "bg-info-subtle text-info",
+  Sakit: "bg-secondary-subtle text-secondary",
   "Sudah Absen": "bg-secondary-subtle text-secondary",
   aktif: "bg-success-subtle text-success",
   nonaktif: "bg-secondary-subtle text-secondary",
