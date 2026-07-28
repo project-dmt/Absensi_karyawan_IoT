@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Attendance;
 use App\Http\Requests\LaporanRequest;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class LaporanController extends Controller
 {
@@ -50,6 +52,7 @@ class LaporanController extends Controller
             'divisi_id' => 'nullable|exists:divisions,id',
             'status' => 'nullable|in:' . implode(',', config('absensi.statuses')),
             'search' => 'nullable|string|max:100',
+            'format' => 'nullable|in:xlsx,csv',
         ]);
 
         $query = Attendance::with('employee.division')
@@ -77,6 +80,96 @@ class LaporanController extends Controller
             ->orderBy('employee_id')
             ->get();
 
+        $format = $request->get('format', 'xlsx');
+
+        if ($format === 'csv') {
+            return $this->exportCsv($records, $request);
+        }
+
+        return $this->exportXlsx($records, $request);
+    }
+
+    private function exportXlsx($records, $request)
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $headers = ['No', 'Tanggal', 'NIP', 'Nama', 'Divisi', 'Jam Masuk', 'Jam Pulang', 'Status', 'Keterangan'];
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => '2563EB']],
+            'alignment' => ['horizontal' => 'center', 'vertical' => 'center'],
+            'borders' => [
+                'allBorders' => ['borderStyle' => 'thin', 'color' => ['rgb' => 'D1D5DB']],
+            ],
+        ];
+
+        foreach ($headers as $col => $header) {
+            $cellRef = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . '1';
+            $cell = $sheet->getCell($cellRef)->setValue($header);
+            $cell->getStyle()->applyFromArray($headerStyle);
+        }
+
+        $no = 1;
+        $row = 2;
+        foreach ($records as $record) {
+            $tanggal = $record->tanggal instanceof \Carbon\Carbon
+                ? $record->tanggal->format('d/m/Y')
+                : $record->tanggal;
+
+            $data = [
+                $no++,
+                $tanggal,
+                $record->employee->nip ?? '',
+                $record->employee->nama ?? '',
+                $record->employee->division->nama_divisi ?? '',
+                $record->jam_masuk ?? '-',
+                $record->jam_pulang ?? '-',
+                $record->status,
+                $record->keterangan ?? '',
+            ];
+
+            foreach ($data as $col => $value) {
+                $cellRef = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . $row;
+                $sheet->getCell($cellRef)->setValue($value);
+            }
+
+            $statusColor = match ($record->status) {
+                'Hadir' => 'D1FAE5',
+                'Terlambat' => 'FEF3C7',
+                'Izin' => 'DBEAFE',
+                'Alpha' => 'FEE2E2',
+                default => 'F9FAFB',
+            };
+
+            $statusCellRef = 'H' . $row;
+            $sheet->getCell($statusCellRef)->getStyle()->applyFromArray([
+                'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => $statusColor]],
+            ]);
+
+            $row++;
+        }
+
+        foreach (range('A', 'I') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $filename = 'laporan_absensi_' . $request->dari . '_sd_' . $request->sampai . '.xlsx';
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->setIncludeCharts(false);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+    private function exportCsv($records, $request)
+    {
         $filename = 'laporan_absensi_' . $request->dari . '_sd_' . $request->sampai . '.csv';
 
         $headers = [

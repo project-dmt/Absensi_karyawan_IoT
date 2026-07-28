@@ -68,7 +68,7 @@ class LaporanTest extends TestCase
         $this->assertGreaterThan(0, $response->json('data.total'));
     }
 
-    public function test_export_returns_csv(): void
+    public function test_export_returns_xlsx(): void
     {
         $user = User::factory()->create();
         $divisi = Division::factory()->create();
@@ -89,6 +89,33 @@ class LaporanTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)->getJson("/api/laporan/export?dari={$today}&sampai={$today}");
+
+        $response->assertOk()
+            ->assertHeader('Content-Disposition')
+            ->assertHeader('Content-Type');
+    }
+
+    public function test_export_returns_csv(): void
+    {
+        $user = User::factory()->create();
+        $divisi = Division::factory()->create();
+        $employee = Employee::factory()->create(['divisi_id' => $divisi->id]);
+
+        $today = Carbon::today(config('app.timezone'))->toDateString();
+
+        DB::table('attendance')->insert([
+            'employee_id' => $employee->id,
+            'tanggal' => $today,
+            'jam_masuk' => '08:00:00',
+            'jam_pulang' => null,
+            'status' => 'Hadir',
+            'keterangan' => null,
+            'input_by' => $user->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($user)->getJson("/api/laporan/export?dari={$today}&sampai={$today}&format=csv");
 
         $response->assertOk()
             ->assertHeader('Content-Type', 'text/csv; charset=utf-8')
