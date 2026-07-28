@@ -134,12 +134,17 @@ export default function InputAbsensiManual() {
     setUpdateRecord(null);
     setUpdateMessage({ type: "", text: "" });
     try {
-      const res = await api.get("/laporan", { params: { dari: updateSearch.tanggal, sampai: updateSearch.tanggal } });
-      const found = res.data.data.find((a) => a.employee_id === parseInt(updateSearch.employee_id));
-      if (!found) {
+      const res = await api.get("/absensi", {
+        params: {
+          employee_id: updateSearch.employee_id,
+          tanggal: updateSearch.tanggal,
+        },
+      });
+      if (!res.data.data.length) {
         setUpdateMessage({ type: "danger", text: "Tidak ditemukan data absensi untuk karyawan ini pada tanggal tersebut" });
         return;
       }
+      const found = res.data.data[0];
       setUpdateRecord(found);
       setUpdateForm({
         status: found.status,

@@ -286,6 +286,17 @@ app.get("/api/laporan", authMiddleware, (req, res) => {
   res.json({ success: true, data });
 });
 
+// === ABSENSI SEARCH ===
+app.get("/api/absensi", authMiddleware, (req, res) => {
+  const { employee_id, tanggal } = req.query;
+  let data = [...attendance];
+  if (employee_id) data = data.filter((a) => a.employee_id === parseInt(employee_id));
+  if (tanggal) data = data.filter((a) => a.tanggal === tanggal);
+  data = attachEmployee(data).map((a) => ({ ...a, employee: a.employee ? { ...a.employee, division: divisions.find((d) => d.id === a.employee.divisi_id) || null } : null }));
+  data.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+  res.json({ success: true, data });
+});
+
 // === ABSENSI UPDATE ===
 app.get("/api/absensi/:id", authMiddleware, (req, res) => {
   const abs = attendance.find((a) => a.id === parseInt(req.params.id));
