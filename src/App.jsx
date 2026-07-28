@@ -46,9 +46,7 @@ export default function App() {
           }
         >
           <Route path="/" element={<Dashboard />} />
-          <Route path="/dashboard/terlambat" element={<DetailDashboard />} />
-          <Route path="/dashboard/hadir" element={<DetailDashboard />} />
-          <Route path="/dashboard/tidak-hadir" element={<DetailDashboard />} />
+          <Route path="/dashboard/:type" element={<DetailDashboard />} />
           <Route path="/data-karyawan" element={<DataKaryawan />} />
           <Route path="/data-karyawan/:id" element={<DetailKaryawan />} />
           <Route path="/data-divisi" element={<DataDivisi />} />
