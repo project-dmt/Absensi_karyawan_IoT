@@ -83,7 +83,7 @@ export default function LaporanAbsensi() {
       link.href = url;
       link.setAttribute(
         "download",
-        `laporan_absensi_${filter.dari}_${filter.sampai}.${format === "excel" ? "xlsx" : format}`
+        `laporan_absensi_${filter.dari}_sd_${filter.sampai}.${format === "xlsx" ? "xlsx" : "csv"}`
       );
       document.body.appendChild(link);
       link.click();
@@ -220,17 +220,17 @@ export default function LaporanAbsensi() {
         <div className="d-flex gap-2 mb-3">
           <button
             className="btn btn-outline-success btn-sm"
-            onClick={() => handleExport("excel")}
+            onClick={() => handleExport("xlsx")}
           >
             <i className="bi bi-file-earmark-excel me-1" />
             Export Excel
           </button>
           <button
-            className="btn btn-outline-danger btn-sm"
-            onClick={() => handleExport("pdf")}
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => handleExport("csv")}
           >
-            <i className="bi bi-file-earmark-pdf me-1" />
-            Export PDF
+            <i className="bi bi-filetype-csv me-1" />
+            Export CSV
           </button>
         </div>
       )}

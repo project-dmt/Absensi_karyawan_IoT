@@ -332,7 +332,36 @@ app.delete("/api/absensi/:id", authMiddleware, (req, res) => {
 });
 
 app.get("/api/laporan/export", authMiddleware, (req, res) => {
-  res.json({ success: true, message: "Export belum tersedia di mock server" });
+  const { dari, sampai, divisi_id, format } = req.query;
+  let data = [...attendance];
+  if (dari) data = data.filter((a) => a.tanggal >= dari);
+  if (sampai) data = data.filter((a) => a.tanggal <= sampai);
+  if (divisi_id) data = data.filter((a) => { const emp = employees.find((e) => e.id === a.employee_id); return emp && emp.divisi_id === parseInt(divisi_id); });
+  data = attachEmployee(data);
+  data.sort((a, b) => b.tanggal.localeCompare(a.tanggal) || a.employee_id - b.employee_id);
+
+  const filename = `laporan_absensi_${dari || ""}_sd_${sampai || ""}.csv`;
+  const bom = "\uFEFF";
+  const header = "No,Tanggal,NIP,Nama,Divisi,Jam Masuk,Jam Pulang,Status,Keterangan";
+  const rows = data.map((a, i) => {
+    const emp = a.employee || {};
+    const div = emp.division || {};
+    return [
+      i + 1,
+      a.tanggal,
+      emp.nip || "",
+      emp.nama || "",
+      div.nama_divisi || "",
+      a.jam_masuk || "-",
+      a.jam_pulang || "-",
+      a.status,
+      a.keterangan || "",
+    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",");
+  });
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(bom + header + "\n" + rows.join("\n"));
 });
 
 // === DASHBOARD (bonus - not in backend) ===
