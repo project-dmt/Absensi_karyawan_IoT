@@ -4,7 +4,6 @@ const NAV_ITEMS = [
   {
     to: "/", label: "Dashboard", icon: "bi-speedometer2",
     children: [
-      { to: "/dashboard/hadir", label: "Hadir Hari Ini", icon: "bi-check-circle" },
       { to: "/dashboard/terlambat", label: "Terlambat", icon: "bi-exclamation-triangle" },
       { to: "/dashboard/tidak-hadir", label: "Tidak Hadir", icon: "bi-x-circle" },
     ],

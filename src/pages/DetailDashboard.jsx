@@ -10,15 +10,10 @@ const PAGE_CONFIG = {
     endpoint: "/dashboard/terlambat",
     columns: ["No", "Nama", "NIP", "Divisi", "Jam Masuk", "Jam Standar", "Keterlambatan"],
   },
-  hadir: {
-    title: "Karyawan Hadir Hari Ini",
-    endpoint: "/dashboard/hadir",
-    columns: ["No", "Nama", "NIP", "Divisi", "Jam Masuk"],
-  },
   "tidak-hadir": {
     title: "Karyawan Tidak Hadir Hari Ini",
     endpoint: "/dashboard/tidak-hadir",
-    columns: ["No", "Nama", "NIP", "Divisi"],
+    columns: ["No", "Nama", "NIP", "Divisi", "Keterangan"],
   },
 };
 
@@ -92,9 +87,9 @@ export default function DetailDashboard() {
                       <td className="fw-medium">{item.nama}</td>
                       <td><code>{item.nip}</code></td>
                       <td>{item.divisi}</td>
-                      {type !== "tidak-hadir" && <td>{item.jam_masuk}</td>}
                       {type === "terlambat" && (
                         <>
+                          <td>{item.jam_masuk}</td>
                           <td>{item.jam_standar}</td>
                           <td>
                             <span className="badge bg-warning text-dark">
@@ -102,6 +97,9 @@ export default function DetailDashboard() {
                             </span>
                           </td>
                         </>
+                      )}
+                      {type === "tidak-hadir" && (
+                        <td>{item.keterangan || "-"}</td>
                       )}
                     </tr>
                   ))}

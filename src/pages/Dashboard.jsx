@@ -76,12 +76,6 @@ export default function Dashboard() {
       icon: "bi-people",
     },
     {
-      label: "Hadir Hari Ini",
-      value: stats.hadir,
-      bg: "linear-gradient(135deg, #10b981, #34d399)",
-      icon: "bi-check-circle",
-    },
-    {
       label: "Terlambat",
       value: stats.terlambat,
       bg: "linear-gradient(135deg, #f59e0b, #fbbf24)",

@@ -361,11 +361,13 @@ app.get("/api/dashboard/tidak-hadir", authMiddleware, (req, res) => {
     .filter((e) => e.status === "aktif" && !hadirIds.includes(e.id))
     .map((e) => {
       const div = divisions.find((d) => d.id === e.divisi_id);
+      const absToday = attendance.find((a) => a.employee_id === e.id && a.tanggal === todayStr);
       return {
         id: e.id,
         nama: e.nama,
         nip: e.nip,
         divisi: div ? div.nama_divisi : "-",
+        keterangan: absToday ? absToday.keterangan || absToday.status : "Tidak hadir tanpa keterangan",
       };
     });
   res.json({ success: true, data });
