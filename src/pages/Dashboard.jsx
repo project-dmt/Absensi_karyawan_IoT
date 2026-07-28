@@ -105,11 +105,13 @@ export default function Dashboard() {
 
       <div className="row g-3 mb-4">
         {cards.map((card) => (
-          <div key={card.label} className="col-sm-6 col-xl-3">
+          <div key={card.label} className="col-sm-6 col-lg-4">
             <div className="stat-card" style={{ background: card.bg }}>
+              <div className="stat-card__content">
+                <div className="stat-card__value">{card.value}</div>
+                <div className="stat-card__label">{card.label}</div>
+              </div>
               <i className={`bi ${card.icon} stat-card__icon`} />
-              <div className="stat-card__value">{card.value}</div>
-              <div className="stat-card__label">{card.label}</div>
             </div>
           </div>
         ))}

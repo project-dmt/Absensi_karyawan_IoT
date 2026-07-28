@@ -254,16 +254,19 @@ body {
 /* ===== STAT CARDS ===== */
 .stat-card {
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 24px;
   color: #fff;
   position: relative;
   overflow: hidden;
   transition: transform var(--transition), box-shadow var(--transition);
+  min-height: 110px;
+  display: flex;
+  align-items: center;
 }
 
 .stat-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 .stat-card::after {
@@ -271,10 +274,15 @@ body {
   position: absolute;
   top: -20px;
   right: -20px;
-  width: 80px;
-  height: 80px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.stat-card__content {
+  position: relative;
+  z-index: 1;
 }
 
 .stat-card__value {
@@ -285,23 +293,19 @@ body {
 }
 
 .stat-card__label {
-  font-size: 0.8rem;
-  opacity: 0.85;
+  font-size: 0.85rem;
+  opacity: 0.9;
   font-weight: 500;
 }
 
-.stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  transition: all 0.2s ease;
-}
-
 .stat-card__icon {
-  font-size: 2rem;
-  opacity: 0.3;
+  font-size: 2.5rem;
+  opacity: 0.2;
   position: absolute;
-  top: 16px;
-  right: 16px;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
 }
 
 /* ===== TABLES ===== */
