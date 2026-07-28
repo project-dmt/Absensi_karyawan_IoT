@@ -377,7 +377,7 @@ app.get("/api/laporan/export", authMiddleware, async (req, res) => {
   headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1B5E20" } };
   headerRow.alignment = { horizontal: "center" };
 
-  const isXlsx = format !== "csv";
+  const isXlsx = format === "xlsx";
   const ext = isXlsx ? "xlsx" : "csv";
   const filename = `laporan_absensi_${dari || ""}_sd_${sampai || ""}.${ext}`;
 
@@ -385,23 +385,23 @@ app.get("/api/laporan/export", authMiddleware, async (req, res) => {
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     await workbook.xlsx.write(res);
-  } else {
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    const csvRows = [];
-    const columns = sheet.columns.map((c) => c.header);
-    csvRows.push(columns.join(","));
-    data.forEach((a, i) => {
-      const emp = a.employee || {};
-      const div = emp.division || {};
-      csvRows.push([
-        i + 1, a.tanggal, emp.nip || "", emp.nama || "", div.nama_divisi || "",
-        a.jam_masuk || "-", a.jam_pulang || "-", a.status, a.keterangan || "",
-      ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
-    });
-    res.send("\uFEFF" + csvRows.join("\n"));
+    return;
   }
-  res.end();
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  const csvRows = [];
+  const columns = sheet.columns.map((c) => c.header);
+  csvRows.push(columns.join(","));
+  data.forEach((a, i) => {
+    const emp = a.employee || {};
+    const div = emp.division || {};
+    csvRows.push([
+      i + 1, a.tanggal, emp.nip || "", emp.nama || "", div.nama_divisi || "",
+      a.jam_masuk || "-", a.jam_pulang || "-", a.status, a.keterangan || "",
+    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
+  });
+  res.send("\uFEFF" + csvRows.join("\n"));
 });
 
 // === DASHBOARD (bonus - not in backend) ===
