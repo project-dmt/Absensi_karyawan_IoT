@@ -305,6 +305,72 @@ app.get("/api/dashboard", authMiddleware, (req, res) => {
   });
 });
 
+app.get("/api/dashboard/terlambat", authMiddleware, (req, res) => {
+  const todayStr = today();
+  const standarParts = schedule.jam_masuk_standar.split(":").map(Number);
+  const standarMenit = standarParts[0] * 60 + standarParts[1];
+
+  const data = attendance
+    .filter((a) => a.tanggal === todayStr && a.status === "Terlambat")
+    .map((a) => {
+      const emp = employees.find((e) => e.id === a.employee_id);
+      const div = emp ? divisions.find((d) => d.id === emp.divisi_id) : null;
+      let keterlambatan = 0;
+      if (a.jam_masuk) {
+        const parts = a.jam_masuk.split(":").map(Number);
+        const masukMenit = parts[0] * 60 + parts[1];
+        keterlambatan = masukMenit - standarMenit;
+      }
+      return {
+        id: a.id,
+        nama: emp ? emp.nama : "-",
+        nip: emp ? emp.nip : "-",
+        divisi: div ? div.nama_divisi : "-",
+        jam_masuk: a.jam_masuk || "-",
+        jam_standar: schedule.jam_masuk_standar,
+        keterlambatan,
+      };
+    });
+  res.json({ success: true, data });
+});
+
+app.get("/api/dashboard/hadir", authMiddleware, (req, res) => {
+  const todayStr = today();
+  const data = attendance
+    .filter((a) => a.tanggal === todayStr && a.status === "Hadir")
+    .map((a) => {
+      const emp = employees.find((e) => e.id === a.employee_id);
+      const div = emp ? divisions.find((d) => d.id === emp.divisi_id) : null;
+      return {
+        id: a.id,
+        nama: emp ? emp.nama : "-",
+        nip: emp ? emp.nip : "-",
+        divisi: div ? div.nama_divisi : "-",
+        jam_masuk: a.jam_masuk || "-",
+      };
+    });
+  res.json({ success: true, data });
+});
+
+app.get("/api/dashboard/tidak-hadir", authMiddleware, (req, res) => {
+  const todayStr = today();
+  const hadirIds = attendance
+    .filter((a) => a.tanggal === todayStr && (a.status === "Hadir" || a.status === "Terlambat"))
+    .map((a) => a.employee_id);
+  const data = employees
+    .filter((e) => e.status === "aktif" && !hadirIds.includes(e.id))
+    .map((e) => {
+      const div = divisions.find((d) => d.id === e.divisi_id);
+      return {
+        id: e.id,
+        nama: e.nama,
+        nip: e.nip,
+        divisi: div ? div.nama_divisi : "-",
+      };
+    });
+  res.json({ success: true, data });
+});
+
 // === SSE STREAM ===
 app.get("/api/absensi/stream", (req, res) => {
   const { token, lastId } = req.query;
