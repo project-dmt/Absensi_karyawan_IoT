@@ -286,6 +286,40 @@ app.get("/api/laporan", authMiddleware, (req, res) => {
   res.json({ success: true, data });
 });
 
+// === ABSENSI UPDATE ===
+app.get("/api/absensi/:id", authMiddleware, (req, res) => {
+  const abs = attendance.find((a) => a.id === parseInt(req.params.id));
+  if (!abs) return res.status(404).json({ success: false, message: "Data absensi tidak ditemukan" });
+  const emp = employees.find((e) => e.id === abs.employee_id);
+  res.json({ success: true, data: { ...abs, employee: emp ? { ...emp, division: divisions.find((d) => d.id === emp.divisi_id) || null } : null } });
+});
+
+app.put("/api/absensi/:id", authMiddleware, (req, res) => {
+  const idx = attendance.findIndex((a) => a.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ success: false, message: "Data absensi tidak ditemukan" });
+  const { status, keterangan, jam_masuk, jam_pulang } = req.body;
+  const errors = {};
+  if (status && !["Hadir", "Terlambat", "Alpha", "Izin", "Sakit"].includes(status)) errors.status = ["Status tidak valid"];
+  if (Object.keys(errors).length) return res.status(422).json({ success: false, errors });
+  attendance[idx] = {
+    ...attendance[idx],
+    status: status || attendance[idx].status,
+    keterangan: keterangan !== undefined ? keterangan : attendance[idx].keterangan,
+    jam_masuk: jam_masuk !== undefined ? jam_masuk : attendance[idx].jam_masuk,
+    jam_pulang: jam_pulang !== undefined ? jam_pulang : attendance[idx].jam_pulang,
+    updated_at: today(),
+  };
+  const emp = employees.find((e) => e.id === attendance[idx].employee_id);
+  res.json({ success: true, message: "Absensi berhasil diupdate", data: { ...attendance[idx], employee: emp ? { ...emp, division: divisions.find((d) => d.id === emp.divisi_id) || null } : null } });
+});
+
+app.delete("/api/absensi/:id", authMiddleware, (req, res) => {
+  const idx = attendance.findIndex((a) => a.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ success: false, message: "Data absensi tidak ditemukan" });
+  attendance.splice(idx, 1);
+  res.json({ success: true, message: "Absensi berhasil dihapus" });
+});
+
 app.get("/api/laporan/export", authMiddleware, (req, res) => {
   res.json({ success: true, message: "Export belum tersedia di mock server" });
 });

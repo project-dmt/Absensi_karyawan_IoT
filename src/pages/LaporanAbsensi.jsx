@@ -4,6 +4,16 @@ import StatusBadge from "../components/StatusBadge";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 
+const STATUS_OPTIONS = [
+  { value: "Hadir", label: "Hadir" },
+  { value: "Terlambat", label: "Terlambat" },
+  { value: "Alpha", label: "Alpha" },
+  { value: "Izin", label: "Izin" },
+  { value: "Sakit", label: "Sakit" },
+];
+
+const EDITABLE_STATUSES = ["Hadir", "Terlambat", "Alpha", "Izin", "Sakit"];
+
 export default function LaporanAbsensi() {
   const today = new Date().toISOString().split("T")[0];
   const firstDay = new Date(
@@ -23,6 +33,12 @@ export default function LaporanAbsensi() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
+
+  const [editItem, setEditItem] = useState(null);
+  const [editForm, setEditForm] = useState({ status: "", keterangan: "", jam_pulang: "" });
+  const [editErrors, setEditErrors] = useState({});
+  const [editMessage, setEditMessage] = useState({ type: "", text: "" });
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   useEffect(() => {
     api
@@ -74,6 +90,57 @@ export default function LaporanAbsensi() {
       link.remove();
     } catch {
       alert("Export belum tersedia atau terjadi kesalahan");
+    }
+  };
+
+  const openEdit = (item) => {
+    setEditItem(item);
+    setEditForm({
+      status: item.status,
+      keterangan: item.keterangan || "",
+      jam_pulang: item.jam_pulang ? item.jam_pulang.substring(0, 5) : "",
+    });
+    setEditErrors({});
+    setEditMessage({ type: "", text: "" });
+  };
+
+  const closeEdit = () => {
+    setEditItem(null);
+    setEditErrors({});
+    setEditMessage({ type: "", text: "" });
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+    setEditErrors((prev) => ({ ...prev, [name]: undefined }));
+    setEditMessage({ type: "", text: "" });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditSubmitting(true);
+    setEditErrors({});
+    setEditMessage({ type: "", text: "" });
+    try {
+      const payload = { status: editForm.status };
+      if (editForm.keterangan) payload.keterangan = editForm.keterangan;
+      if (editForm.jam_pulang) payload.jam_pulang = editForm.jam_pulang + ":00";
+
+      await api.put(`/absensi/${editItem.id}`, payload);
+      setEditMessage({ type: "success", text: "Absensi berhasil diupdate" });
+      fetchData();
+    } catch (err) {
+      if (err.response?.status === 422) {
+        if (err.response.data.message) {
+          setEditMessage({ type: "danger", text: err.response.data.message });
+        }
+        setEditErrors(err.response.data.errors || {});
+      } else {
+        setEditMessage({ type: "danger", text: err.response?.data?.message || "Gagal mengupdate absensi" });
+      }
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -189,6 +256,7 @@ export default function LaporanAbsensi() {
                     <th>Jam Pulang</th>
                     <th>Status</th>
                     <th>Keterangan</th>
+                    <th>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -204,10 +272,113 @@ export default function LaporanAbsensi() {
                         <StatusBadge status={item.status} />
                       </td>
                       <td>{item.keterangan || "-"}</td>
+                      <td>
+                        <button
+                          className="btn-action btn-action--edit"
+                          title="Edit Absensi"
+                          onClick={() => openEdit(item)}
+                        >
+                          <i className="bi bi-pencil" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editItem && (
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ background: "rgba(15,23,42,0.5)", backdropFilter: "blur(4px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeEdit(); }}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="bi bi-pencil-square me-2 text-primary" />
+                  Edit Absensi
+                </h5>
+                <button type="button" className="btn-close" onClick={closeEdit} />
+              </div>
+              <div className="modal-body">
+                <div className="mb-3 p-2 bg-light rounded">
+                  <small className="text-muted">Karyawan</small>
+                  <div className="fw-semibold">{editItem.employee?.nama} ({editItem.employee?.nip})</div>
+                  <small className="text-muted">Tanggal: {editItem.tanggal} | Jam Masuk: {editItem.jam_masuk || "-"}</small>
+                </div>
+
+                {editMessage.text && (
+                  <div className={`alert alert-${editMessage.type} d-flex align-items-center gap-2 py-2`} role="alert">
+                    <i className={`bi ${editMessage.type === "success" ? "bi-check-circle-fill" : "bi-exclamation-circle-fill"}`} />
+                    {editMessage.text}
+                  </div>
+                )}
+
+                <form onSubmit={handleEditSubmit}>
+                  <div className="mb-3">
+                    <label className="form-label">Status</label>
+                    <select
+                      name="status"
+                      className={`form-select ${editErrors.status ? "is-invalid" : ""}`}
+                      value={editForm.status}
+                      onChange={handleEditChange}
+                    >
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    {editErrors.status && <div className="invalid-feedback">{editErrors.status[0]}</div>}
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Jam Pulang</label>
+                    <input
+                      type="time"
+                      name="jam_pulang"
+                      className={`form-control ${editErrors.jam_pulang ? "is-invalid" : ""}`}
+                      value={editForm.jam_pulang}
+                      onChange={handleEditChange}
+                    />
+                    {editErrors.jam_pulang && <div className="invalid-feedback">{editErrors.jam_pulang[0]}</div>}
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Keterangan</label>
+                    <textarea
+                      name="keterangan"
+                      className={`form-control ${editErrors.keterangan ? "is-invalid" : ""}`}
+                      value={editForm.keterangan}
+                      onChange={handleEditChange}
+                      rows={3}
+                      placeholder="Keterangan (opsional)"
+                      style={{ resize: "vertical" }}
+                    />
+                    {editErrors.keterangan && <div className="invalid-feedback">{editErrors.keterangan[0]}</div>}
+                  </div>
+                  <div className="d-flex justify-content-end gap-2">
+                    <button type="button" className="btn btn-secondary" onClick={closeEdit}>
+                      Batal
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={editSubmitting}>
+                      {editSubmitting ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-1" role="status" />
+                          Menyimpan...
+                        </>
+                      ) : (
+                        <>
+                          <i className="bi bi-check-lg me-1" />
+                          Simpan
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>
