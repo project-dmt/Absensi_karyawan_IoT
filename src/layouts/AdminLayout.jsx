@@ -1,7 +1,14 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 const NAV_ITEMS = [
-  { to: "/", label: "Dashboard", icon: "bi-speedometer2" },
+  {
+    to: "/", label: "Dashboard", icon: "bi-speedometer2",
+    children: [
+      { to: "/dashboard/hadir", label: "Hadir Hari Ini", icon: "bi-check-circle" },
+      { to: "/dashboard/terlambat", label: "Terlambat", icon: "bi-exclamation-triangle" },
+      { to: "/dashboard/tidak-hadir", label: "Tidak Hadir", icon: "bi-x-circle" },
+    ],
+  },
   { to: "/data-karyawan", label: "Data Karyawan", icon: "bi-people" },
   { to: "/data-divisi", label: "Data Divisi", icon: "bi-diagram-3" },
   { to: "/jam-kerja", label: "Jam Kerja", icon: "bi-clock-history" },
@@ -32,17 +39,37 @@ export default function AdminLayout({ user, onLogout }) {
 
         <nav className="sidebar__nav">
           {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === "/"}
-              className={({ isActive }) =>
-                `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
-              }
-            >
-              <i className={`bi ${item.icon} sidebar__link-icon`} />
-              <span>{item.label}</span>
-            </NavLink>
+            <div key={item.to}>
+              <NavLink
+                to={item.to}
+                end={item.to === "/"}
+                className={({ isActive }) =>
+                  `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
+                }
+              >
+                <i className={`bi ${item.icon} sidebar__link-icon`} />
+                <span>{item.label}</span>
+                {item.children && (
+                  <i className="bi bi-chevron-down sidebar__link-chevron" />
+                )}
+              </NavLink>
+              {item.children && (
+                <div className="sidebar__subnav">
+                  {item.children.map((child) => (
+                    <NavLink
+                      key={child.to}
+                      to={child.to}
+                      className={({ isActive }) =>
+                        `sidebar__link sidebar__link--sub ${isActive ? "sidebar__link--active" : ""}`
+                      }
+                    >
+                      <i className={`bi ${child.icon} sidebar__link-icon`} />
+                      <span>{child.label}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </nav>
 

@@ -131,6 +131,29 @@ body {
   flex-shrink: 0;
 }
 
+.sidebar__link-chevron {
+  margin-left: auto;
+  font-size: 0.7rem;
+  transition: transform var(--transition);
+}
+
+.sidebar__subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 20px;
+}
+
+.sidebar__link--sub {
+  font-size: 0.82rem;
+  padding: 7px 14px;
+  color: rgba(255,255,255,0.5);
+}
+
+.sidebar__link--sub:hover {
+  color: #fff;
+}
+
 .sidebar__footer {
   padding: 12px 20px;
   border-top: 1px solid rgba(255,255,255,0.08);

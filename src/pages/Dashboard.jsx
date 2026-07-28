@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -7,7 +6,6 @@ import EmptyState from "../components/EmptyState";
 import { useRealtime } from "../hooks/useRealtime";
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalKaryawan: 0,
     hadir: 0,
@@ -76,28 +74,24 @@ export default function Dashboard() {
       value: stats.totalKaryawan,
       bg: "linear-gradient(135deg, #4f6d7a, #7b9aab)",
       icon: "bi-people",
-      link: null,
     },
     {
       label: "Hadir Hari Ini",
       value: stats.hadir,
       bg: "linear-gradient(135deg, #10b981, #34d399)",
       icon: "bi-check-circle",
-      link: "/dashboard/hadir",
     },
     {
       label: "Terlambat",
       value: stats.terlambat,
       bg: "linear-gradient(135deg, #f59e0b, #fbbf24)",
       icon: "bi-exclamation-triangle",
-      link: "/dashboard/terlambat",
     },
     {
       label: "Tidak Hadir",
       value: stats.tidakHadir,
       bg: "linear-gradient(135deg, #ef4444, #f87171)",
       icon: "bi-x-circle",
-      link: "/dashboard/tidak-hadir",
     },
   ];
 
@@ -118,14 +112,7 @@ export default function Dashboard() {
       <div className="row g-3 mb-4">
         {cards.map((card) => (
           <div key={card.label} className="col-sm-6 col-xl-3">
-            <div
-              className="stat-card"
-              style={{
-                background: card.bg,
-                cursor: card.link ? "pointer" : "default",
-              }}
-              onClick={() => card.link && navigate(card.link)}
-            >
+            <div className="stat-card" style={{ background: card.bg }}>
               <i className={`bi ${card.icon} stat-card__icon`} />
               <div className="stat-card__value">{card.value}</div>
               <div className="stat-card__label">{card.label}</div>
