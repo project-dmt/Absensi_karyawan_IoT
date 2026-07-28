@@ -16,23 +16,19 @@ const EDITABLE_STATUSES = ["Hadir", "Terlambat", "Alpha", "Izin", "Sakit"];
 
 export default function LaporanAbsensi() {
   const today = new Date().toISOString().split("T")[0];
-  const firstDay = new Date(
-    new Date().getFullYear(),
-    new Date().getMonth(),
-    1
-  )
+  const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
     .toISOString()
     .split("T")[0];
 
   const [filter, setFilter] = useState({
-    dari: firstDay,
+    dari: sevenDaysAgo,
     sampai: today,
     divisi_id: "",
   });
   const [divisi, setDivisi] = useState([]);
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [fetched, setFetched] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [fetched, setFetched] = useState(true);
 
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState({ status: "", keterangan: "", jam_pulang: "" });
@@ -45,6 +41,10 @@ export default function LaporanAbsensi() {
       .get("/divisi")
       .then((res) => setDivisi(res.data.data))
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchData();
   }, []);
 
   const fetchData = useCallback(async () => {
