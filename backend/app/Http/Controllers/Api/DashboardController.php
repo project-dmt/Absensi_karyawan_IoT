@@ -45,4 +45,94 @@ class DashboardController extends Controller
             'karyawan_per_divisi' => $karyawanPerDivisi,
         ], 'Dashboard berhasil diambil');
     }
+
+    /**
+     * Detail karyawan terlambat hari ini
+     */
+    public function terlambat(Request $request)
+    {
+        $today = Carbon::today(config('app.timezone'))->toDateString();
+
+        $schedule = \App\Models\Schedule::first();
+        $jamStandar = $schedule ? $schedule->jam_masuk_standar : config('absensi.default_schedule.jam_masuk');
+
+        $data = Attendance::where('tanggal', $today)
+            ->where('status', 'Terlambat')
+            ->join('employees', 'attendance.employee_id', '=', 'employees.id')
+            ->join('divisi', 'employees.divisi_id', '=', 'divisi.id')
+            ->select(
+                'employees.id',
+                'employees.nama',
+                'employees.nip',
+                'divisi.nama_divisi as divisi',
+                'attendance.jam_masuk',
+            )
+            ->orderBy('attendance.jam_masuk', 'asc')
+            ->get()
+            ->map(function ($item) use ($jamStandar) {
+                $jamMasuk = Carbon::parse($item->jam_masuk);
+                $jamStandarCarbon = Carbon::parse($jamStandar);
+                $selisihMenit = $jamMasuk->diffInMinutes($jamStandarCarbon);
+
+                return [
+                    'id' => $item->id,
+                    'nama' => $item->nama,
+                    'nip' => $item->nip,
+                    'divisi' => $item->divisi,
+                    'jam_masuk' => $item->jam_masuk,
+                    'jam_standar' => $jamStandar,
+                    'keterlambatan' => $selisihMenit,
+                ];
+            });
+
+        return $this->successResponse($data, 'Data karyawan terlambat berhasil diambil');
+    }
+
+    /**
+     * Detail karyawan hadir tepat waktu hari ini
+     */
+    public function hadir(Request $request)
+    {
+        $today = Carbon::today(config('app.timezone'))->toDateString();
+
+        $data = Attendance::where('tanggal', $today)
+            ->where('status', 'Hadir')
+            ->join('employees', 'attendance.employee_id', '=', 'employees.id')
+            ->join('divisi', 'employees.divisi_id', '=', 'divisi.id')
+            ->select(
+                'employees.id',
+                'employees.nama',
+                'employees.nip',
+                'divisi.nama_divisi as divisi',
+                'attendance.jam_masuk',
+            )
+            ->orderBy('attendance.jam_masuk', 'asc')
+            ->get();
+
+        return $this->successResponse($data, 'Data karyawan hadir berhasil diambil');
+    }
+
+    /**
+     * Detail karyawan tidak hadir hari ini (alpha + izin)
+     */
+    public function tidakHadir(Request $request)
+    {
+        $today = Carbon::today(config('app.timezone'))->toDateString();
+
+        $data = Employee::where('status', 'aktif')
+            ->whereDoesntHave('attendances', function ($query) use ($today) {
+                $query->where('tanggal', $today);
+            })
+            ->join('divisi', 'employees.divisi_id', '=', 'divisi.id')
+            ->select(
+                'employees.id',
+                'employees.nama',
+                'employees.nip',
+                'divisi.nama_divisi as divisi',
+            )
+            ->orderBy('employees.nama', 'asc')
+            ->get();
+
+        return $this->successResponse($data, 'Data karyawan tidak hadir berhasil diambil');
+    }
 }

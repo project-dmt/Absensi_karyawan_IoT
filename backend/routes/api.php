@@ -39,6 +39,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('api.dashboard');
+    Route::get('/dashboard/terlambat', [DashboardController::class, 'terlambat'])->name('api.dashboard.terlambat');
+    Route::get('/dashboard/hadir', [DashboardController::class, 'hadir'])->name('api.dashboard.hadir');
+    Route::get('/dashboard/tidak-hadir', [DashboardController::class, 'tidakHadir'])->name('api.dashboard.tidak-hadir');
 
     // Global Search
     Route::get('/search', [GlobalSearchController::class, 'index'])->name('api.search');
