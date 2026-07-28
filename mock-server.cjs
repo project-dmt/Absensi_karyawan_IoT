@@ -338,7 +338,12 @@ app.get("/api/laporan/export", authMiddleware, async (req, res) => {
   if (dari) data = data.filter((a) => a.tanggal >= dari);
   if (sampai) data = data.filter((a) => a.tanggal <= sampai);
   if (divisi_id) data = data.filter((a) => { const emp = employees.find((e) => e.id === a.employee_id); return emp && emp.divisi_id === parseInt(divisi_id); });
-  data = attachEmployee(data);
+  data = attachEmployee(data).map((a) => ({
+    ...a,
+    employee: a.employee
+      ? { ...a.employee, division: divisions.find((d) => d.id === a.employee.divisi_id) || null }
+      : null,
+  }));
   data.sort((a, b) => b.tanggal.localeCompare(a.tanggal) || a.employee_id - b.employee_id);
 
   const workbook = new ExcelJS.Workbook();
