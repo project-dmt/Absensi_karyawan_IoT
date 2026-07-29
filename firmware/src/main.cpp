@@ -16,6 +16,8 @@ LiquidCrystal_I2C lcd(LCD_ADDRESS, 16, 2);
 bool lastCardPresent = false;
 unsigned long lastWifiAttempt = 0;
 String lastDisplayedUID = "";
+bool rfidDetected = false;
+bool lcdPresent = false;
 
 // =====================================================
 // Buzzer Helpers
@@ -37,6 +39,7 @@ void beepError()    { beep(3, 80, 60); }
 // LCD Helpers
 // =====================================================
 void lcdLine(int row, const String &text) {
+    if (!lcdPresent) return;
     lcd.setCursor(0, row);
     lcd.print("                ");
     lcd.setCursor(0, row);
@@ -44,6 +47,8 @@ void lcdLine(int row, const String &text) {
 }
 
 void lcdShowReady() {
+    Serial.println("[LCD] Ready - Tempel Kartu RFID");
+    if (!lcdPresent) return;
     lcd.clear();
     lcdLine(0, "Sistem Absensi");
     lcdLine(1, "IoT RFID");
@@ -54,12 +59,16 @@ void lcdShowReady() {
 }
 
 void lcdShowProcessing() {
+    Serial.println("[LCD] Processing...");
+    if (!lcdPresent) return;
     lcd.clear();
     lcdLine(0, "Memproses...");
     lcdLine(1, "Mohon tunggu");
 }
 
 void lcdShowResult(const String &nama, const String &status, const String &jam) {
+    Serial.printf("[LCD] %s - %s %s\n", nama.c_str(), status.c_str(), jam.c_str());
+    if (!lcdPresent) return;
     lcd.clear();
     String displayName = nama.length() > 16 ? nama.substring(0, 16) : nama;
     lcdLine(0, displayName);
@@ -68,12 +77,16 @@ void lcdShowResult(const String &nama, const String &status, const String &jam) 
 }
 
 void lcdShowError(const String &msg) {
+    Serial.printf("[LCD] ERROR: %s\n", msg.c_str());
+    if (!lcdPresent) return;
     lcd.clear();
     lcdLine(0, "GAGAL");
     lcdLine(1, msg.length() > 16 ? msg.substring(0, 16) : msg);
 }
 
 void lcdShowOfflineResult(const String &uid) {
+    Serial.printf("[LCD] Offline - UID: %s\n", uid.c_str());
+    if (!lcdPresent) return;
     lcd.clear();
     lcdLine(0, "Terkoneksi!");
     String shortUid = uid.length() > 16 ? uid.substring(0, 16) : uid;
@@ -81,6 +94,7 @@ void lcdShowOfflineResult(const String &uid) {
 }
 
 void lcdShowWifiStatus(bool connected) {
+    if (!lcdPresent) return;
     lcd.clear();
     if (connected) {
         lcdLine(0, "WiFi Terhubung");
@@ -219,11 +233,23 @@ void setup() {
 
     // LCD init
     Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
-    lcd.init();
-    lcd.backlight();
-    lcd.clear();
-    lcdLine(0, "Sistem Absensi");
-    lcdLine(1, "IoT RFID v1.0");
+    delay(200);
+    Wire.beginTransmission(LCD_ADDRESS);
+    lcdPresent = (Wire.endTransmission() == 0);
+    Serial.printf("LCD 0x%02X: %s\n", LCD_ADDRESS, lcdPresent ? "Ditemukan" : "Tidak Ada");
+    if (lcdPresent) {
+        lcd.init();
+        delay(200);
+        lcd.backlight();
+        delay(100);
+        lcd.clear();
+        delay(50);
+        lcdLine(0, "Sistem Absensi");
+        lcdLine(1, "IoT RFID v1.0");
+        Serial.println("[LCD] Init OK");
+    } else {
+        Serial.println("[WARN] LCD tidak terdeteksi, lanjut tanpa LCD");
+    }
     delay(1000);
 
     // Buzzer test
@@ -235,6 +261,7 @@ void setup() {
     delay(200);
 
     byte v = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
+    rfidDetected = (v == 0x91 || v == 0x92 || v == 0x93 || v == 0x82);
     Serial.printf("MFRC522 Version: 0x%02X", v);
     if (v == 0x91 || v == 0x92) {
         Serial.println(" (v2.0)");
@@ -242,6 +269,9 @@ void setup() {
         Serial.println(" (v3.0)");
     } else {
         Serial.println(" (unknown)");
+    }
+    if (!rfidDetected) {
+        Serial.println("[WARN] RFID tidak terdeteksi, lanjut tanpa RFID");
     }
 
     // WiFi
@@ -274,12 +304,25 @@ void setup() {
 // Loop
 // =====================================================
 void loop() {
+    static unsigned long lastPrint = 0;
+    if (millis() - lastPrint > 5000) {
+        lastPrint = millis();
+        Serial.printf("[ALIVE] Uptime: %lus | WiFi: %s | RFID: %s | LCD: %s\n",
+            millis() / 1000,
+            WiFi.status() == WL_CONNECTED ? "OK" : "NO",
+            rfidDetected ? "OK" : "NO",
+            lcdPresent ? "OK" : "NO");
+    }
+
     if (!OFFLINE_MODE) {
         ensureWifi();
     }
 
     // Wait for new card
-    bool cardPresent = mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial();
+    bool cardPresent = false;
+    if (rfidDetected) {
+        cardPresent = mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial();
+    }
 
     if (cardPresent && !lastCardPresent) {
         String uid = uidToString(mfrc522.uid.uidByte, mfrc522.uid.size);
@@ -326,7 +369,7 @@ void loop() {
 
     lastCardPresent = cardPresent;
 
-    if (cardPresent) {
+    if (cardPresent && rfidDetected) {
         mfrc522.PICC_HaltA();
         mfrc522.PCD_StopCrypto1();
     }
