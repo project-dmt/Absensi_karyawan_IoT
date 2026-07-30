@@ -52,10 +52,10 @@ export default function LaporanAbsensi() {
     setLoading(true);
     setFetched(true);
     try {
-      const params = { dari: filter.dari, sampai: filter.sampai };
+      const params = { dari: filter.dari, sampai: filter.sampai, per_page: 500 };
       if (filter.divisi_id) params.divisi_id = filter.divisi_id;
       const res = await api.get("/laporan", { params });
-      setData(res.data.data);
+      setData(Array.isArray(res.data.data?.data) ? res.data.data.data : (Array.isArray(res.data.data) ? res.data.data : []));
     } catch {
       setData([]);
     } finally {
