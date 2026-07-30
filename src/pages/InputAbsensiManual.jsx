@@ -134,11 +134,12 @@ export default function InputAbsensiManual() {
     setUpdateRecord(null);
     setUpdateMessage({ type: "", text: "" });
     try {
-      const res = await api.get(`/karyawan/${updateSearch.employee_id}/absensi`, {
-        params: { per_page: 100 },
+      const res = await api.get("/laporan", {
+        params: { dari: updateSearch.tanggal, sampai: updateSearch.tanggal, per_page: 500 },
       });
-      const records = res.data.data?.riwayat?.data || [];
-      const found = records.find((r) => r.tanggal === updateSearch.tanggal);
+      const records = Array.isArray(res.data.data?.data) ? res.data.data.data : (Array.isArray(res.data.data) ? res.data.data : []);
+      const employeeId = Number(updateSearch.employee_id);
+      const found = records.find((r) => Number(r.employee_id) === employeeId);
       if (!found) {
         setUpdateMessage({ type: "danger", text: "Tidak ditemukan data absensi untuk karyawan ini pada tanggal tersebut" });
         return;
@@ -173,7 +174,6 @@ export default function InputAbsensiManual() {
       const payload = { status: updateForm.status };
       if (updateForm.keterangan) payload.keterangan = updateForm.keterangan;
       if (updateForm.jam_pulang) payload.jam_pulang = updateForm.jam_pulang + ":00";
-      else payload.jam_pulang = null;
 
       await api.put(`/absensi/${updateRecord.id}`, payload);
       setUpdateMessage({ type: "success", text: "Status absensi berhasil diupdate" });
