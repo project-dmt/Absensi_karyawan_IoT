@@ -171,26 +171,21 @@ export default function InputAbsensiManual() {
     setUpdateErrors({});
     setUpdateMessage({ type: "", text: "" });
     try {
-      const payload = {
-        tanggal: updateRecord.tanggal,
-        jam_masuk: updateRecord.jam_masuk,
-        status: updateForm.status,
-      };
+      const payload = { status: updateForm.status };
       if (updateForm.keterangan) payload.keterangan = updateForm.keterangan;
-      if (updateForm.jam_pulang) {
-        payload.jam_pulang = updateForm.jam_pulang + ":00";
-      } else if (updateRecord.jam_pulang) {
-        payload.jam_pulang = updateRecord.jam_pulang;
-      }
+      if (updateForm.jam_pulang) payload.jam_pulang = updateForm.jam_pulang + ":00";
 
       await api.put(`/absensi/${updateRecord.id}`, payload);
       setUpdateMessage({ type: "success", text: "Status absensi berhasil diupdate" });
       setUpdateRecord(null);
     } catch (err) {
       if (err.response?.status === 422) {
-        const msg = err.response.data.message;
-        const errors = err.response.data.errors || {};
-        setUpdateMessage({ type: "danger", text: msg || "Validasi gagal" });
+        const resp = err.response.data;
+        console.error("422 Error:", JSON.stringify(resp));
+        const msg = resp?.message;
+        const errors = resp?.errors || {};
+        const detail = Object.values(errors).flat().join("; ");
+        setUpdateMessage({ type: "danger", text: `${msg || "Validasi gagal"}${detail ? ": " + detail : ""}` });
         setUpdateErrors(errors);
       } else {
         setUpdateMessage({ type: "danger", text: err.response?.data?.message || "Gagal mengupdate absensi" });
