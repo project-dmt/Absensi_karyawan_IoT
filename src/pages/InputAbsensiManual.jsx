@@ -171,17 +171,27 @@ export default function InputAbsensiManual() {
     setUpdateErrors({});
     setUpdateMessage({ type: "", text: "" });
     try {
-      const payload = { status: updateForm.status };
+      const payload = {
+        tanggal: updateRecord.tanggal,
+        jam_masuk: updateRecord.jam_masuk,
+        status: updateForm.status,
+      };
       if (updateForm.keterangan) payload.keterangan = updateForm.keterangan;
-      if (updateForm.jam_pulang) payload.jam_pulang = updateForm.jam_pulang + ":00";
+      if (updateForm.jam_pulang) {
+        payload.jam_pulang = updateForm.jam_pulang + ":00";
+      } else if (updateRecord.jam_pulang) {
+        payload.jam_pulang = updateRecord.jam_pulang;
+      }
 
       await api.put(`/absensi/${updateRecord.id}`, payload);
       setUpdateMessage({ type: "success", text: "Status absensi berhasil diupdate" });
       setUpdateRecord(null);
     } catch (err) {
       if (err.response?.status === 422) {
-        if (err.response.data.message) setUpdateMessage({ type: "danger", text: err.response.data.message });
-        setUpdateErrors(err.response.data.errors || {});
+        const msg = err.response.data.message;
+        const errors = err.response.data.errors || {};
+        setUpdateMessage({ type: "danger", text: msg || "Validasi gagal" });
+        setUpdateErrors(errors);
       } else {
         setUpdateMessage({ type: "danger", text: err.response?.data?.message || "Gagal mengupdate absensi" });
       }
@@ -435,14 +445,17 @@ export default function InputAbsensiManual() {
                   {updateErrors.jam_pulang && <div className="invalid-feedback">{updateErrors.jam_pulang[0]}</div>}
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label">Keterangan</label>
+                  <label className="form-label">
+                    Keterangan
+                    {updateForm.status === "Izin" && <span className="text-danger ms-1">*</span>}
+                  </label>
                   <input
                     type="text"
                     name="keterangan"
                     className={`form-control ${updateErrors.keterangan ? "is-invalid" : ""}`}
                     value={updateForm.keterangan}
                     onChange={handleUpdateChange}
-                    placeholder="Keterangan (opsional)"
+                    placeholder={updateForm.status === "Izin" ? "Alasan izin (wajib diisi)" : "Keterangan (opsional)"}
                   />
                   {updateErrors.keterangan && <div className="invalid-feedback">{updateErrors.keterangan[0]}</div>}
                 </div>
