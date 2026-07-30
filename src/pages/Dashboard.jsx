@@ -24,8 +24,8 @@ export default function Dashboard() {
       api.get("/laporan", { params: { dari: today, sampai: today } }),
     ])
       .then(([karyawanRes, laporanRes]) => {
-        const karyawan = karyawanRes.data.data;
-        const laporan = laporanRes.data.data;
+        const karyawan = Array.isArray(karyawanRes.data.data?.data) ? karyawanRes.data.data.data : (Array.isArray(karyawanRes.data.data) ? karyawanRes.data.data : []);
+        const laporan = Array.isArray(laporanRes.data.data?.data) ? laporanRes.data.data.data : (Array.isArray(laporanRes.data.data) ? laporanRes.data.data : []);
 
         const hadir = laporan.filter((l) => l.status === "Hadir").length;
         const terlambat = laporan.filter((l) => l.status === "Terlambat").length;

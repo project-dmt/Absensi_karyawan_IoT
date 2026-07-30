@@ -38,7 +38,7 @@ export default function DataKaryawan() {
         api.get("/karyawan"),
         api.get("/divisi"),
       ]);
-      setData(karyawanRes.data.data);
+      setData(Array.isArray(karyawanRes.data.data?.data) ? karyawanRes.data.data.data : karyawanRes.data.data);
       setDivisi(divisiRes.data.data);
     } catch {
     } finally {
