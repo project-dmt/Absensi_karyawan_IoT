@@ -732,3 +732,18 @@ code {
 .login-card .form-control {
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
+
+.attendance-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  cursor: default;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.attendance-dot:hover {
+  transform: scale(1.4);
+}

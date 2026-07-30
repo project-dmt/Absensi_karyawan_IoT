@@ -149,15 +149,14 @@ export default function DetailKaryawan() {
       </div>
 
       {/* Filter */}
-      <div className="card mb-4">
-        <div className="card-header d-flex align-items-center gap-2">
-          <i className="bi bi-funnel" />
-          Filter Bulan
-        </div>
-        <div className="card-body">
-          <div className="row g-3 align-items-end">
+      <div className="card mb-4 border-0 shadow-sm">
+        <div className="card-body py-3">
+          <div className="row g-2 align-items-end">
             <div className="col-md-3">
-              <label className="form-label">Bulan</label>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.85rem" }}>
+                <i className="bi bi-calendar3 me-1" />
+                Pilih Bulan
+              </label>
               <input
                 type="month"
                 className="form-control"
@@ -165,13 +164,13 @@ export default function DetailKaryawan() {
                 onChange={(e) => setFilter((prev) => ({ ...prev, bulan: e.target.value }))}
               />
             </div>
-            <div className="col-md-3 d-flex gap-2">
-              <button className="btn btn-primary" onClick={handleFilter}>
-                <i className="bi bi-search me-1" />
+            <div className="col-md-3 d-flex gap-2 pb-1">
+              <button className="btn btn-primary btn-sm d-flex align-items-center gap-1" onClick={handleFilter}>
+                <i className="bi bi-search" />
                 Terapkan
               </button>
-              <button className="btn btn-secondary" onClick={handleResetFilter}>
-                <i className="bi bi-arrow-counterclockwise me-1" />
+              <button className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1" onClick={handleResetFilter}>
+                <i className="bi bi-arrow-counterclockwise" />
                 Reset
               </button>
             </div>
