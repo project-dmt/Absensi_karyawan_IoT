@@ -59,12 +59,12 @@ class DashboardController extends Controller
         $data = Attendance::where('tanggal', $today)
             ->where('status', 'Terlambat')
             ->join('employees', 'attendance.employee_id', '=', 'employees.id')
-            ->join('divisi', 'employees.divisi_id', '=', 'divisi.id')
+            ->join('divisions', 'employees.divisi_id', '=', 'divisions.id')
             ->select(
                 'employees.id',
                 'employees.nama',
                 'employees.nip',
-                'divisi.nama_divisi as divisi',
+                'divisions.nama_divisi as divisi',
                 'attendance.jam_masuk',
             )
             ->orderBy('attendance.jam_masuk', 'asc')
@@ -98,12 +98,12 @@ class DashboardController extends Controller
         $data = Attendance::where('tanggal', $today)
             ->where('status', 'Hadir')
             ->join('employees', 'attendance.employee_id', '=', 'employees.id')
-            ->join('divisi', 'employees.divisi_id', '=', 'divisi.id')
+            ->join('divisions', 'employees.divisi_id', '=', 'divisions.id')
             ->select(
                 'employees.id',
                 'employees.nama',
                 'employees.nip',
-                'divisi.nama_divisi as divisi',
+                'divisions.nama_divisi as divisi',
                 'attendance.jam_masuk',
             )
             ->orderBy('attendance.jam_masuk', 'asc')
@@ -123,12 +123,12 @@ class DashboardController extends Controller
             ->whereDoesntHave('attendances', function ($query) use ($today) {
                 $query->where('tanggal', $today);
             })
-            ->join('divisi', 'employees.divisi_id', '=', 'divisi.id')
+            ->join('divisions', 'employees.divisi_id', '=', 'divisions.id')
             ->select(
                 'employees.id',
                 'employees.nama',
                 'employees.nip',
-                'divisi.nama_divisi as divisi',
+                'divisions.nama_divisi as divisi',
             )
             ->orderBy('employees.nama', 'asc')
             ->get();
