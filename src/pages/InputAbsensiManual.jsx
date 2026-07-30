@@ -46,7 +46,7 @@ export default function InputAbsensiManual() {
   useEffect(() => {
     api
       .get("/karyawan")
-      .then((res) => setKaryawan(res.data.data))
+      .then((res) => setKaryawan(Array.isArray(res.data.data?.data) ? res.data.data.data : (Array.isArray(res.data.data) ? res.data.data : [])))
       .catch(() => {});
   }, []);
 
