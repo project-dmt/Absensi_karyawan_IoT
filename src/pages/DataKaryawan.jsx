@@ -8,24 +8,6 @@ import FormInput from "../components/FormInput";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 
-const STATUS_COLORS = {
-  Hadir: "#10b981",
-  Terlambat: "#f59e0b",
-  Alpha: "#ef4444",
-  Izin: "#6366f1",
-  Sakit: "#8b5cf6",
-};
-
-function last7Days() {
-  const days = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    days.push(d.toISOString().split("T")[0]);
-  }
-  return days;
-}
-
 const INITIAL_FORM = {
   nama: "",
   nip: "",
@@ -48,28 +30,16 @@ export default function DataKaryawan() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const [attendanceMap, setAttendanceMap] = useState({});
-  const [sevenDays] = useState(last7Days);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [karyawanRes, divisiRes, laporanRes] = await Promise.all([
+      const [karyawanRes, divisiRes] = await Promise.all([
         api.get("/karyawan"),
         api.get("/divisi"),
-        api.get("/laporan", { params: { dari: last7Days()[0], sampai: last7Days()[6] } }),
       ]);
-      setData(Array.isArray(karyawanRes.data.data?.data) ? karyawanRes.data.data.data : karyawanRes.data.data);
+      setData(Array.isArray(karyawanRes.data.data?.data) ? karyawanRes.data.data.data : (Array.isArray(karyawanRes.data.data) ? karyawanRes.data.data : []));
       setDivisi(divisiRes.data.data);
-
-      const map = {};
-      const laporan = Array.isArray(laporanRes.data.data?.data) ? laporanRes.data.data.data : (Array.isArray(laporanRes.data.data) ? laporanRes.data.data : []);
-      laporan.forEach((r) => {
-        const eid = r.employee_id;
-        if (!map[eid]) map[eid] = {};
-        map[eid][r.tanggal] = r.status;
-      });
-      setAttendanceMap(map);
     } catch {
     } finally {
       setLoading(false);
@@ -185,42 +155,20 @@ export default function DataKaryawan() {
                     <th>NIP</th>
                     <th>Jabatan</th>
                     <th>Divisi</th>
-                    <th style={{ minWidth: 210 }}>
-                      <div className="d-flex align-items-center gap-1">
-                        <i className="bi bi-calendar-week" style={{ fontSize: "0.75rem" }} />
-                        Absensi 7 Hari
-                      </div>
-                    </th>
+                    <th>RFID UID</th>
                     <th>Status</th>
                     <th>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((item, idx) => {
-                    const empMap = attendanceMap[item.id] || {};
-                    return (
+                  {filtered.map((item, idx) => (
                     <tr key={item.id}>
                       <td>{idx + 1}</td>
                       <td className="fw-medium">{item.nama}</td>
                       <td><code>{item.nip}</code></td>
                       <td>{item.jabatan || "-"}</td>
                       <td>{item.division?.nama_divisi || "-"}</td>
-                      <td>
-                        <div className="d-flex gap-1 align-items-center">
-                          {sevenDays.map((date) => {
-                            const status = empMap[date] || null;
-                            const color = status ? STATUS_COLORS[status] : "#d1d5db";
-                            return (
-                              <span
-                                key={date}
-                                className="attendance-dot"
-                                style={{ backgroundColor: color }}
-                                title={`${date}${status ? ": " + status : ": -"}`}
-                              />
-                            );
-                          })}
-                        </div>
-                      </td>
+                      <td><code>{item.rfid_uid}</code></td>
                       <td>
                         <StatusBadge status={item.status} />
                       </td>
@@ -250,8 +198,7 @@ export default function DataKaryawan() {
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
+                  ))}
                 </tbody>
               </table>
             </div>
