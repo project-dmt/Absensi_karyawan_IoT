@@ -12,20 +12,37 @@ const SUMMARY_CARDS = [
   { key: "izin", label: "Izin", bg: "linear-gradient(135deg, #6366f1, #818cf8)", icon: "bi-file-earmark-check" },
 ];
 
+function calcSummary(absensi) {
+  return {
+    total: absensi.length,
+    hadir: absensi.filter((a) => a.status === "Hadir").length,
+    terlambat: absensi.filter((a) => a.status === "Terlambat").length,
+    alpha: absensi.filter((a) => a.status === "Alpha").length,
+    izin: absensi.filter((a) => a.status === "Izin").length,
+    sakit: absensi.filter((a) => a.status === "Sakit").length,
+  };
+}
+
 export default function DetailKaryawan() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
+  const [employee, setEmployee] = useState(null);
+  const [absensi, setAbsensi] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState({ dari: "", sampai: "" });
+  const [filter, setFilter] = useState({ bulan: "" });
 
   const fetchData = async (params = {}) => {
     setLoading(true);
     try {
-      const res = await api.get(`/karyawan/${id}/laporan`, { params });
-      setData(res.data.data);
+      const [empRes, absRes] = await Promise.all([
+        api.get(`/karyawan/${id}`),
+        api.get(`/karyawan/${id}/absensi`, { params: { per_page: 100, ...params } }),
+      ]);
+      setEmployee(empRes.data.data);
+      setAbsensi(absRes.data.data.riwayat?.data || []);
     } catch {
-      setData(null);
+      setEmployee(null);
+      setAbsensi([]);
     } finally {
       setLoading(false);
     }
@@ -37,18 +54,17 @@ export default function DetailKaryawan() {
 
   const handleFilter = () => {
     const params = {};
-    if (filter.dari) params.dari = filter.dari;
-    if (filter.sampai) params.sampai = filter.sampai;
+    if (filter.bulan) params.bulan = filter.bulan;
     fetchData(params);
   };
 
   const handleResetFilter = () => {
-    setFilter({ dari: "", sampai: "" });
+    setFilter({ bulan: "" });
     fetchData();
   };
 
   if (loading) return <LoadingSpinner />;
-  if (!data) {
+  if (!employee) {
     return (
       <div className="text-center py-5">
         <i className="bi bi-person-x d-block mb-3" style={{ fontSize: "3rem", color: "#94a3b8" }} />
@@ -61,7 +77,7 @@ export default function DetailKaryawan() {
     );
   }
 
-  const { employee, absensi, summary } = data;
+  const summary = calcSummary(absensi);
 
   return (
     <div>
@@ -136,26 +152,17 @@ export default function DetailKaryawan() {
       <div className="card mb-4">
         <div className="card-header d-flex align-items-center gap-2">
           <i className="bi bi-funnel" />
-          Filter Periode
+          Filter Bulan
         </div>
         <div className="card-body">
           <div className="row g-3 align-items-end">
             <div className="col-md-3">
-              <label className="form-label">Dari Tanggal</label>
+              <label className="form-label">Bulan</label>
               <input
-                type="date"
+                type="month"
                 className="form-control"
-                value={filter.dari}
-                onChange={(e) => setFilter((prev) => ({ ...prev, dari: e.target.value }))}
-              />
-            </div>
-            <div className="col-md-3">
-              <label className="form-label">Sampai Tanggal</label>
-              <input
-                type="date"
-                className="form-control"
-                value={filter.sampai}
-                onChange={(e) => setFilter((prev) => ({ ...prev, sampai: e.target.value }))}
+                value={filter.bulan}
+                onChange={(e) => setFilter((prev) => ({ ...prev, bulan: e.target.value }))}
               />
             </div>
             <div className="col-md-3 d-flex gap-2">
