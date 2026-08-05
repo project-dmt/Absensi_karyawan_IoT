@@ -861,5 +861,5 @@ const doc = new Document({
 });
 
 const buffer = await Packer.toBuffer(doc);
-fs.writeFileSync("Dokumentasi_Frontend_Absensi_IoT.docx", buffer);
+fs.writeFileSync("../docs/Dokumentasi_Frontend_Absensi_IoT.docx", buffer);
 console.log("Dokumentasi_Frontend_Absensi_IoT.docx created successfully!");
