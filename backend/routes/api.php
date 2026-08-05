@@ -67,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/jadwal', [JadwalController::class, 'update'])->name('jadwal.update');
 
     // Absensi (CRUD)
+    Route::get('/absensi', [AbsensiController::class, 'index'])->name('absensi.index');
     Route::post('/absensi/manual', [AbsensiController::class, 'storeManual'])->name('absensi.manual');
     Route::put('/absensi/{attendance}', [AbsensiController::class, 'update'])
         ->middleware('role:admin,superadmin')

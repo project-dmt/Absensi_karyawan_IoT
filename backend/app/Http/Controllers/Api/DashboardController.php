@@ -57,7 +57,7 @@ class DashboardController extends Controller
         $jamStandar = $schedule ? $schedule->jam_masuk_standar : config('absensi.default_schedule.jam_masuk');
 
         $data = Attendance::where('tanggal', $today)
-            ->where('status', 'Terlambat')
+            ->where('attendance.status', 'Terlambat')
             ->join('employees', 'attendance.employee_id', '=', 'employees.id')
             ->join('divisions', 'employees.divisi_id', '=', 'divisions.id')
             ->select(
@@ -96,7 +96,7 @@ class DashboardController extends Controller
         $today = Carbon::today(config('app.timezone'))->toDateString();
 
         $data = Attendance::where('tanggal', $today)
-            ->where('status', 'Hadir')
+            ->where('attendance.status', 'Hadir')
             ->join('employees', 'attendance.employee_id', '=', 'employees.id')
             ->join('divisions', 'employees.divisi_id', '=', 'divisions.id')
             ->select(

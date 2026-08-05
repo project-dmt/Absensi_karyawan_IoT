@@ -40,8 +40,7 @@ class KaryawanController extends Controller
             $query->where('status', $request->status);
         }
 
-        $perPage = $request->per_page ?? config('absensi.pagination.per_page');
-        $karyawan = $query->orderBy('nama')->paginate($perPage);
+        $karyawan = $query->orderBy('nama')->get();
 
         return $this->successResponse($karyawan, 'Data karyawan berhasil diambil');
     }
