@@ -5,6 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Division;
+use App\Http\Requests\StoreDivisiRequest;
+use App\Http\Requests\UpdateDivisiRequest;
+use App\Exceptions\ApiException;
+use App\Services\AuditLogService;
 
 class DivisiController extends Controller
 {
@@ -12,62 +16,46 @@ class DivisiController extends Controller
     {
         $divisi = Division::withCount('employees')->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $divisi,
-        ]);
+        return $this->successResponse($divisi, 'Data divisi berhasil diambil');
     }
 
-    public function store(Request $request)
+    public function store(StoreDivisiRequest $request)
     {
-        $validated = $request->validate([
-            'nama_divisi' => 'required|string|max:100|unique:divisions,nama_divisi',
-        ]);
+        $divisi = Division::create($request->validated());
 
-        $divisi = Division::create($validated);
+        AuditLogService::log('create_divisi', $divisi, null, $divisi->toArray(), $request);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Divisi berhasil ditambahkan',
-            'data' => $divisi,
-        ], 201);
+        return $this->successResponse($divisi, 'Divisi berhasil ditambahkan', 201);
     }
 
-    public function show($id)
+    public function show(Division $divisi)
     {
-        $divisi = Division::with('employees')->findOrFail($id);
+        $divisi->load('employees');
 
-        return response()->json([
-            'success' => true,
-            'data' => $divisi,
-        ]);
+        return $this->successResponse($divisi, 'Data divisi berhasil diambil');
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateDivisiRequest $request, Division $divisi)
     {
-        $divisi = Division::findOrFail($id);
+        $old = $divisi->toArray();
+        $divisi->update($request->validated());
 
-        $validated = $request->validate([
-            'nama_divisi' => 'sometimes|required|string|max:100|unique:divisions,nama_divisi,' . $id,
-        ]);
+        AuditLogService::log('update_divisi', $divisi, $old, $divisi->fresh()->toArray(), $request);
 
-        $divisi->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Divisi berhasil diupdate',
-            'data' => $divisi,
-        ]);
+        return $this->successResponse($divisi->fresh(), 'Divisi berhasil diupdate');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, Division $divisi)
     {
-        $divisi = Division::findOrFail($id);
+        if ($divisi->employees()->exists()) {
+            throw new ApiException('Divisi masih memiliki karyawan, tidak bisa dihapus', 422);
+        }
+
+        $old = $divisi->toArray();
         $divisi->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Divisi berhasil dihapus',
-        ]);
+        AuditLogService::log('delete_divisi', null, $old, null, $request);
+
+        return $this->successResponse(null, 'Divisi berhasil dihapus');
     }
 }

@@ -5,79 +5,84 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Employee;
+use App\Http\Requests\StoreKaryawanRequest;
+use App\Http\Requests\UpdateKaryawanRequest;
+use App\Exceptions\ApiException;
+use App\Services\AuditLogService;
 
 class KaryawanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $karyawan = Employee::with('division')->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $karyawan,
-        ]);
-    }
-
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'nama' => 'required|string|max:100',
-            'nip' => 'required|string|max:50|unique:employees,nip',
-            'jabatan' => 'nullable|string|max:100',
+        $request->validate([
+            'search' => 'nullable|string|max:100',
             'divisi_id' => 'nullable|exists:divisions,id',
-            'rfid_uid' => 'required|string|max:50|unique:employees,rfid_uid',
-            'status' => 'in:aktif,nonaktif',
+            'status' => 'nullable|in:aktif,nonaktif',
+            'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
-        $karyawan = Employee::create($validated);
+        $query = Employee::with('division');
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Karyawan berhasil ditambahkan',
-            'data' => $karyawan,
-        ], 201);
+        if ($request->filled('search')) {
+            $search = addcslashes($request->search, '%_');
+            $query->where(function ($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                  ->orWhere('nip', 'like', "%{$search}%")
+                  ->orWhere('rfid_uid', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('divisi_id')) {
+            $query->where('divisi_id', $request->divisi_id);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $perPage = $request->per_page ?? config('absensi.pagination.per_page');
+        $karyawan = $query->orderBy('nama')->paginate($perPage);
+
+        return $this->successResponse($karyawan, 'Data karyawan berhasil diambil');
     }
 
-    public function show($id)
+    public function store(StoreKaryawanRequest $request)
     {
-        $karyawan = Employee::with('division')->findOrFail($id);
+        $karyawan = Employee::create($request->validated());
 
-        return response()->json([
-            'success' => true,
-            'data' => $karyawan,
-        ]);
+        AuditLogService::log('create_karyawan', $karyawan, null, $karyawan->toArray(), $request);
+
+        return $this->successResponse($karyawan, 'Karyawan berhasil ditambahkan', 201);
     }
 
-    public function update(Request $request, $id)
+    public function show(Employee $karyawan)
     {
-        $karyawan = Employee::findOrFail($id);
+        $karyawan->load('division');
 
-        $validated = $request->validate([
-            'nama' => 'sometimes|required|string|max:100',
-            'nip' => 'sometimes|required|string|max:50|unique:employees,nip,' . $id,
-            'jabatan' => 'nullable|string|max:100',
-            'divisi_id' => 'nullable|exists:divisions,id',
-            'rfid_uid' => 'sometimes|required|string|max:50|unique:employees,rfid_uid,' . $id,
-            'status' => 'in:aktif,nonaktif',
-        ]);
-
-        $karyawan->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Karyawan berhasil diupdate',
-            'data' => $karyawan,
-        ]);
+        return $this->successResponse($karyawan, 'Data karyawan berhasil diambil');
     }
 
-    public function destroy($id)
+    public function update(UpdateKaryawanRequest $request, Employee $karyawan)
     {
-        $karyawan = Employee::findOrFail($id);
+        $old = $karyawan->toArray();
+        $karyawan->update($request->validated());
+
+        AuditLogService::log('update_karyawan', $karyawan, $old, $karyawan->fresh()->toArray(), $request);
+
+        return $this->successResponse($karyawan->fresh(), 'Karyawan berhasil diupdate');
+    }
+
+    public function destroy(Request $request, Employee $karyawan)
+    {
+        if ($karyawan->attendances()->exists()) {
+            throw new ApiException('Karyawan masih memiliki data absensi, tidak bisa dihapus', 422);
+        }
+
+        $old = $karyawan->toArray();
         $karyawan->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Karyawan berhasil dihapus',
-        ]);
+        AuditLogService::log('delete_karyawan', null, $old, null, $request);
+
+        return $this->successResponse(null, 'Karyawan berhasil dihapus');
     }
 }

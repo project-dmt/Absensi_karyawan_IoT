@@ -14,8 +14,8 @@ class Schedule extends Model
     protected function casts(): array
     {
         return [
-            'jam_masuk_standar' => 'datetime:H:i:s',
-            'jam_pulang_standar' => 'datetime:H:i:s',
+            'jam_masuk_standar' => 'string',
+            'jam_pulang_standar' => 'string',
         ];
     }
 }

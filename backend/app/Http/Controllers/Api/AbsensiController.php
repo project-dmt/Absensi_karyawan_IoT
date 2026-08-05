@@ -6,113 +6,78 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Employee;
 use App\Models\Attendance;
-use App\Models\Schedule;
-use Carbon\Carbon;
+use App\Services\AbsensiService;
+use App\Services\AuditLogService;
+use App\Http\Requests\StoreAbsensiManualRequest;
+use App\Http\Requests\UpdateAbsensiRequest;
 
 class AbsensiController extends Controller
 {
-    // Endpoint untuk ESP32 (via API Key)
+    public function __construct(
+        private AbsensiService $absensiService
+    ) {}
+
     public function storeFromDevice(Request $request)
     {
         $validated = $request->validate([
             'uid' => 'required|string',
         ]);
 
-        // Cari karyawan berdasarkan RFID UID
-        $karyawan = Employee::where('rfid_uid', $validated['uid'])
-            ->where('status', 'aktif')
-            ->first();
+        $result = $this->absensiService->processFromDevice($validated['uid']);
 
-        if (!$karyawan) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kartu tidak terdaftar atau tidak aktif',
-            ], 404);
-        }
-
-        // Cek apakah sudah absen hari ini
-        $today = Carbon::today()->toDateString();
-        $sudahAbsen = Attendance::where('employee_id', $karyawan->id)
-            ->where('tanggal', $today)
-            ->first();
-
-        if ($sudahAbsen) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda sudah melakukan absensi hari ini',
-                'data' => [
-                    'nama' => $karyawan->nama,
-                    'status' => 'Sudah Absen',
-                ],
-            ], 400);
-        }
-
-        // Ambil jadwal kerja
-        $jadwal = Schedule::first();
-        $jamMasuk = Carbon::now()->format('H:i:s');
-        $jamStandar = $jadwal->jam_masuk_standar;
-        $toleransi = $jadwal->toleransi_menit;
-
-        // Tentukan status kehadiran
-        $jamMasukCarbon = Carbon::parse($jamMasuk);
-        $jamStandarCarbon = Carbon::parse($jamStandar);
-        $batasTerlambat = $jamStandarCarbon->copy()->addMinutes($toleransi);
-
-        $status = 'Hadir';
-        if ($jamMasukCarbon->gt($batasTerlambat)) {
-            $status = 'Terlambat';
-        }
-
-        // Simpan absensi
-        $absensi = Attendance::create([
-            'employee_id' => $karyawan->id,
-            'tanggal' => $today,
-            'jam_masuk' => $jamMasuk,
-            'status' => $status,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Absensi berhasil',
-            'data' => [
-                'nama' => $karyawan->nama,
-                'status' => $status,
-                'jam_masuk' => $jamMasuk,
-            ],
-        ]);
+        return $this->successResponse($result, 'Absensi berhasil', 201);
     }
 
-    // Endpoint untuk Admin (via Sanctum)
-    public function storeManual(Request $request)
+    public function storeManual(StoreAbsensiManualRequest $request)
     {
-        $validated = $request->validate([
-            'employee_id' => 'required|exists:employees,id',
-            'tanggal' => 'required|date',
-            'jam_masuk' => 'nullable|date_format:H:i:s',
-            'jam_pulang' => 'nullable|date_format:H:i:s',
-            'status' => 'required|in:Hadir,Terlambat,Alpha,Izin',
-            'keterangan' => 'nullable|string|max:255',
-        ]);
+        $validated = $request->validated();
+        $absensi = $this->absensiService->processManual($validated, $request->user()->id);
 
-        // Cek duplikat
-        $sudahAda = Attendance::where('employee_id', $validated['employee_id'])
-            ->where('tanggal', $validated['tanggal'])
-            ->first();
+        AuditLogService::log('create_absensi_manual', $absensi, null, $absensi->toArray(), $request);
 
-        if ($sudahAda) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Absensi untuk karyawan ini tanggal ini sudah ada',
-            ], 400);
+        return $this->successResponse($absensi, 'Absensi manual berhasil ditambahkan', 201);
+    }
+
+    public function update(UpdateAbsensiRequest $request, Attendance $absensi)
+    {
+        $old = $absensi->toArray();
+        $absensi->update($request->validated());
+
+        AuditLogService::log('update_absensi', $absensi, $old, $absensi->fresh()->toArray(), $request);
+
+        return $this->successResponse($absensi->fresh(), 'Absensi berhasil diupdate');
+    }
+
+    public function destroy(Request $request, Attendance $absensi)
+    {
+        $old = $absensi->toArray();
+        $absensi->delete();
+
+        AuditLogService::log('delete_absensi', null, $old, null, $request);
+
+        return $this->successResponse(null, 'Absensi berhasil dihapus');
+    }
+
+    public function history(Request $request, Employee $employee)
+    {
+        $query = Attendance::where('employee_id', $employee->id)
+            ->orderBy('tanggal', 'desc');
+
+        if ($request->has('bulan')) {
+            $bulan = \Carbon\Carbon::parse($request->bulan);
+            $query->whereYear('tanggal', $bulan->year)
+                  ->whereMonth('tanggal', $bulan->month);
         }
 
-        $validated['input_by'] = $request->user()->id;
-        $absensi = Attendance::create($validated);
+        $perPage = min(
+            (int) ($request->per_page ?? config('absensi.pagination.per_page')),
+            100
+        );
+        $absensi = $query->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Absensi manual berhasil ditambahkan',
-            'data' => $absensi,
-        ], 201);
+        return $this->successResponse([
+            'karyawan' => $employee->only(['id', 'nama', 'nip']),
+            'riwayat' => $absensi,
+        ], 'Riwayat absensi berhasil diambil');
     }
 }
