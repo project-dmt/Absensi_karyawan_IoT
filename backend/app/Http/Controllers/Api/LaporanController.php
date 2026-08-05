@@ -36,10 +36,9 @@ class LaporanController extends Controller
             });
         }
 
-        $perPage = $request->per_page ?? config('absensi.pagination.per_page');
         $laporan = $query->orderBy('tanggal', 'desc')
             ->orderBy('employee_id')
-            ->paginate($perPage);
+            ->get();
 
         return $this->successResponse($laporan, 'Laporan absensi berhasil diambil');
     }

@@ -58,26 +58,51 @@ class AbsensiController extends Controller
         return $this->successResponse(null, 'Absensi berhasil dihapus');
     }
 
+    public function index(Request $request)
+    {
+        $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+            'tanggal' => 'required|date',
+        ]);
+
+        $absensi = Attendance::with('employee')
+            ->where('employee_id', $request->employee_id)
+            ->whereDate('tanggal', $request->tanggal)
+            ->orderBy('tanggal', 'desc')
+            ->get();
+
+        return $this->successResponse($absensi, 'Data absensi berhasil diambil');
+    }
+
     public function history(Request $request, Employee $employee)
     {
+        $employee->load('division');
+
         $query = Attendance::where('employee_id', $employee->id)
             ->orderBy('tanggal', 'desc');
 
-        if ($request->has('bulan')) {
-            $bulan = \Carbon\Carbon::parse($request->bulan);
-            $query->whereYear('tanggal', $bulan->year)
-                  ->whereMonth('tanggal', $bulan->month);
+        if ($request->has('dari')) {
+            $query->whereDate('tanggal', '>=', $request->dari);
         }
 
-        $perPage = min(
-            (int) ($request->per_page ?? config('absensi.pagination.per_page')),
-            100
-        );
-        $absensi = $query->paginate($perPage);
+        if ($request->has('sampai')) {
+            $query->whereDate('tanggal', '<=', $request->sampai);
+        }
+
+        $absensi = $query->get();
+
+        $summary = [
+            'total' => $absensi->count(),
+            'hadir' => $absensi->where('status', 'Hadir')->count(),
+            'terlambat' => $absensi->where('status', 'Terlambat')->count(),
+            'alpha' => $absensi->where('status', 'Alpha')->count(),
+            'izin' => $absensi->where('status', 'Izin')->count(),
+        ];
 
         return $this->successResponse([
-            'karyawan' => $employee->only(['id', 'nama', 'nip']),
-            'riwayat' => $absensi,
+            'employee' => $employee,
+            'absensi' => $absensi,
+            'summary' => $summary,
         ], 'Riwayat absensi berhasil diambil');
     }
 }
