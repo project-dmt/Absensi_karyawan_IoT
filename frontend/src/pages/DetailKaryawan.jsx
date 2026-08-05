@@ -12,20 +12,41 @@ const SUMMARY_CARDS = [
   { key: "izin", label: "Izin", bg: "linear-gradient(135deg, #6366f1, #818cf8)", icon: "bi-file-earmark-check" },
 ];
 
+function calcSummary(absensi) {
+  return {
+    total: absensi.length,
+    hadir: absensi.filter((a) => a.status === "Hadir").length,
+    terlambat: absensi.filter((a) => a.status === "Terlambat").length,
+    alpha: absensi.filter((a) => a.status === "Alpha").length,
+    izin: absensi.filter((a) => a.status === "Izin").length,
+    sakit: absensi.filter((a) => a.status === "Sakit").length,
+  };
+}
+
 export default function DetailKaryawan() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
+  const [employee, setEmployee] = useState(null);
+  const [absensi, setAbsensi] = useState([]);
+  const [filteredAbsensi, setFilteredAbsensi] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ dari: "", sampai: "" });
 
-  const fetchData = async (params = {}) => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/karyawan/${id}/absensi`, { params });
-      setData(res.data.data);
+      const [empRes, absRes] = await Promise.all([
+        api.get(`/karyawan/${id}`),
+        api.get(`/karyawan/${id}/absensi`, { params: { per_page: 500 } }),
+      ]);
+      setEmployee(empRes.data.data);
+      const records = absRes.data.data.riwayat?.data || [];
+      setAbsensi(records);
+      setFilteredAbsensi(records);
     } catch {
-      setData(null);
+      setEmployee(null);
+      setAbsensi([]);
+      setFilteredAbsensi([]);
     } finally {
       setLoading(false);
     }
@@ -36,19 +57,19 @@ export default function DetailKaryawan() {
   }, [id]);
 
   const handleFilter = () => {
-    const params = {};
-    if (filter.dari) params.dari = filter.dari;
-    if (filter.sampai) params.sampai = filter.sampai;
-    fetchData(params);
+    let result = [...absensi];
+    if (filter.dari) result = result.filter((a) => a.tanggal >= filter.dari);
+    if (filter.sampai) result = result.filter((a) => a.tanggal <= filter.sampai);
+    setFilteredAbsensi(result);
   };
 
   const handleResetFilter = () => {
     setFilter({ dari: "", sampai: "" });
-    fetchData();
+    setFilteredAbsensi(absensi);
   };
 
   if (loading) return <LoadingSpinner />;
-  if (!data) {
+  if (!employee) {
     return (
       <div className="text-center py-5">
         <i className="bi bi-person-x d-block mb-3" style={{ fontSize: "3rem", color: "#94a3b8" }} />
@@ -61,7 +82,7 @@ export default function DetailKaryawan() {
     );
   }
 
-  const { employee, absensi, summary } = data;
+  const summary = calcSummary(filteredAbsensi);
 
   return (
     <div>
@@ -133,38 +154,42 @@ export default function DetailKaryawan() {
       </div>
 
       {/* Filter */}
-      <div className="card mb-4">
-        <div className="card-header d-flex align-items-center gap-2">
-          <i className="bi bi-funnel" />
-          Filter Periode
-        </div>
-        <div className="card-body">
-          <div className="row g-3 align-items-end">
-            <div className="col-md-3">
-              <label className="form-label">Dari Tanggal</label>
+      <div className="card mb-4 border-0 shadow-sm">
+        <div className="card-body py-3">
+          <div className="d-flex flex-wrap gap-2 align-items-end">
+            <div>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>
+                <i className="bi bi-calendar-start me-1" />
+                Dari
+              </label>
               <input
                 type="date"
-                className="form-control"
+                className="form-control form-control-sm"
                 value={filter.dari}
                 onChange={(e) => setFilter((prev) => ({ ...prev, dari: e.target.value }))}
+                style={{ width: 170 }}
               />
             </div>
-            <div className="col-md-3">
-              <label className="form-label">Sampai Tanggal</label>
+            <div>
+              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>
+                <i className="bi bi-calendar-end me-1" />
+                Sampai
+              </label>
               <input
                 type="date"
-                className="form-control"
+                className="form-control form-control-sm"
                 value={filter.sampai}
                 onChange={(e) => setFilter((prev) => ({ ...prev, sampai: e.target.value }))}
+                style={{ width: 170 }}
               />
             </div>
-            <div className="col-md-3 d-flex gap-2">
-              <button className="btn btn-primary" onClick={handleFilter}>
-                <i className="bi bi-search me-1" />
+            <div className="d-flex gap-2 pb-1">
+              <button className="btn btn-primary btn-sm d-flex align-items-center gap-1" onClick={handleFilter}>
+                <i className="bi bi-search" />
                 Terapkan
               </button>
-              <button className="btn btn-secondary" onClick={handleResetFilter}>
-                <i className="bi bi-arrow-counterclockwise me-1" />
+              <button className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1" onClick={handleResetFilter}>
+                <i className="bi bi-arrow-counterclockwise" />
                 Reset
               </button>
             </div>
@@ -179,10 +204,10 @@ export default function DetailKaryawan() {
             <i className="bi bi-clock-history" />
             Riwayat Absensi
           </div>
-          <small className="text-muted">{absensi.length} record</small>
+          <small className="text-muted">{filteredAbsensi.length} record</small>
         </div>
         <div className="card-body p-0">
-          {absensi.length === 0 ? (
+          {filteredAbsensi.length === 0 ? (
             <div className="empty-state">
               <i className="bi bi-calendar-x" />
               <p>Tidak ada data absensi untuk periode ini</p>
@@ -201,7 +226,7 @@ export default function DetailKaryawan() {
                   </tr>
                 </thead>
                 <tbody>
-                  {absensi.map((item, idx) => (
+                  {filteredAbsensi.map((item, idx) => (
                     <tr key={item.id}>
                       <td>{idx + 1}</td>
                       <td className="fw-medium">{item.tanggal}</td>

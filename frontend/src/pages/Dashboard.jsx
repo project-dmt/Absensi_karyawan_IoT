@@ -24,8 +24,8 @@ export default function Dashboard() {
       api.get("/laporan", { params: { dari: today, sampai: today } }),
     ])
       .then(([karyawanRes, laporanRes]) => {
-        const karyawan = karyawanRes.data.data;
-        const laporan = laporanRes.data.data;
+        const karyawan = Array.isArray(karyawanRes.data.data?.data) ? karyawanRes.data.data.data : (Array.isArray(karyawanRes.data.data) ? karyawanRes.data.data : []);
+        const laporan = Array.isArray(laporanRes.data.data?.data) ? laporanRes.data.data.data : (Array.isArray(laporanRes.data.data) ? laporanRes.data.data : []);
 
         const hadir = laporan.filter((l) => l.status === "Hadir").length;
         const terlambat = laporan.filter((l) => l.status === "Terlambat").length;
@@ -105,11 +105,13 @@ export default function Dashboard() {
 
       <div className="row g-3 mb-4">
         {cards.map((card) => (
-          <div key={card.label} className="col-sm-6 col-xl-3">
+          <div key={card.label} className="col-sm-6 col-lg-4">
             <div className="stat-card" style={{ background: card.bg }}>
+              <div className="stat-card__content">
+                <div className="stat-card__value">{card.value}</div>
+                <div className="stat-card__label">{card.label}</div>
+              </div>
               <i className={`bi ${card.icon} stat-card__icon`} />
-              <div className="stat-card__value">{card.value}</div>
-              <div className="stat-card__label">{card.label}</div>
             </div>
           </div>
         ))}

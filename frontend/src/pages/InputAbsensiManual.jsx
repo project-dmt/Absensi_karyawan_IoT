@@ -46,7 +46,7 @@ export default function InputAbsensiManual() {
   useEffect(() => {
     api
       .get("/karyawan")
-      .then((res) => setKaryawan(res.data.data))
+      .then((res) => setKaryawan(Array.isArray(res.data.data?.data) ? res.data.data.data : (Array.isArray(res.data.data) ? res.data.data : [])))
       .catch(() => {});
   }, []);
 
@@ -134,17 +134,16 @@ export default function InputAbsensiManual() {
     setUpdateRecord(null);
     setUpdateMessage({ type: "", text: "" });
     try {
-      const res = await api.get("/absensi", {
-        params: {
-          employee_id: updateSearch.employee_id,
-          tanggal: updateSearch.tanggal,
-        },
+      const res = await api.get("/laporan", {
+        params: { dari: updateSearch.tanggal, sampai: updateSearch.tanggal, per_page: 500 },
       });
-      if (!res.data.data.length) {
+      const records = Array.isArray(res.data.data?.data) ? res.data.data.data : (Array.isArray(res.data.data) ? res.data.data : []);
+      const employeeId = Number(updateSearch.employee_id);
+      const found = records.find((r) => Number(r.employee_id) === employeeId);
+      if (!found) {
         setUpdateMessage({ type: "danger", text: "Tidak ditemukan data absensi untuk karyawan ini pada tanggal tersebut" });
         return;
       }
-      const found = res.data.data[0];
       setUpdateRecord(found);
       setUpdateForm({
         status: found.status,
@@ -175,15 +174,19 @@ export default function InputAbsensiManual() {
       const payload = { status: updateForm.status };
       if (updateForm.keterangan) payload.keterangan = updateForm.keterangan;
       if (updateForm.jam_pulang) payload.jam_pulang = updateForm.jam_pulang + ":00";
-      else payload.jam_pulang = null;
 
       await api.put(`/absensi/${updateRecord.id}`, payload);
       setUpdateMessage({ type: "success", text: "Status absensi berhasil diupdate" });
       setUpdateRecord(null);
     } catch (err) {
       if (err.response?.status === 422) {
-        if (err.response.data.message) setUpdateMessage({ type: "danger", text: err.response.data.message });
-        setUpdateErrors(err.response.data.errors || {});
+        const resp = err.response.data;
+        console.error("422 Error:", JSON.stringify(resp));
+        const msg = resp?.message;
+        const errors = resp?.errors || {};
+        const detail = Object.values(errors).flat().join("; ");
+        setUpdateMessage({ type: "danger", text: `${msg || "Validasi gagal"}${detail ? ": " + detail : ""}` });
+        setUpdateErrors(errors);
       } else {
         setUpdateMessage({ type: "danger", text: err.response?.data?.message || "Gagal mengupdate absensi" });
       }
@@ -437,14 +440,17 @@ export default function InputAbsensiManual() {
                   {updateErrors.jam_pulang && <div className="invalid-feedback">{updateErrors.jam_pulang[0]}</div>}
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label">Keterangan</label>
+                  <label className="form-label">
+                    Keterangan
+                    {updateForm.status === "Izin" && <span className="text-danger ms-1">*</span>}
+                  </label>
                   <input
                     type="text"
                     name="keterangan"
                     className={`form-control ${updateErrors.keterangan ? "is-invalid" : ""}`}
                     value={updateForm.keterangan}
                     onChange={handleUpdateChange}
-                    placeholder="Keterangan (opsional)"
+                    placeholder={updateForm.status === "Izin" ? "Alasan izin (wajib diisi)" : "Keterangan (opsional)"}
                   />
                   {updateErrors.keterangan && <div className="invalid-feedback">{updateErrors.keterangan[0]}</div>}
                 </div>
