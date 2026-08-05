@@ -22,7 +22,7 @@ export default function DetailKaryawan() {
   const fetchData = async (params = {}) => {
     setLoading(true);
     try {
-      const res = await api.get(`/karyawan/${id}/laporan`, { params });
+      const res = await api.get(`/karyawan/${id}/absensi`, { params });
       setData(res.data.data);
     } catch {
       setData(null);
