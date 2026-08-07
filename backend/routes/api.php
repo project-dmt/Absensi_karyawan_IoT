@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\LaporanController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\GlobalSearchController;
 use App\Http\Controllers\Api\SseController;
+use App\Http\Controllers\Api\AiController;
 
 // =====================================================
 // PUBLIC API - Endpoint untuk ESP32 (API Key Auth)
@@ -45,6 +46,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Global Search
     Route::get('/search', [GlobalSearchController::class, 'index'])->name('api.search');
+
+    // AI Assistant
+    Route::post('/ai/chat', [AiController::class, 'chat'])->name('api.ai.chat');
 
     // Data Karyawan
     Route::apiResource('karyawan', KaryawanController::class);
