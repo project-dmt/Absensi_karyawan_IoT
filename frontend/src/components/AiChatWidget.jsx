@@ -2,6 +2,13 @@ import { useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { TextStreamChatTransport } from "ai";
 import MessageBubble from "./MessageBubble";
+import TypingIndicator from "./TypingIndicator";
+
+const QUICK_QUESTIONS = [
+  "Berapa karyawan yang tidak hadir hari ini?",
+  "Berapa persen kehadiran karyawan minggu ini?",
+  "Siapa saja yang terlambat hari ini?",
+];
 
 const messageText = (message) =>
   message.parts
@@ -52,10 +59,19 @@ export default function AiChatWidget() {
           </div>
 
           <div className="ai-widget__messages">
+            {messages.length === 0 && (
+              <div className="ai-widget__empty">
+                <i className="bi bi-robot" />
+                <p>
+                  Halo! Tanyakan hal seputar data absensi, contohnya jumlah
+                  karyawan yang tidak hadir atau persentase kehadiran.
+                </p>
+              </div>
+            )}
             {messages.map((message) => (
               <MessageBubble key={message.id} message={message}>
                 {messageText(message) ||
-                  (message.role === "assistant" && "Mengetik...")}
+                  (message.role === "assistant" && <TypingIndicator />)}
               </MessageBubble>
             ))}
             {error && (
@@ -65,6 +81,21 @@ export default function AiChatWidget() {
               </div>
             )}
           </div>
+
+          {messages.length === 0 && (
+            <div className="ai-widget__quick">
+              {QUICK_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  className="ai-widget__chip"
+                  onClick={() => sendMessage({ text: q })}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
 
           <form className="ai-widget__form" onSubmit={handleSubmit}>
             <input
