@@ -43,6 +43,14 @@ class QueryDatabaseTool implements Tool
 
         $this->assertReadOnly($sql);
 
+        return $this->execute($sql);
+    }
+
+    /**
+     * Eksekusi query read-only dan kembalikan hasil sebagai JSON.
+     */
+    protected function execute(string $sql): string
+    {
         $rows = DB::select($sql);
 
         return json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
