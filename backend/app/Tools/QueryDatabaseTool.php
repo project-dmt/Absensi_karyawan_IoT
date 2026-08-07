@@ -80,7 +80,6 @@ class QueryDatabaseTool implements Tool
             $sql .= ' LIMIT 100';
         }
     }
-}
 
     /**
      * Get the tool's schema definition.
