@@ -1,11 +1,30 @@
 import { useState } from "react";
+import { useChat } from "@ai-sdk/react";
+import { TextStreamChatTransport } from "ai";
+import MessageBubble from "./MessageBubble";
+
+const messageText = (message) =>
+  message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("");
 
 export default function AiChatWidget() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const token = localStorage.getItem("token");
+
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new TextStreamChatTransport({
+      api: `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/ai/chat`,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!input.trim() || status === "streaming") return;
+    sendMessage({ text: input });
     setInput("");
   };
 
@@ -33,13 +52,18 @@ export default function AiChatWidget() {
           </div>
 
           <div className="ai-widget__messages">
-            <div className="ai-widget__empty">
-              <i className="bi bi-robot" />
-              <p>
-                Halo! Tanyakan hal seputar data absensi, contohnya jumlah
-                karyawan yang tidak hadir atau persentase kehadiran.
-              </p>
-            </div>
+            {messages.map((message) => (
+              <MessageBubble key={message.id} message={message}>
+                {messageText(message) ||
+                  (message.role === "assistant" && "Mengetik...")}
+              </MessageBubble>
+            ))}
+            {error && (
+              <div className="ai-widget__error">
+                <i className="bi bi-exclamation-triangle me-1" />
+                Terjadi kesalahan: {error.message}
+              </div>
+            )}
           </div>
 
           <form className="ai-widget__form" onSubmit={handleSubmit}>
@@ -53,7 +77,7 @@ export default function AiChatWidget() {
             <button
               type="submit"
               className="ai-widget__send"
-              disabled={!input.trim()}
+              disabled={!input.trim() || status === "streaming"}
               aria-label="Kirim"
             >
               <i className="bi bi-send" />
