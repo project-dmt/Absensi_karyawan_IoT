@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { TextStreamChatTransport } from "ai";
 import MessageBubble from "./MessageBubble";
@@ -20,6 +20,7 @@ export default function AiChatWidget() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const token = localStorage.getItem("token");
+  const messagesRef = useRef(null);
 
   const { messages, sendMessage, status, error } = useChat({
     transport: new TextStreamChatTransport({
@@ -27,6 +28,10 @@ export default function AiChatWidget() {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     }),
   });
+
+  useEffect(() => {
+    if (open) messagesRef.current?.scrollTo({ top: 1e9 });
+  }, [open, messages]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -58,7 +63,7 @@ export default function AiChatWidget() {
             </button>
           </div>
 
-          <div className="ai-widget__messages">
+          <div className="ai-widget__messages" ref={messagesRef}>
             {messages.length === 0 && (
               <div className="ai-widget__empty">
                 <i className="bi bi-robot" />
