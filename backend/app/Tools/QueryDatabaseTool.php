@@ -3,8 +3,10 @@
 namespace App\Tools;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Facades\DB;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
+use RuntimeException;
 use Stringable;
 
 class QueryDatabaseTool implements Tool
@@ -37,8 +39,40 @@ class QueryDatabaseTool implements Tool
      */
     public function handle(Request $request): Stringable|string
     {
-        return '';
+        $sql = (string) $request['sql'];
+
+        $this->assertReadOnly($sql);
+
+        $rows = DB::select($sql);
+
+        return json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            ?: '[]';
     }
+
+    /**
+     * Pastikan query hanya SELECT read-only dan aman untuk dieksekusi.
+     */
+    protected function assertReadOnly(string $sql): void
+    {
+        $trimmed = trim(preg_replace('/--[^\n]*|\/\*.*?\*\//s', '', $sql));
+
+        if (! preg_match('/^SELECT\b/i', $trimmed)) {
+            throw new RuntimeException('Query harus dimulai dengan SELECT (read-only).');
+        }
+
+        if (preg_match('/;\s*(UPDATE|DELETE|INSERT|ALTER|DROP|CREATE|TRUNCATE|RENAME|GRANT|REVOKE)\b/i', $trimmed)) {
+            throw new RuntimeException('Query berisi perintah berbahaya yang tidak diizinkan.');
+        }
+
+        if (preg_match('/\b(INTO\s+OUTFILE|LOAD_FILE|SLEEP|BENCHMARK|INFORMATION_SCHEMA|SHUTDOWN)\b/i', $trimmed)) {
+            throw new RuntimeException('Query berisi fungsi berbahaya yang tidak diizinkan.');
+        }
+
+        if (! preg_match('/\bLIMIT\s+\d+\b/i', $trimmed)) {
+            $sql .= ' LIMIT 100';
+        }
+    }
+}
 
     /**
      * Get the tool's schema definition.
