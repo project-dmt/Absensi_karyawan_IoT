@@ -41,7 +41,7 @@ class QueryDatabaseTool implements Tool
     {
         $sql = (string) $request['sql'];
 
-        $this->assertReadOnly($sql);
+        $sql = $this->assertReadOnly($sql);
 
         return $this->execute($sql);
     }
@@ -60,7 +60,7 @@ class QueryDatabaseTool implements Tool
     /**
      * Pastikan query hanya SELECT read-only dan aman untuk dieksekusi.
      */
-    protected function assertReadOnly(string $sql): void
+    protected function assertReadOnly(string $sql): string
     {
         $trimmed = trim(preg_replace('/--[^\n]*|\/\*.*?\*\//s', '', $sql));
 
@@ -79,6 +79,8 @@ class QueryDatabaseTool implements Tool
         if (! preg_match('/\bLIMIT\s+\d+\b/i', $trimmed)) {
             $sql .= ' LIMIT 100';
         }
+
+        return $sql;
     }
 
     /**
