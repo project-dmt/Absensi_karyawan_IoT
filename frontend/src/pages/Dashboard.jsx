@@ -14,7 +14,8 @@ export default function Dashboard() {
   });
   const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
-  const realtimeEvents = useRealtime();
+  const [dataReady, setDataReady] = useState(false);
+  const realtimeEvents = useRealtime(dataReady);
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -39,7 +40,10 @@ export default function Dashboard() {
         setRecent(laporan.slice(0, 10));
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setDataReady(true);
+      });
   }, []);
 
   useEffect(() => {
