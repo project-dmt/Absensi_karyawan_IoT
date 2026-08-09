@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import AiChatWidget from "../components/AiChatWidget";
 
 const NAV_ITEMS = [
   {
@@ -118,6 +119,8 @@ export default function AdminLayout({ user, onLogout }) {
           <Outlet />
         </main>
       </div>
+
+      <AiChatWidget />
     </div>
   );
 }
