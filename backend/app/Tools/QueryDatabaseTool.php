@@ -77,7 +77,7 @@ class QueryDatabaseTool implements Tool
         }
 
         if (! preg_match('/\bLIMIT\s+\d+\b/i', $trimmed)) {
-            $sql .= ' LIMIT 100';
+            $sql = rtrim(rtrim($sql), ';') . ' LIMIT 100';
         }
 
         return $sql;

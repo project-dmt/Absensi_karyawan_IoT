@@ -83,8 +83,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Laporan
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
     Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
-
-    // Realtime SSE Stream
-    Route::get('/absensi/stream', [SseController::class, 'stream'])
-        ->name('api.absensi.stream');
 });
+
+// Realtime SSE Stream (token via query string — EventSource tidak bisa pakai header)
+Route::get('/absensi/stream', [SseController::class, 'stream'])
+    ->name('api.absensi.stream');
