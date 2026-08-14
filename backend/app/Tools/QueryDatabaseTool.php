@@ -23,7 +23,7 @@ class QueryDatabaseTool implements Tool
             divisions(id, nama_divisi).
             schedules(jam_masuk_standar, jam_pulang_standar, toleransi_menit).
             attendance(employee_id, tanggal, jam_masuk, jam_pulang, status, keterangan) —
-            status absensi: 'Hadir', 'Terlambat', 'Izin', 'Alpha' (tidak hadir).
+            status absensi: 'Hadir', 'Terlambat', 'Izin', 'Sakit', 'Alpha' (tidak hadir).
             Panduan:
             - "tidak hadir" = karyawan status 'aktif' yang tidak punya record attendance di tanggal itu,
               atau status 'Alpha'.
