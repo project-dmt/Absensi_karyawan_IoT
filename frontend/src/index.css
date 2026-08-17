@@ -254,6 +254,16 @@ body {
   padding: 4px;
 }
 
+/* ===== STATUS BADGES ===== */
+.badge-status-hadir { background: #d1e7dd; color: #0f5132; }
+.badge-status-terlambat { background: #fff3cd; color: #664d03; }
+.badge-status-alpha { background: #f8d7da; color: #842029; }
+.badge-status-izin { background: #cff4fc; color: #055160; }
+.badge-status-sakit { background: #e2e3e5; color: #41464b; }
+.badge-status-aktif { background: #d1e7dd; color: #0f5132; }
+.badge-status-nonaktif { background: #e2e3e5; color: #41464b; }
+.badge-status-default { background: #e2e3e5; color: #41464b; }
+
 /* ===== STAT CARDS ===== */
 .stat-card {
   border-radius: var(--radius);
