@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import api from "../api/axios";
+import { useEffect, useState } from "react";
+import { useJadwal, useUpdateJadwal } from "../api/queries";
 import FormInput from "../components/FormInput";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { Check, Clock, Info, Loader2 } from "lucide-react";
@@ -13,26 +13,22 @@ export default function JamKerja() {
     jam_pulang_standar: "17:00",
     toleransi_menit: 15,
   });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
+  const updateJadwal = useUpdateJadwal();
+
+  const { isPending, data: jadwal } = useJadwal();
 
   useEffect(() => {
-    api
-      .get("/jadwal")
-      .then((res) => {
-        if (res.data.data) {
-          const d = res.data.data;
-          setForm({
-            jam_masuk_standar: d.jam_masuk_standar?.substring(0, 5) || "08:00",
-            jam_pulang_standar: d.jam_pulang_standar?.substring(0, 5) || "17:00",
-            toleransi_menit: d.toleransi_menit ?? 15,
-          });
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    if (jadwal) {
+      setForm({
+        jam_masuk_standar:
+          jadwal.jam_masuk_standar?.substring(0, 5) || "08:00",
+        jam_pulang_standar:
+          jadwal.jam_pulang_standar?.substring(0, 5) || "17:00",
+        toleransi_menit: jadwal.toleransi_menit ?? 15,
+      });
+    }
+  }, [jadwal]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -45,10 +41,9 @@ export default function JamKerja() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
     setMessage({ type: "", text: "" });
     try {
-      await api.put("/jadwal", {
+      await updateJadwal.mutateAsync({
         jam_masuk_standar: form.jam_masuk_standar + ":00",
         jam_pulang_standar: form.jam_pulang_standar + ":00",
         toleransi_menit: form.toleransi_menit,
@@ -58,12 +53,10 @@ export default function JamKerja() {
       const msg =
         err.response?.data?.message || "Gagal menyimpan jam kerja";
       setMessage({ type: "danger", text: msg });
-    } finally {
-      setSaving(false);
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (isPending) return <LoadingSpinner />;
 
   return (
     <div>
@@ -129,8 +122,8 @@ export default function JamKerja() {
                 akan ditandai sebagai <strong>Terlambat</strong>.
               </AlertDescription>
             </Alert>
-            <Button type="submit" disabled={saving}>
-              {saving ? (
+            <Button type="submit" disabled={updateJadwal.isPending}>
+              {updateJadwal.isPending ? (
                 <>
                   <Loader2 data-icon="inline-start" className="animate-spin" />
                   Menyimpan...

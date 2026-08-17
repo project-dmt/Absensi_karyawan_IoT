@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { useKaryawanDetail, useKaryawanAbsensi } from "../api/queries";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
 import {
@@ -53,35 +53,14 @@ function calcSummary(absensi) {
 export default function DetailKaryawan() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [employee, setEmployee] = useState(null);
-  const [absensi, setAbsensi] = useState([]);
+  const { data: employee, isPending } = useKaryawanDetail(id);
+  const { data: absensi = [] } = useKaryawanAbsensi(id);
   const [filteredAbsensi, setFilteredAbsensi] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ dari: "", sampai: "" });
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [empRes, absRes] = await Promise.all([
-        api.get(`/karyawan/${id}`),
-        api.get(`/karyawan/${id}/absensi`, { params: { per_page: 500 } }),
-      ]);
-      setEmployee(empRes.data.data);
-      const records = absRes.data.data.riwayat?.data || [];
-      setAbsensi(records);
-      setFilteredAbsensi(records);
-    } catch {
-      setEmployee(null);
-      setAbsensi([]);
-      setFilteredAbsensi([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchData();
-  }, [id]);
+    setFilteredAbsensi(absensi);
+  }, [absensi]);
 
   const handleFilter = () => {
     let result = [...absensi];
@@ -95,7 +74,7 @@ export default function DetailKaryawan() {
     setFilteredAbsensi(absensi);
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (isPending) return <LoadingSpinner />;
   if (!employee) {
     return (
       <div className="flex flex-col items-center gap-2 py-12 text-center">

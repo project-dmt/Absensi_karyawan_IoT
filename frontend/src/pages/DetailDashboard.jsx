@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { useDashboardDetail } from "../api/queries";
 import LoadingSpinner from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
 import { ArrowLeft, CheckCircle } from "lucide-react";
@@ -19,12 +18,10 @@ import {
 const PAGE_CONFIG = {
   terlambat: {
     title: "Karyawan Terlambat Hari Ini",
-    endpoint: "/dashboard/terlambat",
     columns: ["No", "Nama", "NIP", "Divisi", "Jam Masuk", "Jam Standar", "Keterlambatan"],
   },
   "tidak-hadir": {
     title: "Karyawan Tidak Hadir Hari Ini",
-    endpoint: "/dashboard/tidak-hadir",
     columns: ["No", "Nama", "NIP", "Divisi", "Keterangan"],
   },
 };
@@ -32,26 +29,14 @@ const PAGE_CONFIG = {
 export default function DetailDashboard() {
   const { type } = useParams();
   const navigate = useNavigate();
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-
+  const { data = [], isPending } = useDashboardDetail(type);
   const config = PAGE_CONFIG[type];
-
-  useEffect(() => {
-    if (!config) return;
-    setLoading(true);
-    api
-      .get(config.endpoint)
-      .then((res) => setData(res.data.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [type]);
 
   if (!config) {
     return <EmptyState message="Halaman tidak ditemukan" />;
   }
 
-  if (loading) return <LoadingSpinner />;
+  if (isPending) return <LoadingSpinner />;
 
   return (
     <div>

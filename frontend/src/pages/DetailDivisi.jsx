@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { useDivisiDetail } from "../api/queries";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
 import {
@@ -44,18 +43,9 @@ const SUMMARY_BADGES = {
 export default function DetailDivisi() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isPending } = useDivisiDetail(id);
 
-  useEffect(() => {
-    api
-      .get(`/divisi/${id}`)
-      .then((res) => setData(res.data.data))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, [id]);
-
-  if (loading) return <LoadingSpinner />;
+  if (isPending) return <LoadingSpinner />;
   if (!data) {
     return (
       <div className="flex flex-col items-center gap-2 py-12 text-center">
