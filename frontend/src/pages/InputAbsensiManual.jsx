@@ -2,6 +2,20 @@ import { useState, useEffect } from "react";
 import api from "../api/axios";
 import FormInput from "../components/FormInput";
 import StatusBadge from "../components/StatusBadge";
+import {
+  ArrowLeftRight,
+  CalendarDays,
+  Check,
+  FilePlus2,
+  Loader2,
+  RefreshCw,
+  Search,
+  TriangleAlert,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 const STATUS_OPTIONS = [
   { value: "Hadir", label: "Hadir" },
@@ -18,6 +32,21 @@ const STATUS_INFO = {
   Izin: { showJamMasuk: false, showJamPulang: false, showKeterangan: true, keteranganPlaceholder: "Alasan izin (wajib diisi)" },
   Sakit: { showJamMasuk: false, showJamPulang: false, showKeterangan: true, keteranganPlaceholder: "Keterangan sakit (opsional)" },
 };
+
+function MessageAlert({ message }) {
+  if (!message.text) return null;
+  return (
+    <Alert
+      variant={message.type === "success" ? "default" : "destructive"}
+      className="mb-3"
+    >
+      <AlertTitle>
+        {message.type === "success" ? "Berhasil" : "Gagal"}
+      </AlertTitle>
+      <AlertDescription>{message.text}</AlertDescription>
+    </Alert>
+  );
+}
 
 export default function InputAbsensiManual() {
   const [karyawan, setKaryawan] = useState([]);
@@ -209,24 +238,19 @@ export default function InputAbsensiManual() {
         <h4>Input Absensi Manual</h4>
       </div>
 
-      <p className="text-muted mb-4" style={{ fontSize: "0.9rem" }}>
+      <p className="mb-4 text-sm text-muted-foreground">
         Gunakan form ini untuk input absensi karyawan yang tidak dapat melakukan tap RFID.
       </p>
 
-      {message.text && (
-        <div className={`alert alert-${message.type} d-flex align-items-center gap-2 py-2`} role="alert">
-          <i className={`bi ${message.type === "success" ? "bi-check-circle-fill" : "bi-exclamation-circle-fill"}`} />
-          {message.text}
-        </div>
-      )}
+      <MessageAlert message={message} />
 
-      <div className="card">
-        <div className="card-header d-flex align-items-center gap-2">
-          <i className="bi bi-pencil-square" />
-          Form Absensi Manual
-        </div>
-        <div className="card-body">
-          <form onSubmit={handleSubmit}>
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2 py-4">
+          <FilePlus2 className="size-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-semibold">Form Absensi Manual</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <FormInput
               label="Nama Karyawan"
               name="employee_id"
@@ -241,54 +265,46 @@ export default function InputAbsensiManual() {
                 label: `${k.nama} (${k.nip})`,
               }))}
             />
-            <div className="row g-3">
-              <div className="col-md-6">
-                <FormInput
-                  label="Tanggal"
-                  name="tanggal"
-                  type="date"
-                  value={form.tanggal}
-                  onChange={handleChange}
-                  error={errors.tanggal?.[0]}
-                  required
-                />
-              </div>
-              <div className="col-md-6">
-                <FormInput
-                  label="Status"
-                  name="status"
-                  as="select"
-                  value={form.status}
-                  onChange={handleChange}
-                  options={STATUS_OPTIONS}
-                />
-              </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <FormInput
+                label="Tanggal"
+                name="tanggal"
+                type="date"
+                value={form.tanggal}
+                onChange={handleChange}
+                error={errors.tanggal?.[0]}
+                required
+              />
+              <FormInput
+                label="Status"
+                name="status"
+                as="select"
+                value={form.status}
+                onChange={handleChange}
+                options={STATUS_OPTIONS}
+              />
             </div>
             {(statusInfo.showJamMasuk || statusInfo.showJamPulang) && (
-              <div className="row g-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {statusInfo.showJamMasuk && (
-                  <div className={statusInfo.showJamPulang ? "col-md-6" : "col-md-6"}>
-                    <FormInput
-                      label="Jam Masuk"
-                      name="jam_masuk"
-                      type="time"
-                      value={form.jam_masuk}
-                      onChange={handleChange}
-                      error={errors.jam_masuk?.[0]}
-                    />
-                  </div>
+                  <FormInput
+                    label="Jam Masuk"
+                    name="jam_masuk"
+                    type="time"
+                    value={form.jam_masuk}
+                    onChange={handleChange}
+                    error={errors.jam_masuk?.[0]}
+                  />
                 )}
                 {statusInfo.showJamPulang && (
-                  <div className="col-md-6">
-                    <FormInput
-                      label="Jam Pulang"
-                      name="jam_pulang"
-                      type="time"
-                      value={form.jam_pulang}
-                      onChange={handleChange}
-                      error={errors.jam_pulang?.[0]}
-                    />
-                  </div>
+                  <FormInput
+                    label="Jam Pulang"
+                    name="jam_pulang"
+                    type="time"
+                    value={form.jam_pulang}
+                    onChange={handleChange}
+                    error={errors.jam_pulang?.[0]}
+                  />
                 )}
               </div>
             )}
@@ -301,183 +317,154 @@ export default function InputAbsensiManual() {
               error={errors.keterangan?.[0]}
               placeholder={statusInfo.keteranganPlaceholder}
             />
-            <div className="d-flex gap-2 mt-2">
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={submitting}
-              >
+            <div className="flex gap-2">
+              <Button type="submit" disabled={submitting}>
                 {submitting ? (
                   <>
-                    <span
-                      className="spinner-border spinner-border-sm me-1"
-                      role="status"
-                    />
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
                     Menyimpan...
                   </>
                 ) : (
                   <>
-                    <i className="bi bi-check-lg me-1" />
+                    <Check data-icon="inline-start" />
                     Simpan
                   </>
                 )}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handleReset}
-              >
-                <i className="bi bi-arrow-counterclockwise me-1" />
+              </Button>
+              <Button type="button" variant="secondary" onClick={handleReset}>
+                <RefreshCw data-icon="inline-start" className="size-4" />
                 Reset
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <hr className="my-4" />
+      <Separator className="my-6" />
 
-      <div className="card">
-        <div className="card-header d-flex align-items-center gap-2">
-          <i className="bi bi-arrow-repeat" />
-          Update Status Absensi
-        </div>
-        <div className="card-body">
-          <p className="text-muted mb-3" style={{ fontSize: "0.85rem" }}>
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2 py-4">
+          <ArrowLeftRight className="size-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-semibold">Update Status Absensi</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-sm text-muted-foreground">
             Untuk karyawan yang sudah tap RFID pagi tapi izin/sakit di tengah hari.
           </p>
 
-          {updateMessage.text && (
-            <div className={`alert alert-${updateMessage.type} d-flex align-items-center gap-2 py-2`} role="alert">
-              <i className={`bi ${updateMessage.type === "success" ? "bi-check-circle-fill" : "bi-exclamation-circle-fill"}`} />
-              {updateMessage.text}
-            </div>
-          )}
+          <MessageAlert message={updateMessage} />
 
           {!updateRecord ? (
-            <div className="row g-3 align-items-end">
-              <div className="col-md-4">
-                <label className="form-label">Nama Karyawan</label>
-                <select
-                  className="form-select"
-                  value={updateSearch.employee_id}
-                  onChange={(e) => setUpdateSearch((prev) => ({ ...prev, employee_id: e.target.value }))}
-                >
-                  <option value="" disabled>Pilih karyawan...</option>
-                  {karyawan.map((k) => (
-                    <option key={k.id} value={k.id}>{k.nama} ({k.nip})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-md-4">
-                <label className="form-label">Tanggal</label>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={updateSearch.tanggal}
-                  onChange={(e) => setUpdateSearch((prev) => ({ ...prev, tanggal: e.target.value }))}
-                />
-              </div>
-              <div className="col-md-4">
-                <button className="btn btn-primary w-100" onClick={handleUpdateSearch} disabled={searchLoading}>
-                  {searchLoading ? (
-                    <span className="spinner-border spinner-border-sm" role="status" />
-                  ) : (
-                    <>
-                      <i className="bi bi-search me-1" />
-                      Cari Record
-                    </>
-                  )}
-                </button>
-              </div>
+            <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
+              <FormInput
+                label="Nama Karyawan"
+                name="employee_id"
+                as="select"
+                value={updateSearch.employee_id}
+                onChange={(e) => setUpdateSearch((prev) => ({ ...prev, employee_id: e.target.value }))}
+                placeholder="Pilih karyawan..."
+                options={karyawan.map((k) => ({
+                  value: k.id,
+                  label: `${k.nama} (${k.nip})`,
+                }))}
+              />
+              <FormInput
+                label="Tanggal"
+                name="tanggal"
+                type="date"
+                value={updateSearch.tanggal}
+                onChange={(e) => setUpdateSearch((prev) => ({ ...prev, tanggal: e.target.value }))}
+              />
+              <Button onClick={handleUpdateSearch} disabled={searchLoading}>
+                {searchLoading ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <>
+                    <Search data-icon="inline-start" className="size-4" />
+                    Cari Record
+                  </>
+                )}
+              </Button>
             </div>
           ) : (
-            <form onSubmit={handleUpdateSubmit}>
-              <div className="mb-3 p-3 bg-light rounded">
-                <div className="d-flex align-items-center gap-3 flex-wrap">
+            <form onSubmit={handleUpdateSubmit} className="space-y-4">
+              <div className="rounded-md bg-muted p-3">
+                <div className="flex flex-wrap items-center gap-4">
                   <div>
-                    <small className="text-muted">Karyawan</small>
-                    <div className="fw-semibold">{updateRecord.employee?.nama}</div>
+                    <small className="block text-muted-foreground">Karyawan</small>
+                    <div className="font-semibold">{updateRecord.employee?.nama}</div>
                   </div>
                   <div>
-                    <small className="text-muted">Tanggal</small>
+                    <small className="block text-muted-foreground">Tanggal</small>
                     <div>{updateRecord.tanggal}</div>
                   </div>
                   <div>
-                    <small className="text-muted">Jam Masuk</small>
+                    <small className="block text-muted-foreground">Jam Masuk</small>
                     <div>{updateRecord.jam_masuk || "-"}</div>
                   </div>
                   <div>
-                    <small className="text-muted">Status Saat Ini</small>
+                    <small className="block text-muted-foreground">Status Saat Ini</small>
                     <div><StatusBadge status={updateRecord.status} /></div>
                   </div>
                 </div>
               </div>
-              <div className="row g-3">
-                <div className="col-md-4">
-                  <label className="form-label">Status Baru</label>
-                  <select
-                    name="status"
-                    className={`form-select ${updateErrors.status ? "is-invalid" : ""}`}
-                    value={updateForm.status}
-                    onChange={handleUpdateChange}
-                  >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                  {updateErrors.status && <div className="invalid-feedback">{updateErrors.status[0]}</div>}
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label">Jam Pulang (opsional)</label>
-                  <input
-                    type="time"
-                    name="jam_pulang"
-                    className={`form-control ${updateErrors.jam_pulang ? "is-invalid" : ""}`}
-                    value={updateForm.jam_pulang}
-                    onChange={handleUpdateChange}
-                  />
-                  {updateErrors.jam_pulang && <div className="invalid-feedback">{updateErrors.jam_pulang[0]}</div>}
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label">
-                    Keterangan
-                    {updateForm.status === "Izin" && <span className="text-danger ms-1">*</span>}
-                  </label>
-                  <input
-                    type="text"
-                    name="keterangan"
-                    className={`form-control ${updateErrors.keterangan ? "is-invalid" : ""}`}
-                    value={updateForm.keterangan}
-                    onChange={handleUpdateChange}
-                    placeholder={updateForm.status === "Izin" ? "Alasan izin (wajib diisi)" : "Keterangan (opsional)"}
-                  />
-                  {updateErrors.keterangan && <div className="invalid-feedback">{updateErrors.keterangan[0]}</div>}
-                </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <FormInput
+                  label="Status Baru"
+                  name="status"
+                  as="select"
+                  value={updateForm.status}
+                  onChange={handleUpdateChange}
+                  error={updateErrors.status?.[0]}
+                  options={STATUS_OPTIONS}
+                />
+                <FormInput
+                  label="Jam Pulang (opsional)"
+                  name="jam_pulang"
+                  type="time"
+                  value={updateForm.jam_pulang}
+                  onChange={handleUpdateChange}
+                  error={updateErrors.jam_pulang?.[0]}
+                />
+                <FormInput
+                  label={
+                    <>
+                      Keterangan
+                      {updateForm.status === "Izin" && (
+                        <span className="ml-1 text-destructive">*</span>
+                      )}
+                    </>
+                  }
+                  name="keterangan"
+                  value={updateForm.keterangan}
+                  onChange={handleUpdateChange}
+                  error={updateErrors.keterangan?.[0]}
+                  placeholder={updateForm.status === "Izin" ? "Alasan izin (wajib diisi)" : "Keterangan (opsional)"}
+                />
               </div>
-              <div className="d-flex gap-2 mt-3">
-                <button type="submit" className="btn btn-primary" disabled={updateSubmitting}>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={updateSubmitting}>
                   {updateSubmitting ? (
                     <>
-                      <span className="spinner-border spinner-border-sm me-1" role="status" />
+                      <Loader2 data-icon="inline-start" className="animate-spin" />
                       Menyimpan...
                     </>
                   ) : (
                     <>
-                      <i className="bi bi-check-lg me-1" />
+                      <Check data-icon="inline-start" />
                       Update Status
                     </>
                   )}
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={handleUpdateReset}>
-                  <i className="bi bi-arrow-counterclockwise me-1" />
+                </Button>
+                <Button type="button" variant="secondary" onClick={handleUpdateReset}>
+                  <RefreshCw data-icon="inline-start" className="size-4" />
                   Reset
-                </button>
+                </Button>
               </div>
             </form>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
