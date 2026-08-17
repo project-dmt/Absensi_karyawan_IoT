@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { divisiSchema } from "../schemas";
 import { useRouter } from "../router";
 import { useDebounce } from "../hooks/useDebounce";
 import Modal from "../components/Modal";
-import FormInput from "../components/FormInput";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 import {
@@ -15,6 +17,8 @@ import { Check, Eye, Loader2, Network, Pencil, Plus, Search, Trash2 } from "luci
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
   InputGroup,
@@ -40,9 +44,11 @@ export default function DataDivisi() {
   const debouncedSearch = useDebounce(search);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [namaDivisi, setNamaDivisi] = useState("");
-  const [errors, setErrors] = useState({});
   const submitting = createDivisi.isPending || updateDivisi.isPending;
+
+  const { register, handleSubmit, reset, setError, formState: { errors } } = useForm({
+    resolver: zodResolver(divisiSchema),
+  });
 
   const filtered = data.filter((item) =>
     item.nama_divisi.toLowerCase().includes(debouncedSearch.toLowerCase())
@@ -50,22 +56,18 @@ export default function DataDivisi() {
 
   const openAdd = () => {
     setEditId(null);
-    setNamaDivisi("");
-    setErrors({});
+    reset({ nama_divisi: "" });
     setShowModal(true);
   };
 
   const openEdit = (item) => {
     setEditId(item.id);
-    setNamaDivisi(item.nama_divisi);
-    setErrors({});
+    reset({ nama_divisi: item.nama_divisi });
     setShowModal(true);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrors({});
-    const payload = { nama_divisi: namaDivisi };
+  const onSubmit = async (formData) => {
+    const payload = { nama_divisi: formData.nama_divisi };
     const mutation = editId
       ? updateDivisi.mutateAsync({ id: editId, ...payload })
       : createDivisi.mutateAsync(payload);
@@ -74,7 +76,10 @@ export default function DataDivisi() {
       setShowModal(false);
     } catch (err) {
       if (err.response?.status === 422) {
-        setErrors(err.response.data.errors || {});
+        const serverErrors = err.response.data.errors || {};
+        Object.entries(serverErrors).forEach(([field, msgs]) => {
+          setError(field, { type: "server", message: msgs[0] });
+        });
       }
     }
   };
@@ -186,19 +191,19 @@ export default function DataDivisi() {
         onClose={() => setShowModal(false)}
         title={editId ? "Edit Divisi" : "Tambah Divisi"}
       >
-        <form onSubmit={handleSubmit}>
-          <FormInput
-            label="Nama Divisi"
-            name="nama_divisi"
-            value={namaDivisi}
-            onChange={(e) => {
-              setNamaDivisi(e.target.value);
-              setErrors((prev) => ({ ...prev, nama_divisi: undefined }));
-            }}
-            error={errors.nama_divisi?.[0]}
-            placeholder="Contoh: Teknologi Informasi"
-            required
-          />
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <Field data-invalid={errors.nama_divisi ? true : undefined}>
+            <FieldLabel htmlFor="nama_divisi">Nama Divisi</FieldLabel>
+            <Input
+              id="nama_divisi"
+              placeholder="Contoh: Teknologi Informasi"
+              aria-invalid={errors.nama_divisi ? true : undefined}
+              {...register("nama_divisi")}
+            />
+            {errors.nama_divisi && (
+              <FieldError>{errors.nama_divisi.message}</FieldError>
+            )}
+          </Field>
           <Separator className="my-4" />
           <div className="flex justify-end gap-2">
             <Button

@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { loginSchema } from "../schemas";
 import { Mail, Lock, LogIn, TriangleAlert, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -14,21 +17,20 @@ import { useRouteContext, useRouter } from "../router";
 export default function Login() {
   const router = useRouter();
   const { auth } = useRouteContext({ strict: false });
-  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
 
-  const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    setError("");
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  const onSubmit = async (data) => {
     setError("");
     try {
-      await auth.login(form.email, form.password);
+      await auth.login(data.email, data.password);
       router.navigate({ to: "/" });
     } catch (err) {
       const msg =
@@ -36,8 +38,6 @@ export default function Login() {
         err.response?.data?.errors?.email?.[0] ||
         "Login gagal. Periksa email dan password.";
       setError(msg);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -60,8 +60,8 @@ export default function Login() {
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field>
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          <Field data-invalid={errors.email ? true : undefined}>
             <FieldLabel htmlFor="email">Email</FieldLabel>
             <InputGroup>
               <InputGroupAddon>
@@ -70,17 +70,15 @@ export default function Login() {
               <InputGroupInput
                 type="email"
                 id="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
                 placeholder="Masukkan email"
-                required
                 autoFocus
+                aria-invalid={errors.email ? true : undefined}
+                {...register("email")}
               />
             </InputGroup>
-            <FieldError />
+            {errors.email && <FieldError>{errors.email.message}</FieldError>}
           </Field>
-          <Field>
+          <Field data-invalid={errors.password ? true : undefined}>
             <FieldLabel htmlFor="password">Password</FieldLabel>
             <InputGroup>
               <InputGroupAddon>
@@ -89,21 +87,21 @@ export default function Login() {
               <InputGroupInput
                 type="password"
                 id="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
                 placeholder="Masukkan password"
-                required
+                aria-invalid={errors.password ? true : undefined}
+                {...register("password")}
               />
             </InputGroup>
-            <FieldError />
+            {errors.password && (
+              <FieldError>{errors.password.message}</FieldError>
+            )}
           </Field>
           <Button
             type="submit"
             className="mt-1 h-10 w-full text-sm"
-            disabled={loading}
+            disabled={isSubmitting}
           >
-            {loading ? (
+            {isSubmitting ? (
               <>
                 <Loader2 data-icon="inline-start" className="animate-spin" />
                 Memproses...

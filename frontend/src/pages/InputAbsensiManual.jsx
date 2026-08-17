@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import FormInput from "../components/FormInput";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { absensiManualSchema, absensiUpdateSchema } from "../schemas";
 import StatusBadge from "../components/StatusBadge";
 import {
   useKaryawanList,
@@ -16,8 +18,18 @@ import {
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 
 const STATUS_OPTIONS = [
@@ -55,90 +67,91 @@ export default function InputAbsensiManual() {
   const { data: karyawan = [] } = useKaryawanList();
   const createAbsensi = useCreateAbsensiManual();
   const updateAbsensi = useUpdateAbsensi();
-  const [form, setForm] = useState({
-    employee_id: "",
-    tanggal: new Date().toISOString().split("T")[0],
-    jam_masuk: "",
-    jam_pulang: "",
-    status: "Hadir",
-    keterangan: "",
-  });
-  const [errors, setErrors] = useState({});
   const [message, setMessage] = useState({ type: "", text: "" });
 
   const [updateSearch, setUpdateSearch] = useState({ employee_id: "", tanggal: new Date().toISOString().split("T")[0] });
   const [updateRecord, setUpdateRecord] = useState(null);
-  const [updateForm, setUpdateForm] = useState({ status: "", keterangan: "", jam_pulang: "" });
-  const [updateErrors, setUpdateErrors] = useState({});
   const [updateMessage, setUpdateMessage] = useState({ type: "", text: "" });
   const [searchQuery, setSearchQuery] = useState(null);
   const { data: searchRecords = [], isFetching: searchLoading, isSuccess: searchSuccess } = useLaporan(searchQuery, {
     enabled: Boolean(searchQuery),
   });
 
-  const statusInfo = STATUS_INFO[form.status] || STATUS_INFO.Hadir;
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    reset,
+    setError,
+    formState: { errors: createErrors },
+  } = useForm({
+    resolver: zodResolver(absensiManualSchema),
+    defaultValues: {
+      employee_id: "",
+      tanggal: new Date().toISOString().split("T")[0],
+      jam_masuk: "",
+      jam_pulang: "",
+      status: "Hadir",
+      keterangan: "",
+    },
+  });
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => {
-      const next = { ...prev, [name]: value };
-      if (name === "status") {
-        const info = STATUS_INFO[value];
-        if (!info.showJamMasuk) next.jam_masuk = "";
-        if (!info.showJamPulang) next.jam_pulang = "";
-      }
-      return next;
-    });
-    setErrors((prev) => ({ ...prev, [name]: undefined }));
-    setMessage({ type: "", text: "" });
-  };
+  const watchedStatus = watch("status");
+  const statusInfo = STATUS_INFO[watchedStatus] || STATUS_INFO.Hadir;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrors({});
+  const {
+    register: registerUpdate,
+    handleSubmit: handleSubmitUpdate,
+    control: controlUpdate,
+    watch: watchUpdate,
+    reset: resetUpdate,
+    setError: setErrorUpdate,
+    formState: { errors: updateErrors },
+  } = useForm({
+    resolver: zodResolver(absensiUpdateSchema),
+    defaultValues: { status: "", keterangan: "", jam_pulang: "" },
+  });
+
+  const onCreateSubmit = async (data) => {
     setMessage({ type: "", text: "" });
     try {
       const payload = {
-        employee_id: parseInt(form.employee_id),
-        tanggal: form.tanggal,
-        status: form.status,
+        employee_id: parseInt(data.employee_id),
+        tanggal: data.tanggal,
+        status: data.status,
       };
-      if (statusInfo.showJamMasuk && form.jam_masuk) payload.jam_masuk = form.jam_masuk + ":00";
-      if (statusInfo.showJamPulang && form.jam_pulang) payload.jam_pulang = form.jam_pulang + ":00";
-      if (form.keterangan) payload.keterangan = form.keterangan;
+      if (statusInfo.showJamMasuk && data.jam_masuk) payload.jam_masuk = data.jam_masuk + ":00";
+      if (statusInfo.showJamPulang && data.jam_pulang) payload.jam_pulang = data.jam_pulang + ":00";
+      if (data.keterangan) payload.keterangan = data.keterangan;
 
       await createAbsensi.mutateAsync(payload);
-      setMessage({
-        type: "success",
-        text: "Absensi manual berhasil ditambahkan",
-      });
-      setForm((prev) => ({
-        ...prev,
+      setMessage({ type: "success", text: "Absensi manual berhasil ditambahkan" });
+      reset({
         employee_id: "",
+        tanggal: data.tanggal,
         jam_masuk: "",
         jam_pulang: "",
+        status: "Hadir",
         keterangan: "",
-      }));
+      });
     } catch (err) {
       if (err.response?.status === 422) {
         if (err.response.data.message) {
-          setMessage({
-            type: "danger",
-            text: err.response.data.message,
-          });
+          setMessage({ type: "danger", text: err.response.data.message });
         }
-        setErrors(err.response.data.errors || {});
-      } else {
-        setMessage({
-          type: "danger",
-          text: err.response?.data?.message || "Gagal menyimpan absensi",
+        const serverErrors = err.response.data.errors || {};
+        Object.entries(serverErrors).forEach(([field, msgs]) => {
+          setError(field, { type: "server", message: msgs[0] });
         });
+      } else {
+        setMessage({ type: "danger", text: err.response?.data?.message || "Gagal menyimpan absensi" });
       }
     }
   };
 
   const handleReset = () => {
-    setForm({
+    reset({
       employee_id: "",
       tanggal: new Date().toISOString().split("T")[0],
       jam_masuk: "",
@@ -146,7 +159,6 @@ export default function InputAbsensiManual() {
       status: "Hadir",
       keterangan: "",
     });
-    setErrors({});
     setMessage({ type: "", text: "" });
   };
 
@@ -172,29 +184,19 @@ export default function InputAbsensiManual() {
       return;
     }
     setUpdateRecord(found);
-    setUpdateForm({
+    resetUpdate({
       status: found.status,
       keterangan: found.keterangan || "",
       jam_pulang: found.jam_pulang ? found.jam_pulang.substring(0, 5) : "",
     });
-    setUpdateErrors({});
-  }, [searchSuccess, searchRecords]);
+  }, [searchSuccess, searchRecords, updateSearch.employee_id, resetUpdate]);
 
-  const handleUpdateChange = (e) => {
-    const { name, value } = e.target;
-    setUpdateForm((prev) => ({ ...prev, [name]: value }));
-    setUpdateErrors((prev) => ({ ...prev, [name]: undefined }));
-    setUpdateMessage({ type: "", text: "" });
-  };
-
-  const handleUpdateSubmit = async (e) => {
-    e.preventDefault();
-    setUpdateErrors({});
+  const onUpdateSubmit = async (data) => {
     setUpdateMessage({ type: "", text: "" });
     try {
-      const payload = { status: updateForm.status };
-      if (updateForm.keterangan) payload.keterangan = updateForm.keterangan;
-      if (updateForm.jam_pulang) payload.jam_pulang = updateForm.jam_pulang + ":00";
+      const payload = { status: data.status };
+      if (data.keterangan) payload.keterangan = data.keterangan;
+      if (data.jam_pulang) payload.jam_pulang = data.jam_pulang + ":00";
 
       await updateAbsensi.mutateAsync({ id: updateRecord.id, ...payload });
       setUpdateMessage({ type: "success", text: "Status absensi berhasil diupdate" });
@@ -202,12 +204,13 @@ export default function InputAbsensiManual() {
     } catch (err) {
       if (err.response?.status === 422) {
         const resp = err.response.data;
-        console.error("422 Error:", JSON.stringify(resp));
         const msg = resp?.message;
-        const errors = resp?.errors || {};
-        const detail = Object.values(errors).flat().join("; ");
+        const serverErrors = resp?.errors || {};
+        const detail = Object.values(serverErrors).flat().join("; ");
         setUpdateMessage({ type: "danger", text: `${msg || "Validasi gagal"}${detail ? ": " + detail : ""}` });
-        setUpdateErrors(errors);
+        Object.entries(serverErrors).forEach(([field, msgs]) => {
+          setErrorUpdate(field, { type: "server", message: msgs[0] });
+        });
       } else {
         setUpdateMessage({ type: "danger", text: err.response?.data?.message || "Gagal mengupdate absensi" });
       }
@@ -217,8 +220,7 @@ export default function InputAbsensiManual() {
   const handleUpdateReset = () => {
     setUpdateSearch({ employee_id: "", tanggal: new Date().toISOString().split("T")[0] });
     setUpdateRecord(null);
-    setUpdateForm({ status: "", keterangan: "", jam_pulang: "" });
-    setUpdateErrors({});
+    resetUpdate({ status: "", keterangan: "", jam_pulang: "" });
     setUpdateMessage({ type: "", text: "" });
     setSearchQuery(null);
   };
@@ -241,73 +243,106 @@ export default function InputAbsensiManual() {
           <CardTitle className="text-sm font-semibold">Form Absensi Manual</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <FormInput
-              label="Nama Karyawan"
+          <form onSubmit={handleSubmit(onCreateSubmit)} className="space-y-4">
+            <Controller
               name="employee_id"
-              as="select"
-              value={form.employee_id}
-              onChange={handleChange}
-              error={errors.employee_id?.[0]}
-              placeholder="Pilih karyawan..."
-              required
-              options={karyawan.map((k) => ({
-                value: k.id,
-                label: `${k.nama} (${k.nip})`,
-              }))}
+              control={control}
+              render={({ field }) => (
+                <Field data-invalid={createErrors.employee_id ? true : undefined}>
+                  <FieldLabel>Nama Karyawan</FieldLabel>
+                  <Select value={field.value || undefined} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full" aria-invalid={createErrors.employee_id ? true : undefined}>
+                      <SelectValue placeholder="Pilih karyawan..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {karyawan.map((k) => (
+                          <SelectItem key={k.id} value={String(k.id)}>
+                            {k.nama} ({k.nip})
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  {createErrors.employee_id && (
+                    <FieldError>{createErrors.employee_id.message}</FieldError>
+                  )}
+                </Field>
+              )}
             />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <FormInput
-                label="Tanggal"
-                name="tanggal"
-                type="date"
-                value={form.tanggal}
-                onChange={handleChange}
-                error={errors.tanggal?.[0]}
-                required
-              />
-              <FormInput
-                label="Status"
+              <Field data-invalid={createErrors.tanggal ? true : undefined}>
+                <FieldLabel htmlFor="tanggal">Tanggal</FieldLabel>
+                <Input
+                  type="date"
+                  id="tanggal"
+                  aria-invalid={createErrors.tanggal ? true : undefined}
+                  {...register("tanggal")}
+                />
+                {createErrors.tanggal && (
+                  <FieldError>{createErrors.tanggal.message}</FieldError>
+                )}
+              </Field>
+              <Controller
                 name="status"
-                as="select"
-                value={form.status}
-                onChange={handleChange}
-                options={STATUS_OPTIONS}
+                control={control}
+                render={({ field }) => (
+                  <Field>
+                    <FieldLabel>Status</FieldLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {STATUS_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
               />
             </div>
             {(statusInfo.showJamMasuk || statusInfo.showJamPulang) && (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {statusInfo.showJamMasuk && (
-                  <FormInput
-                    label="Jam Masuk"
-                    name="jam_masuk"
-                    type="time"
-                    value={form.jam_masuk}
-                    onChange={handleChange}
-                    error={errors.jam_masuk?.[0]}
-                  />
+                  <Field data-invalid={createErrors.jam_masuk ? true : undefined}>
+                    <FieldLabel htmlFor="jam_masuk">Jam Masuk</FieldLabel>
+                    <Input type="time" id="jam_masuk" {...register("jam_masuk")} />
+                    {createErrors.jam_masuk && (
+                      <FieldError>{createErrors.jam_masuk.message}</FieldError>
+                    )}
+                  </Field>
                 )}
                 {statusInfo.showJamPulang && (
-                  <FormInput
-                    label="Jam Pulang"
-                    name="jam_pulang"
-                    type="time"
-                    value={form.jam_pulang}
-                    onChange={handleChange}
-                    error={errors.jam_pulang?.[0]}
-                  />
+                  <Field data-invalid={createErrors.jam_pulang ? true : undefined}>
+                    <FieldLabel htmlFor="jam_pulang">Jam Pulang</FieldLabel>
+                    <Input type="time" id="jam_pulang" {...register("jam_pulang")} />
+                    {createErrors.jam_pulang && (
+                      <FieldError>{createErrors.jam_pulang.message}</FieldError>
+                    )}
+                  </Field>
                 )}
               </div>
             )}
-            <FormInput
-              label="Keterangan"
-              name="keterangan"
-              as="textarea"
-              value={form.keterangan}
-              onChange={handleChange}
-              error={errors.keterangan?.[0]}
-              placeholder={statusInfo.keteranganPlaceholder}
-            />
+            <Field data-invalid={createErrors.keterangan ? true : undefined}>
+              <FieldLabel htmlFor="keterangan_create">Keterangan</FieldLabel>
+              <textarea
+                id="keterangan_create"
+                className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                rows={3}
+                style={{ resize: "vertical" }}
+                placeholder={statusInfo.keteranganPlaceholder}
+                {...register("keterangan")}
+              />
+              {createErrors.keterangan && (
+                <FieldError>{createErrors.keterangan.message}</FieldError>
+              )}
+            </Field>
             <div className="flex gap-2">
               <Button type="submit" disabled={createAbsensi.isPending}>
                 {createAbsensi.isPending ? (
@@ -347,25 +382,34 @@ export default function InputAbsensiManual() {
 
           {!updateRecord ? (
             <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
-              <FormInput
-                label="Nama Karyawan"
-                name="employee_id"
-                as="select"
-                value={updateSearch.employee_id}
-                onChange={(e) => setUpdateSearch((prev) => ({ ...prev, employee_id: e.target.value }))}
-                placeholder="Pilih karyawan..."
-                options={karyawan.map((k) => ({
-                  value: k.id,
-                  label: `${k.nama} (${k.nip})`,
-                }))}
-              />
-              <FormInput
-                label="Tanggal"
-                name="tanggal"
-                type="date"
-                value={updateSearch.tanggal}
-                onChange={(e) => setUpdateSearch((prev) => ({ ...prev, tanggal: e.target.value }))}
-              />
+              <Field>
+                <FieldLabel>Nama Karyawan</FieldLabel>
+                <Select
+                  value={updateSearch.employee_id || undefined}
+                  onValueChange={(v) => setUpdateSearch((prev) => ({ ...prev, employee_id: v }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Pilih karyawan..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {karyawan.map((k) => (
+                        <SelectItem key={k.id} value={String(k.id)}>
+                          {k.nama} ({k.nip})
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel>Tanggal</FieldLabel>
+                <Input
+                  type="date"
+                  value={updateSearch.tanggal}
+                  onChange={(e) => setUpdateSearch((prev) => ({ ...prev, tanggal: e.target.value }))}
+                />
+              </Field>
               <Button onClick={handleUpdateSearch} disabled={searchLoading}>
                 {searchLoading ? (
                   <Loader2 className="animate-spin" />
@@ -378,7 +422,7 @@ export default function InputAbsensiManual() {
               </Button>
             </div>
           ) : (
-            <form onSubmit={handleUpdateSubmit} className="space-y-4">
+            <form onSubmit={handleSubmitUpdate(onUpdateSubmit)} className="space-y-4">
               <div className="rounded-md bg-muted p-3">
                 <div className="flex flex-wrap items-center gap-4">
                   <div>
@@ -400,38 +444,55 @@ export default function InputAbsensiManual() {
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <FormInput
-                  label="Status Baru"
+                <Controller
                   name="status"
-                  as="select"
-                  value={updateForm.status}
-                  onChange={handleUpdateChange}
-                  error={updateErrors.status?.[0]}
-                  options={STATUS_OPTIONS}
-                />
-                <FormInput
-                  label="Jam Pulang (opsional)"
-                  name="jam_pulang"
-                  type="time"
-                  value={updateForm.jam_pulang}
-                  onChange={handleUpdateChange}
-                  error={updateErrors.jam_pulang?.[0]}
-                />
-                <FormInput
-                  label={
-                    <>
-                      Keterangan
-                      {updateForm.status === "Izin" && (
-                        <span className="ml-1 text-destructive">*</span>
+                  control={controlUpdate}
+                  render={({ field }) => (
+                    <Field data-invalid={updateErrors.status ? true : undefined}>
+                      <FieldLabel>Status Baru</FieldLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className="w-full" aria-invalid={updateErrors.status ? true : undefined}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {STATUS_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      {updateErrors.status && (
+                        <FieldError>{updateErrors.status.message}</FieldError>
                       )}
-                    </>
-                  }
-                  name="keterangan"
-                  value={updateForm.keterangan}
-                  onChange={handleUpdateChange}
-                  error={updateErrors.keterangan?.[0]}
-                  placeholder={updateForm.status === "Izin" ? "Alasan izin (wajib diisi)" : "Keterangan (opsional)"}
+                    </Field>
+                  )}
                 />
+                <Field data-invalid={updateErrors.jam_pulang ? true : undefined}>
+                  <FieldLabel htmlFor="jam_pulang_update">Jam Pulang (opsional)</FieldLabel>
+                  <Input type="time" id="jam_pulang_update" {...registerUpdate("jam_pulang")} />
+                  {updateErrors.jam_pulang && (
+                    <FieldError>{updateErrors.jam_pulang.message}</FieldError>
+                  )}
+                </Field>
+                <Field data-invalid={updateErrors.keterangan ? true : undefined}>
+                  <FieldLabel htmlFor="keterangan_update">
+                    Keterangan
+                    {watchUpdate("status") === "Izin" && (
+                      <span className="ml-1 text-destructive">*</span>
+                    )}
+                  </FieldLabel>
+                  <Input
+                    id="keterangan_update"
+                    placeholder={watchUpdate("status") === "Izin" ? "Alasan izin (wajib diisi)" : "Keterangan (opsional)"}
+                    {...registerUpdate("keterangan")}
+                  />
+                  {updateErrors.keterangan && (
+                    <FieldError>{updateErrors.keterangan.message}</FieldError>
+                  )}
+                </Field>
               </div>
               <div className="flex gap-2">
                 <Button type="submit" disabled={updateAbsensi.isPending}>

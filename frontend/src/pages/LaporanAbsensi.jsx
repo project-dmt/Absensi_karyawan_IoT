@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { absensiUpdateSchema } from "../schemas";
 import api from "../api/axios";
 import { useDivisiList, useLaporan, useUpdateAbsensi } from "../api/queries";
 import StatusBadge from "../components/StatusBadge";
@@ -17,6 +20,16 @@ import {
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -60,9 +73,19 @@ export default function LaporanAbsensi() {
   const updateAbsensi = useUpdateAbsensi();
 
   const [editItem, setEditItem] = useState(null);
-  const [editForm, setEditForm] = useState({ status: "", keterangan: "", jam_pulang: "" });
-  const [editErrors, setEditErrors] = useState({});
   const [editMessage, setEditMessage] = useState({ type: "", text: "" });
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    setError,
+    formState: { errors: editErrors },
+  } = useForm({
+    resolver: zodResolver(absensiUpdateSchema),
+    defaultValues: { status: "", keterangan: "", jam_pulang: "" },
+  });
 
   const handleChange = (e) => {
     setFilter((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -93,36 +116,25 @@ export default function LaporanAbsensi() {
 
   const openEdit = (item) => {
     setEditItem(item);
-    setEditForm({
+    setEditMessage({ type: "", text: "" });
+    reset({
       status: item.status,
       keterangan: item.keterangan || "",
       jam_pulang: item.jam_pulang ? item.jam_pulang.substring(0, 5) : "",
     });
-    setEditErrors({});
-    setEditMessage({ type: "", text: "" });
   };
 
   const closeEdit = () => {
     setEditItem(null);
-    setEditErrors({});
     setEditMessage({ type: "", text: "" });
   };
 
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
-    setEditErrors((prev) => ({ ...prev, [name]: undefined }));
-    setEditMessage({ type: "", text: "" });
-  };
-
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    setEditErrors({});
+  const onEditSubmit = async (formData) => {
     setEditMessage({ type: "", text: "" });
     try {
-      const payload = { status: editForm.status };
-      if (editForm.keterangan) payload.keterangan = editForm.keterangan;
-      if (editForm.jam_pulang) payload.jam_pulang = editForm.jam_pulang + ":00";
+      const payload = { status: formData.status };
+      if (formData.keterangan) payload.keterangan = formData.keterangan;
+      if (formData.jam_pulang) payload.jam_pulang = formData.jam_pulang + ":00";
 
       await updateAbsensi.mutateAsync({ id: editItem.id, ...payload });
       setEditMessage({ type: "success", text: "Absensi berhasil diupdate" });
@@ -131,7 +143,10 @@ export default function LaporanAbsensi() {
         if (err.response.data.message) {
           setEditMessage({ type: "danger", text: err.response.data.message });
         }
-        setEditErrors(err.response.data.errors || {});
+        const serverErrors = err.response.data.errors || {};
+        Object.entries(serverErrors).forEach(([field, msgs]) => {
+          setError(field, { type: "server", message: msgs[0] });
+        });
       } else {
         setEditMessage({ type: "danger", text: err.response?.data?.message || "Gagal mengupdate absensi" });
       }
@@ -283,33 +298,54 @@ export default function LaporanAbsensi() {
               </div>
             )}
 
-            <form onSubmit={handleEditSubmit} className="space-y-4">
-              <FormInput
-                label="Status"
+            <form onSubmit={handleSubmit(onEditSubmit)} className="space-y-4">
+              <Controller
                 name="status"
-                as="select"
-                value={editForm.status}
-                onChange={handleEditChange}
-                error={editErrors.status?.[0]}
-                options={STATUS_OPTIONS}
+                control={control}
+                render={({ field }) => (
+                  <Field data-invalid={editErrors.status ? true : undefined}>
+                    <FieldLabel>Status</FieldLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full" aria-invalid={editErrors.status ? true : undefined}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {STATUS_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    {editErrors.status && (
+                      <FieldError>{editErrors.status.message}</FieldError>
+                    )}
+                  </Field>
+                )}
               />
-              <FormInput
-                label="Jam Pulang"
-                name="jam_pulang"
-                type="time"
-                value={editForm.jam_pulang}
-                onChange={handleEditChange}
-                error={editErrors.jam_pulang?.[0]}
-              />
-              <FormInput
-                label="Keterangan"
-                name="keterangan"
-                as="textarea"
-                value={editForm.keterangan}
-                onChange={handleEditChange}
-                error={editErrors.keterangan?.[0]}
-                placeholder="Keterangan (opsional)"
-              />
+              <Field data-invalid={editErrors.jam_pulang ? true : undefined}>
+                <FieldLabel htmlFor="jam_pulang_edit">Jam Pulang</FieldLabel>
+                <Input type="time" id="jam_pulang_edit" {...register("jam_pulang")} />
+                {editErrors.jam_pulang && (
+                  <FieldError>{editErrors.jam_pulang.message}</FieldError>
+                )}
+              </Field>
+              <Field data-invalid={editErrors.keterangan ? true : undefined}>
+                <FieldLabel htmlFor="keterangan_edit">Keterangan</FieldLabel>
+                <textarea
+                  id="keterangan_edit"
+                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  rows={3}
+                  style={{ resize: "vertical" }}
+                  placeholder="Keterangan (opsional)"
+                  {...register("keterangan")}
+                />
+                {editErrors.keterangan && (
+                  <FieldError>{editErrors.keterangan.message}</FieldError>
+                )}
+              </Field>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="secondary" onClick={closeEdit}>
                   Batal

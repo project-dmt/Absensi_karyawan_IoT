@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { karyawanSchema } from "../schemas";
 import { useRouter } from "../router";
 import { useDebounce } from "../hooks/useDebounce";
 import StatusBadge from "../components/StatusBadge";
 import Modal from "../components/Modal";
-import FormInput from "../components/FormInput";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 import {
@@ -26,8 +28,18 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   InputGroup,
   InputGroupAddon,
@@ -62,10 +74,13 @@ export default function DataKaryawan() {
   const debouncedSearch = useDebounce(search);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState(INITIAL_FORM);
-  const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState("");
   const submitting = createKaryawan.isPending || updateKaryawan.isPending;
+
+  const { register, handleSubmit, control, reset, setError, formState: { errors } } = useForm({
+    resolver: zodResolver(karyawanSchema),
+    defaultValues: INITIAL_FORM,
+  });
 
   const filtered = data.filter(
     (item) =>
@@ -76,15 +91,15 @@ export default function DataKaryawan() {
 
   const openAdd = () => {
     setEditId(null);
-    setForm(INITIAL_FORM);
-    setErrors({});
     setFormError("");
+    reset(INITIAL_FORM);
     setShowModal(true);
   };
 
   const openEdit = (item) => {
     setEditId(item.id);
-    setForm({
+    setFormError("");
+    reset({
       nama: item.nama,
       nip: item.nip,
       jabatan: item.jabatan || "",
@@ -92,28 +107,23 @@ export default function DataKaryawan() {
       rfid_uid: item.rfid_uid,
       status: item.status,
     });
-    setErrors({});
     setShowModal(true);
   };
 
-  const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    setErrors((prev) => ({ ...prev, [e.target.name]: undefined }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrors({});
+  const onSubmit = async (formData) => {
     setFormError("");
     const mutation = editId
-      ? updateKaryawan.mutateAsync({ id: editId, ...form })
-      : createKaryawan.mutateAsync(form);
+      ? updateKaryawan.mutateAsync({ id: editId, ...formData })
+      : createKaryawan.mutateAsync(formData);
     try {
       await mutation;
       setShowModal(false);
     } catch (err) {
       if (err.response?.status === 422) {
-        setErrors(err.response.data.errors || {});
+        const serverErrors = err.response.data.errors || {};
+        Object.entries(serverErrors).forEach(([field, msgs]) => {
+          setError(field, { type: "server", message: msgs[0] });
+        });
       } else {
         setFormError(err.response?.data?.message || "Terjadi kesalahan. Silakan coba lagi.");
       }
@@ -235,7 +245,7 @@ export default function DataKaryawan() {
         onClose={() => setShowModal(false)}
         title={editId ? "Edit Karyawan" : "Tambah Karyawan"}
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           {formError && (
             <Alert variant="destructive" className="mb-4">
               <TriangleAlert />
@@ -243,64 +253,84 @@ export default function DataKaryawan() {
             </Alert>
           )}
           <div className="flex flex-col gap-4">
-            <FormInput
-              label="Nama"
-              name="nama"
-              value={form.nama}
-              onChange={handleChange}
-              error={errors.nama?.[0]}
-              placeholder="Nama lengkap"
-              required
-            />
-            <FormInput
-              label="NIP"
-              name="nip"
-              value={form.nip}
-              onChange={handleChange}
-              error={errors.nip?.[0]}
-              placeholder="Nomor induk pegawai"
-              required
-            />
-            <FormInput
-              label="Jabatan"
-              name="jabatan"
-              value={form.jabatan}
-              onChange={handleChange}
-              error={errors.jabatan?.[0]}
-              placeholder="Jabatan karyawan"
-            />
-            <FormInput
-              label="Divisi"
+            <Field data-invalid={errors.nama ? true : undefined}>
+              <FieldLabel htmlFor="nama">Nama</FieldLabel>
+              <Input
+                id="nama"
+                placeholder="Nama lengkap"
+                aria-invalid={errors.nama ? true : undefined}
+                {...register("nama")}
+              />
+              {errors.nama && <FieldError>{errors.nama.message}</FieldError>}
+            </Field>
+            <Field data-invalid={errors.nip ? true : undefined}>
+              <FieldLabel htmlFor="nip">NIP</FieldLabel>
+              <Input
+                id="nip"
+                placeholder="Nomor induk pegawai"
+                aria-invalid={errors.nip ? true : undefined}
+                {...register("nip")}
+              />
+              {errors.nip && <FieldError>{errors.nip.message}</FieldError>}
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="jabatan">Jabatan</FieldLabel>
+              <Input id="jabatan" placeholder="Jabatan karyawan" {...register("jabatan")} />
+            </Field>
+            <Controller
               name="divisi_id"
-              as="select"
-              value={form.divisi_id}
-              onChange={handleChange}
-              error={errors.divisi_id?.[0]}
-              placeholder="Pilih divisi..."
-              options={divisi.map((d) => ({
-                value: d.id,
-                label: d.nama_divisi,
-              }))}
+              control={control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel>Divisi</FieldLabel>
+                  <Select value={field.value || undefined} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Pilih divisi..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {divisi.map((d) => (
+                          <SelectItem key={d.id} value={String(d.id)}>
+                            {d.nama_divisi}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
             />
-            <FormInput
-              label="RFID UID"
-              name="rfid_uid"
-              value={form.rfid_uid}
-              onChange={handleChange}
-              error={errors.rfid_uid?.[0]}
-              placeholder="Contoh: A1B2C3"
-              required
-            />
-            <FormInput
-              label="Status"
+            <Field data-invalid={errors.rfid_uid ? true : undefined}>
+              <FieldLabel htmlFor="rfid_uid">RFID UID</FieldLabel>
+              <Input
+                id="rfid_uid"
+                placeholder="Contoh: A1B2C3"
+                aria-invalid={errors.rfid_uid ? true : undefined}
+                {...register("rfid_uid")}
+              />
+              {errors.rfid_uid && (
+                <FieldError>{errors.rfid_uid.message}</FieldError>
+              )}
+            </Field>
+            <Controller
               name="status"
-              as="select"
-              value={form.status}
-              onChange={handleChange}
-              options={[
-                { value: "aktif", label: "Aktif" },
-                { value: "nonaktif", label: "Nonaktif" },
-              ]}
+              control={control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel>Status</FieldLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="aktif">Aktif</SelectItem>
+                        <SelectItem value="nonaktif">Nonaktif</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
             />
           </div>
           <Separator className="my-4" />

@@ -1,57 +1,54 @@
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { jadwalSchema } from "../schemas";
 import { useJadwal, useUpdateJadwal } from "../api/queries";
-import FormInput from "../components/FormInput";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { Check, Clock, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 export default function JamKerja() {
-  const [form, setForm] = useState({
-    jam_masuk_standar: "08:00",
-    jam_pulang_standar: "17:00",
-    toleransi_menit: 15,
-  });
   const [message, setMessage] = useState({ type: "", text: "" });
   const updateJadwal = useUpdateJadwal();
-
   const { isPending, data: jadwal } = useJadwal();
+
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(jadwalSchema),
+    defaultValues: {
+      jam_masuk_standar: "08:00",
+      jam_pulang_standar: "17:00",
+      toleransi_menit: 15,
+    },
+  });
+
+  const watchJamMasuk = watch("jam_masuk_standar");
+  const watchToleransi = watch("toleransi_menit");
 
   useEffect(() => {
     if (jadwal) {
-      setForm({
-        jam_masuk_standar:
-          jadwal.jam_masuk_standar?.substring(0, 5) || "08:00",
-        jam_pulang_standar:
-          jadwal.jam_pulang_standar?.substring(0, 5) || "17:00",
+      reset({
+        jam_masuk_standar: jadwal.jam_masuk_standar?.substring(0, 5) || "08:00",
+        jam_pulang_standar: jadwal.jam_pulang_standar?.substring(0, 5) || "17:00",
         toleransi_menit: jadwal.toleransi_menit ?? 15,
       });
     }
-  }, [jadwal]);
+  }, [jadwal, reset]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: name === "toleransi_menit" ? parseInt(value) || 0 : value,
-    }));
-    setMessage({ type: "", text: "" });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const onSubmit = async (data) => {
     setMessage({ type: "", text: "" });
     try {
       await updateJadwal.mutateAsync({
-        jam_masuk_standar: form.jam_masuk_standar + ":00",
-        jam_pulang_standar: form.jam_pulang_standar + ":00",
-        toleransi_menit: form.toleransi_menit,
+        jam_masuk_standar: data.jam_masuk_standar + ":00",
+        jam_pulang_standar: data.jam_pulang_standar + ":00",
+        toleransi_menit: data.toleransi_menit,
       });
       setMessage({ type: "success", text: "Jam kerja berhasil disimpan" });
     } catch (err) {
-      const msg =
-        err.response?.data?.message || "Gagal menyimpan jam kerja";
+      const msg = err.response?.data?.message || "Gagal menyimpan jam kerja";
       setMessage({ type: "danger", text: msg });
     }
   };
@@ -84,40 +81,30 @@ export default function JamKerja() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <FormInput
-                label="Jam Masuk Standar"
-                name="jam_masuk_standar"
-                type="time"
-                value={form.jam_masuk_standar}
-                onChange={handleChange}
-                required
-              />
-              <FormInput
-                label="Jam Pulang Standar"
-                name="jam_pulang_standar"
-                type="time"
-                value={form.jam_pulang_standar}
-                onChange={handleChange}
-                required
-              />
+              <Field>
+                <FieldLabel htmlFor="jam_masuk_standar">Jam Masuk Standar</FieldLabel>
+                <Input type="time" id="jam_masuk_standar" {...register("jam_masuk_standar")} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="jam_pulang_standar">Jam Pulang Standar</FieldLabel>
+                <Input type="time" id="jam_pulang_standar" {...register("jam_pulang_standar")} />
+              </Field>
             </div>
-            <FormInput
-              label="Toleransi Keterlambatan (menit)"
-              name="toleransi_menit"
-              type="number"
-              value={form.toleransi_menit}
-              onChange={handleChange}
-              min={0}
-              required
-            />
+            <Field>
+              <FieldLabel htmlFor="toleransi_menit">Toleransi Keterlambatan (menit)</FieldLabel>
+              <Input type="number" id="toleransi_menit" min={0} {...register("toleransi_menit")} />
+              {errors.toleransi_menit && (
+                <span className="text-sm text-destructive">{errors.toleransi_menit.message}</span>
+              )}
+            </Field>
             <Alert className="text-sm">
               <Info className="size-4" />
               <AlertDescription>
                 Karyawan yang masuk setelah jam{" "}
                 <strong>
-                  {form.jam_masuk_standar} + {form.toleransi_menit} menit
+                  {watchJamMasuk} + {watchToleransi} menit
                 </strong>{" "}
                 akan ditandai sebagai <strong>Terlambat</strong>.
               </AlertDescription>
