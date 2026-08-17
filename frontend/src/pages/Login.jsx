@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Envelope, Lock, LogIn, TriangleAlert, UserCog } from "lucide-react";
+import { Mail, Lock, LogIn, TriangleAlert, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -62,7 +62,7 @@ export default function Login({ onLogin }) {
             <FieldLabel htmlFor="email">Email</FieldLabel>
             <InputGroup>
               <InputGroupAddon>
-                <Envelope className="size-4" />
+                <Mail className="size-4" />
               </InputGroupAddon>
               <InputGroupInput
                 type="email"
