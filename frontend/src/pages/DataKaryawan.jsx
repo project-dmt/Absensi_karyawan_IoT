@@ -1,12 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
 import { useDebounce } from "../hooks/useDebounce";
 import StatusBadge from "../components/StatusBadge";
 import Modal from "../components/Modal";
 import FormInput from "../components/FormInput";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
+import {
+  useKaryawanList,
+  useDivisiList,
+  useCreateKaryawan,
+  useUpdateKaryawan,
+  useDeleteKaryawan,
+} from "../api/queries";
 import {
   Check,
   Eye,
@@ -47,36 +53,19 @@ const INITIAL_FORM = {
 
 export default function DataKaryawan() {
   const navigate = useNavigate();
-  const [data, setData] = useState([]);
-  const [divisi, setDivisi] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data = [], isPending } = useKaryawanList();
+  const { data: divisi = [] } = useDivisiList();
+  const createKaryawan = useCreateKaryawan();
+  const updateKaryawan = useUpdateKaryawan();
+  const deleteKaryawan = useDeleteKaryawan();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [karyawanRes, divisiRes] = await Promise.all([
-        api.get("/karyawan"),
-        api.get("/divisi"),
-      ]);
-      setData(Array.isArray(karyawanRes.data.data?.data) ? karyawanRes.data.data.data : (Array.isArray(karyawanRes.data.data) ? karyawanRes.data.data : []));
-      setDivisi(divisiRes.data.data);
-    } catch {
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const submitting = createKaryawan.isPending || updateKaryawan.isPending;
 
   const filtered = data.filter(
     (item) =>
@@ -114,33 +103,27 @@ export default function DataKaryawan() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
     setErrors({});
     setFormError("");
+    const mutation = editId
+      ? updateKaryawan.mutateAsync({ id: editId, ...form })
+      : createKaryawan.mutateAsync(form);
     try {
-      if (editId) {
-        await api.put(`/karyawan/${editId}`, form);
-      } else {
-        await api.post("/karyawan", form);
-      }
+      await mutation;
       setShowModal(false);
-      fetchData();
     } catch (err) {
       if (err.response?.status === 422) {
         setErrors(err.response.data.errors || {});
       } else {
         setFormError(err.response?.data?.message || "Terjadi kesalahan. Silakan coba lagi.");
       }
-    } finally {
-      setSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin ingin menghapus karyawan ini?")) return;
     try {
-      await api.delete(`/karyawan/${id}`);
-      fetchData();
+      await deleteKaryawan.mutateAsync(id);
     } catch {}
   };
 
@@ -168,7 +151,7 @@ export default function DataKaryawan() {
         </InputGroup>
       </div>
 
-      {loading ? (
+      {isPending ? (
         <LoadingSpinner />
       ) : filtered.length === 0 ? (
         <EmptyState

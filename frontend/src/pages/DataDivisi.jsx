@@ -1,11 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
 import { useDebounce } from "../hooks/useDebounce";
 import Modal from "../components/Modal";
 import FormInput from "../components/FormInput";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
+import {
+  useDivisiList,
+  useCreateDivisi,
+  useUpdateDivisi,
+  useDeleteDivisi,
+} from "../api/queries";
 import { Check, Eye, Loader2, Network, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,30 +32,17 @@ import {
 
 export default function DataDivisi() {
   const navigate = useNavigate();
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data = [], isPending } = useDivisiList();
+  const createDivisi = useCreateDivisi();
+  const updateDivisi = useUpdateDivisi();
+  const deleteDivisi = useDeleteDivisi();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [namaDivisi, setNamaDivisi] = useState("");
   const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get("/divisi");
-      setData(res.data.data);
-    } catch {
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const submitting = createDivisi.isPending || updateDivisi.isPending;
 
   const filtered = data.filter((item) =>
     item.nama_divisi.toLowerCase().includes(debouncedSearch.toLowerCase())
@@ -72,31 +64,25 @@ export default function DataDivisi() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
     setErrors({});
+    const payload = { nama_divisi: namaDivisi };
+    const mutation = editId
+      ? updateDivisi.mutateAsync({ id: editId, ...payload })
+      : createDivisi.mutateAsync(payload);
     try {
-      const payload = { nama_divisi: namaDivisi };
-      if (editId) {
-        await api.put(`/divisi/${editId}`, payload);
-      } else {
-        await api.post("/divisi", payload);
-      }
+      await mutation;
       setShowModal(false);
-      fetchData();
     } catch (err) {
       if (err.response?.status === 422) {
         setErrors(err.response.data.errors || {});
       }
-    } finally {
-      setSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
     try {
-      await api.delete(`/divisi/${id}`);
-      fetchData();
+      await deleteDivisi.mutateAsync(id);
     } catch {}
   };
 
@@ -124,7 +110,7 @@ export default function DataDivisi() {
         </InputGroup>
       </div>
 
-      {loading ? (
+      {isPending ? (
         <LoadingSpinner />
       ) : filtered.length === 0 ? (
         <EmptyState
