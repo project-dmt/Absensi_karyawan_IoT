@@ -15,9 +15,12 @@ import DetailDashboard from "./pages/DetailDashboard";
 function ProtectedRoute({ user, loading, children }) {
   if (loading) {
     return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading</span>
+      <div className="flex h-screen items-center justify-center">
+        <div
+          className="size-10 animate-spin rounded-full border-2 border-primary border-t-transparent"
+          role="status"
+        >
+          <span className="sr-only">Loading</span>
         </div>
       </div>
     );
