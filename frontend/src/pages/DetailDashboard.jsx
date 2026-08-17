@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useRouter } from "../router";
 import { useDashboardDetail } from "../api/queries";
 import LoadingSpinner from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
@@ -27,8 +27,8 @@ const PAGE_CONFIG = {
 };
 
 export default function DetailDashboard() {
-  const { type } = useParams();
-  const navigate = useNavigate();
+  const { type } = useParams({ strict: false });
+  const router = useRouter();
   const { data = [], isPending } = useDashboardDetail(type);
   const config = PAGE_CONFIG[type];
 
@@ -44,7 +44,7 @@ export default function DetailDashboard() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate("/")}
+          onClick={() => router.navigate({ to: "/" })}
         >
           <ArrowLeft data-icon="inline-start" className="size-4" />
           Kembali

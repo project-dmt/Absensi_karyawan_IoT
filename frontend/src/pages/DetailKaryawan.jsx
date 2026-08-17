@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useRouter } from "../router";
 import { useKaryawanDetail, useKaryawanAbsensi } from "../api/queries";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -51,8 +51,8 @@ function calcSummary(absensi) {
 }
 
 export default function DetailKaryawan() {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { id } = useParams({ strict: false });
+  const router = useRouter();
   const { data: employee, isPending } = useKaryawanDetail(id);
   const { data: absensi = [] } = useKaryawanAbsensi(id);
   const [filteredAbsensi, setFilteredAbsensi] = useState([]);
@@ -80,7 +80,7 @@ export default function DetailKaryawan() {
       <div className="flex flex-col items-center gap-2 py-12 text-center">
         <UserX className="mb-2 size-12 text-slate-400" />
         <p className="text-muted-foreground">Karyawan tidak ditemukan</p>
-        <Button className="mt-2" onClick={() => navigate("/data-karyawan")}>
+        <Button className="mt-2" onClick={() => router.navigate({ to: "/data-karyawan" })}>
           <ArrowLeft data-icon="inline-start" />
           Kembali
         </Button>
@@ -97,7 +97,7 @@ export default function DetailKaryawan() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => navigate("/data-karyawan")}
+            onClick={() => router.navigate({ to: "/data-karyawan" })}
             title="Kembali"
           >
             <ArrowLeft className="size-4" />

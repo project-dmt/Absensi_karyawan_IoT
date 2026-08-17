@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useRouter } from "../router";
 import { useDivisiDetail } from "../api/queries";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -41,8 +41,8 @@ const SUMMARY_BADGES = {
 };
 
 export default function DetailDivisi() {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { id } = useParams({ strict: false });
+  const router = useRouter();
   const { data, isPending } = useDivisiDetail(id);
 
   if (isPending) return <LoadingSpinner />;
@@ -51,7 +51,7 @@ export default function DetailDivisi() {
       <div className="flex flex-col items-center gap-2 py-12 text-center">
         <Network className="mb-2 size-12 text-slate-400" />
         <p className="text-muted-foreground">Divisi tidak ditemukan</p>
-        <Button className="mt-2" onClick={() => navigate("/data-divisi")}>
+        <Button className="mt-2" onClick={() => router.navigate({ to: "/data-divisi" })}>
           <ArrowLeft data-icon="inline-start" />
           Kembali
         </Button>
@@ -68,7 +68,7 @@ export default function DetailDivisi() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => navigate("/data-divisi")}
+            onClick={() => router.navigate({ to: "/data-divisi" })}
             title="Kembali"
           >
             <ArrowLeft className="size-4" />

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "../router";
 import { useDebounce } from "../hooks/useDebounce";
 import StatusBadge from "../components/StatusBadge";
 import Modal from "../components/Modal";
@@ -52,7 +52,7 @@ const INITIAL_FORM = {
 };
 
 export default function DataKaryawan() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data = [], isPending } = useKaryawanList();
   const { data: divisi = [] } = useDivisiList();
   const createKaryawan = useCreateKaryawan();
@@ -197,7 +197,7 @@ export default function DataKaryawan() {
                             variant="outline"
                             size="icon-sm"
                             title="Lihat Detail"
-                            onClick={() => navigate(`/data-karyawan/${item.id}`)}
+                            onClick={() => router.navigate({ to: "/data-karyawan/$id", params: { id: item.id } })}
                           >
                             <Eye />
                           </Button>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "../router";
 import { useDebounce } from "../hooks/useDebounce";
 import Modal from "../components/Modal";
 import FormInput from "../components/FormInput";
@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/table";
 
 export default function DataDivisi() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data = [], isPending } = useDivisiList();
   const createDivisi = useCreateDivisi();
   const updateDivisi = useUpdateDivisi();
@@ -148,7 +148,7 @@ export default function DataDivisi() {
                             variant="outline"
                             size="icon-sm"
                             title="Lihat Detail"
-                            onClick={() => navigate(`/data-divisi/${item.id}`)}
+                            onClick={() => router.navigate({ to: "/data-divisi/$id", params: { id: item.id } })}
                           >
                             <Eye />
                           </Button>
