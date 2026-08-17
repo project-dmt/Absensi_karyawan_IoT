@@ -4,6 +4,37 @@ import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
 import { useRealtime } from "../hooks/useRealtime";
+import { AlertTriangle, CalendarX, Clock3, Users, XCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+const CARDS = [
+  {
+    label: "Total Karyawan",
+    valueKey: "totalKaryawan",
+    icon: Users,
+    bg: "linear-gradient(135deg, #4f6d7a, #7b9aab)",
+  },
+  {
+    label: "Terlambat",
+    valueKey: "terlambat",
+    icon: AlertTriangle,
+    bg: "linear-gradient(135deg, #f59e0b, #fbbf24)",
+  },
+  {
+    label: "Tidak Hadir",
+    valueKey: "tidakHadir",
+    icon: XCircle,
+    bg: "linear-gradient(135deg, #ef4444, #f87171)",
+  },
+];
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -72,32 +103,11 @@ export default function Dashboard() {
 
   if (loading) return <LoadingSpinner />;
 
-  const cards = [
-    {
-      label: "Total Karyawan",
-      value: stats.totalKaryawan,
-      bg: "linear-gradient(135deg, #4f6d7a, #7b9aab)",
-      icon: "bi-people",
-    },
-    {
-      label: "Terlambat",
-      value: stats.terlambat,
-      bg: "linear-gradient(135deg, #f59e0b, #fbbf24)",
-      icon: "bi-exclamation-triangle",
-    },
-    {
-      label: "Tidak Hadir",
-      value: stats.tidakHadir,
-      bg: "linear-gradient(135deg, #ef4444, #f87171)",
-      icon: "bi-x-circle",
-    },
-  ];
-
   return (
     <div>
       <div className="page-header">
         <h4>Dashboard</h4>
-        <small className="text-muted">
+        <small className="text-muted-foreground">
           {new Date().toLocaleDateString("id-ID", {
             weekday: "long",
             year: "numeric",
@@ -107,56 +117,66 @@ export default function Dashboard() {
         </small>
       </div>
 
-      <div className="row g-3 mb-4">
-        {cards.map((card) => (
-          <div key={card.label} className="col-sm-6 col-lg-4">
-            <div className="stat-card" style={{ background: card.bg }}>
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {CARDS.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div key={card.label} className="stat-card" style={{ background: card.bg }}>
               <div className="stat-card__content">
-                <div className="stat-card__value">{card.value}</div>
+                <div className="stat-card__value">{stats[card.valueKey]}</div>
                 <div className="stat-card__label">{card.label}</div>
               </div>
-              <i className={`bi ${card.icon} stat-card__icon`} />
+              <Icon className="stat-card__icon size-10" />
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="card">
-        <div className="card-header d-flex align-items-center gap-2">
-          <i className="bi bi-clock-history" />
-          Absensi Terbaru Hari Ini
-        </div>
-        <div className="card-body p-0">
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2 py-4">
+          <Clock3 className="size-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-semibold">
+            Absensi Terbaru Hari Ini
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
           {recent.length === 0 ? (
-            <EmptyState message="Belum ada data absensi hari ini" icon="bi-calendar-x" />
+            <EmptyState
+              message="Belum ada data absensi hari ini"
+              icon={<CalendarX className="size-10" />}
+            />
           ) : (
-            <div className="table-responsive">
-              <table className="table table-hover mb-0 align-middle">
-                <thead>
-                  <tr>
-                    <th>Nama</th>
-                    <th>NIP</th>
-                    <th>Jam Masuk</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama</TableHead>
+                    <TableHead>NIP</TableHead>
+                    <TableHead>Jam Masuk</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {recent.map((item) => (
-                    <tr key={item.id}>
-                      <td className="fw-medium">{item.employee?.nama}</td>
-                      <td><code>{item.employee?.nip}</code></td>
-                      <td>{item.jam_masuk || "-"}</td>
-                      <td>
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">
+                        {item.employee?.nama}
+                      </TableCell>
+                      <TableCell>
+                        <code>{item.employee?.nip}</code>
+                      </TableCell>
+                      <TableCell>{item.jam_masuk || "-"}</TableCell>
+                      <TableCell>
                         <StatusBadge status={item.status} />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
