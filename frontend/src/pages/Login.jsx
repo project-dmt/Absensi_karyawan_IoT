@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Mail, Lock, LogIn, TriangleAlert, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import {
   InputGroup,
   InputGroupAddon,
