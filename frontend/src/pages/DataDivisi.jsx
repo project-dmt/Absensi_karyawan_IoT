@@ -6,6 +6,24 @@ import Modal from "../components/Modal";
 import FormInput from "../components/FormInput";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { Check, Eye, Loader2, Network, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function DataDivisi() {
   const navigate = useNavigate();
@@ -86,84 +104,95 @@ export default function DataDivisi() {
     <div>
       <div className="page-header">
         <h4>Data Divisi</h4>
-        <button className="btn btn-primary" onClick={openAdd}>
-          <i className="bi bi-plus-lg me-1" />
+        <Button onClick={openAdd}>
+          <Plus data-icon="inline-start" />
           Tambah Divisi
-        </button>
+        </Button>
       </div>
 
-      <div className="mb-3" style={{ maxWidth: "360px" }}>
-        <div className="search-input-wrapper">
-          <i className="bi bi-search search-icon" />
-          <input
+      <div className="mb-3 max-w-[360px]">
+        <InputGroup>
+          <InputGroupAddon>
+            <Search className="size-4" />
+          </InputGroupAddon>
+          <InputGroupInput
             type="text"
-            className="form-control"
             placeholder="Cari divisi..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
+        </InputGroup>
       </div>
 
       {loading ? (
         <LoadingSpinner />
       ) : filtered.length === 0 ? (
-        <EmptyState message="Tidak ada divisi ditemukan" icon="bi-diagram-3" />
+        <EmptyState
+          message="Tidak ada divisi ditemukan"
+          icon={<Network className="size-10" />}
+        />
       ) : (
-        <div className="card">
-          <div className="card-body p-0">
-            <div className="table-responsive">
-              <table className="table table-hover mb-0 align-middle">
-                <thead>
-                  <tr>
-                    <th>No</th>
-                    <th>Nama Divisi</th>
-                    <th>Jumlah Karyawan</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>No</TableHead>
+                    <TableHead>Nama Divisi</TableHead>
+                    <TableHead>Jumlah Karyawan</TableHead>
+                    <TableHead>Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filtered.map((item, idx) => (
-                    <tr key={item.id}>
-                      <td>{idx + 1}</td>
-                      <td className="fw-medium">{item.nama_divisi}</td>
-                      <td>
-                        <span className="badge bg-primary-subtle text-primary">
+                    <TableRow key={item.id}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell className="font-medium">
+                        {item.nama_divisi}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="rounded-md text-primary">
                           {item.employees_count ?? 0} orang
-                        </span>
-                      </td>
-                      <td>
-                        <div className="d-flex gap-1">
-                          <button
-                            className="btn-action btn-action--edit"
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             title="Lihat Detail"
                             onClick={() => navigate(`/data-divisi/${item.id}`)}
                           >
-                            <i className="bi bi-eye" />
-                          </button>
-                          <button
-                            className="btn-action btn-action--edit"
+                            <Eye />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="text-primary"
                             title="Edit"
                             onClick={() => openEdit(item)}
                           >
-                            <i className="bi bi-pencil" />
-                          </button>
-                          <button
-                            className="btn-action btn-action--delete"
+                            <Pencil />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="text-destructive"
                             title="Hapus"
                             onClick={() => handleDelete(item.id)}
                           >
-                            <i className="bi bi-trash" />
-                          </button>
+                            <Trash2 />
+                          </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       <Modal
@@ -184,35 +213,28 @@ export default function DataDivisi() {
             placeholder="Contoh: Teknologi Informasi"
             required
           />
-          <hr className="my-3" />
-          <div className="d-flex justify-content-end gap-2">
-            <button
+          <Separator className="my-4" />
+          <div className="flex justify-end gap-2">
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setShowModal(false)}
             >
               Batal
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={submitting}
-            >
+            </Button>
+            <Button type="submit" disabled={submitting}>
               {submitting ? (
                 <>
-                  <span
-                    className="spinner-border spinner-border-sm me-1"
-                    role="status"
-                  />
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
                   Menyimpan...
                 </>
               ) : (
                 <>
-                  <i className="bi bi-check-lg me-1" />
+                  <Check data-icon="inline-start" />
                   Simpan
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>

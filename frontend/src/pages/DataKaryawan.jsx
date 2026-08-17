@@ -7,6 +7,34 @@ import Modal from "../components/Modal";
 import FormInput from "../components/FormInput";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
+import {
+  Check,
+  Eye,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  TriangleAlert,
+  Trash2,
+  Users,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const INITIAL_FORM = {
   nama: "",
@@ -120,90 +148,103 @@ export default function DataKaryawan() {
     <div>
       <div className="page-header">
         <h4>Data Karyawan</h4>
-        <button className="btn btn-primary" onClick={openAdd}>
-          <i className="bi bi-plus-lg me-1" />
+        <Button onClick={openAdd}>
+          <Plus data-icon="inline-start" />
           Tambah Karyawan
-        </button>
+        </Button>
       </div>
 
-      <div className="mb-3" style={{ maxWidth: "360px" }}>
-        <div className="search-input-wrapper">
-          <i className="bi bi-search search-icon" />
-          <input
+      <div className="mb-3 max-w-[360px]">
+        <InputGroup>
+          <InputGroupAddon>
+            <Search className="size-4" />
+          </InputGroupAddon>
+          <InputGroupInput
             type="text"
-            className="form-control"
             placeholder="Cari nama, NIP, atau UID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
+        </InputGroup>
       </div>
 
       {loading ? (
         <LoadingSpinner />
       ) : filtered.length === 0 ? (
-        <EmptyState message="Tidak ada karyawan ditemukan" icon="bi-people" />
+        <EmptyState
+          message="Tidak ada karyawan ditemukan"
+          icon={<Users className="size-10" />}
+        />
       ) : (
-        <div className="card">
-          <div className="card-body p-0">
-            <div className="table-responsive">
-              <table className="table table-hover mb-0 align-middle">
-                <thead>
-                  <tr>
-                    <th>No</th>
-                    <th>Nama</th>
-                    <th>NIP</th>
-                    <th>Jabatan</th>
-                    <th>Divisi</th>
-                    <th>RFID UID</th>
-                    <th>Status</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>No</TableHead>
+                    <TableHead>Nama</TableHead>
+                    <TableHead>NIP</TableHead>
+                    <TableHead>Jabatan</TableHead>
+                    <TableHead>Divisi</TableHead>
+                    <TableHead>RFID UID</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filtered.map((item, idx) => (
-                    <tr key={item.id}>
-                      <td>{idx + 1}</td>
-                      <td className="fw-medium">{item.nama}</td>
-                      <td><code>{item.nip}</code></td>
-                      <td>{item.jabatan || "-"}</td>
-                      <td>{item.division?.nama_divisi || "-"}</td>
-                      <td><code>{item.rfid_uid}</code></td>
-                      <td>
+                    <TableRow key={item.id}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell className="font-medium">{item.nama}</TableCell>
+                      <TableCell>
+                        <code>{item.nip}</code>
+                      </TableCell>
+                      <TableCell>{item.jabatan || "-"}</TableCell>
+                      <TableCell>{item.division?.nama_divisi || "-"}</TableCell>
+                      <TableCell>
+                        <code>{item.rfid_uid}</code>
+                      </TableCell>
+                      <TableCell>
                         <StatusBadge status={item.status} />
-                      </td>
-                      <td>
-                        <div className="d-flex gap-1">
-                          <button
-                            className="btn-action btn-action--edit"
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             title="Lihat Detail"
                             onClick={() => navigate(`/data-karyawan/${item.id}`)}
                           >
-                            <i className="bi bi-eye" />
-                          </button>
-                          <button
-                            className="btn-action btn-action--edit"
+                            <Eye />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="text-primary"
                             title="Edit"
                             onClick={() => openEdit(item)}
                           >
-                            <i className="bi bi-pencil" />
-                          </button>
-                          <button
-                            className="btn-action btn-action--delete"
+                            <Pencil />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="text-destructive"
                             title="Hapus"
                             onClick={() => handleDelete(item.id)}
                           >
-                            <i className="bi bi-trash" />
-                          </button>
+                            <Trash2 />
+                          </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       <Modal
@@ -213,99 +254,94 @@ export default function DataKaryawan() {
       >
         <form onSubmit={handleSubmit}>
           {formError && (
-            <div className="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
-              <i className="bi bi-exclamation-circle-fill" />
-              <span>{formError}</span>
-            </div>
+            <Alert variant="destructive" className="mb-4">
+              <TriangleAlert />
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
           )}
-          <FormInput
-            label="Nama"
-            name="nama"
-            value={form.nama}
-            onChange={handleChange}
-            error={errors.nama?.[0]}
-            placeholder="Nama lengkap"
-            required
-          />
-          <FormInput
-            label="NIP"
-            name="nip"
-            value={form.nip}
-            onChange={handleChange}
-            error={errors.nip?.[0]}
-            placeholder="Nomor induk pegawai"
-            required
-          />
-          <FormInput
-            label="Jabatan"
-            name="jabatan"
-            value={form.jabatan}
-            onChange={handleChange}
-            error={errors.jabatan?.[0]}
-            placeholder="Jabatan karyawan"
-          />
-          <FormInput
-            label="Divisi"
-            name="divisi_id"
-            as="select"
-            value={form.divisi_id}
-            onChange={handleChange}
-            error={errors.divisi_id?.[0]}
-            placeholder="Pilih divisi..."
-            options={divisi.map((d) => ({
-              value: d.id,
-              label: d.nama_divisi,
-            }))}
-          />
-          <FormInput
-            label="RFID UID"
-            name="rfid_uid"
-            value={form.rfid_uid}
-            onChange={handleChange}
-            error={errors.rfid_uid?.[0]}
-            placeholder="Contoh: A1B2C3"
-            required
-          />
-          <FormInput
-            label="Status"
-            name="status"
-            as="select"
-            value={form.status}
-            onChange={handleChange}
-            options={[
-              { value: "aktif", label: "Aktif" },
-              { value: "nonaktif", label: "Nonaktif" },
-            ]}
-          />
-          <hr className="my-3" />
-          <div className="d-flex justify-content-end gap-2">
-            <button
+          <div className="flex flex-col gap-4">
+            <FormInput
+              label="Nama"
+              name="nama"
+              value={form.nama}
+              onChange={handleChange}
+              error={errors.nama?.[0]}
+              placeholder="Nama lengkap"
+              required
+            />
+            <FormInput
+              label="NIP"
+              name="nip"
+              value={form.nip}
+              onChange={handleChange}
+              error={errors.nip?.[0]}
+              placeholder="Nomor induk pegawai"
+              required
+            />
+            <FormInput
+              label="Jabatan"
+              name="jabatan"
+              value={form.jabatan}
+              onChange={handleChange}
+              error={errors.jabatan?.[0]}
+              placeholder="Jabatan karyawan"
+            />
+            <FormInput
+              label="Divisi"
+              name="divisi_id"
+              as="select"
+              value={form.divisi_id}
+              onChange={handleChange}
+              error={errors.divisi_id?.[0]}
+              placeholder="Pilih divisi..."
+              options={divisi.map((d) => ({
+                value: d.id,
+                label: d.nama_divisi,
+              }))}
+            />
+            <FormInput
+              label="RFID UID"
+              name="rfid_uid"
+              value={form.rfid_uid}
+              onChange={handleChange}
+              error={errors.rfid_uid?.[0]}
+              placeholder="Contoh: A1B2C3"
+              required
+            />
+            <FormInput
+              label="Status"
+              name="status"
+              as="select"
+              value={form.status}
+              onChange={handleChange}
+              options={[
+                { value: "aktif", label: "Aktif" },
+                { value: "nonaktif", label: "Nonaktif" },
+              ]}
+            />
+          </div>
+          <Separator className="my-4" />
+          <div className="flex justify-end gap-2">
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setShowModal(false)}
             >
               Batal
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={submitting}
-            >
+            </Button>
+            <Button type="submit" disabled={submitting}>
               {submitting ? (
                 <>
-                  <span
-                    className="spinner-border spinner-border-sm me-1"
-                    role="status"
-                  />
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
                   Menyimpan...
                 </>
               ) : (
                 <>
-                  <i className="bi bi-check-lg me-1" />
+                  <Check data-icon="inline-start" />
                   Simpan
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
