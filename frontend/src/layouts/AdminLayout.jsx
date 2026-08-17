@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, Outlet, useRouteContext, useRouter } from "@tanstack/react-router";
 import {
   AlertTriangle,
   ChevronDown,
@@ -39,12 +39,14 @@ const NAV_ITEMS = [
   { to: "/laporan-absensi", label: "Laporan Absensi", icon: FileBarChart },
 ];
 
-export default function AdminLayout({ user, onLogout }) {
-  const navigate = useNavigate();
+export default function AdminLayout() {
+  const router = useRouter();
+  const { auth } = useRouteContext({ strict: false });
+  const { user, logout } = auth;
 
   const handleLogout = async () => {
-    await onLogout();
-    navigate("/login");
+    await logout();
+    router.navigate({ to: "/login" });
   };
 
   return (
@@ -65,34 +67,32 @@ export default function AdminLayout({ user, onLogout }) {
             const Icon = item.icon;
             return (
               <div key={item.to}>
-                <NavLink
+                <Link
                   to={item.to}
-                  end={item.to === "/"}
-                  className={({ isActive }) =>
-                    `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
-                  }
+                  activeOptions={{ exact: item.to === "/" }}
+                  activeProps={{ className: "sidebar__link sidebar__link--active" }}
+                  inactiveProps={{ className: "sidebar__link" }}
                 >
                   <Icon className="size-4 shrink-0" />
                   <span>{item.label}</span>
                   {item.children && (
                     <ChevronDown className="sidebar__link-chevron size-3.5" />
                   )}
-                </NavLink>
+                </Link>
                 {item.children && (
                   <div className="sidebar__subnav">
                     {item.children.map((child) => {
                       const ChildIcon = child.icon;
                       return (
-                        <NavLink
+                        <Link
                           key={child.to}
                           to={child.to}
-                          className={({ isActive }) =>
-                            `sidebar__link sidebar__link--sub ${isActive ? "sidebar__link--active" : ""}`
-                          }
+                          activeProps={{ className: "sidebar__link sidebar__link--sub sidebar__link--active" }}
+                          inactiveProps={{ className: "sidebar__link sidebar__link--sub" }}
                         >
                           <ChildIcon className="size-3.5 shrink-0" />
                           <span>{child.label}</span>
-                        </NavLink>
+                        </Link>
                       );
                     })}
                   </div>

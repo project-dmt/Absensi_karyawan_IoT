@@ -9,8 +9,11 @@ import {
 } from "@/components/ui/input-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
+import { useRouteContext, useRouter } from "../router";
 
-export default function Login({ onLogin }) {
+export default function Login() {
+  const router = useRouter();
+  const { auth } = useRouteContext({ strict: false });
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,7 +28,8 @@ export default function Login({ onLogin }) {
     setLoading(true);
     setError("");
     try {
-      await onLogin(form.email, form.password);
+      await auth.login(form.email, form.password);
+      router.navigate({ to: "/" });
     } catch (err) {
       const msg =
         err.response?.data?.message ||
