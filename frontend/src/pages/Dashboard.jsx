@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import api from "../api/axios";
+import { useEffect, useMemo, useState } from "react";
+import { useKaryawanList, useLaporan } from "../api/queries";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
@@ -37,45 +37,18 @@ const CARDS = [
 ];
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    totalKaryawan: 0,
-    hadir: 0,
-    terlambat: 0,
-    tidakHadir: 0,
-  });
-  const [recent, setRecent] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [dataReady, setDataReady] = useState(false);
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const { data: karyawan = [], isPending } = useKaryawanList();
+  const { data: laporan = [] } = useLaporan({ dari: today, sampai: today });
+  const dataReady = !isPending;
   const realtimeEvents = useRealtime(dataReady);
 
+  const [recent, setRecent] = useState([]);
+  const [realtimeDelta, setRealtimeDelta] = useState({ hadir: 0, terlambat: 0 });
+
   useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-
-    Promise.all([
-      api.get("/karyawan"),
-      api.get("/laporan", { params: { dari: today, sampai: today } }),
-    ])
-      .then(([karyawanRes, laporanRes]) => {
-        const karyawan = Array.isArray(karyawanRes.data.data?.data) ? karyawanRes.data.data.data : (Array.isArray(karyawanRes.data.data) ? karyawanRes.data.data : []);
-        const laporan = Array.isArray(laporanRes.data.data?.data) ? laporanRes.data.data.data : (Array.isArray(laporanRes.data.data) ? laporanRes.data.data : []);
-
-        const hadir = laporan.filter((l) => l.status === "Hadir").length;
-        const terlambat = laporan.filter((l) => l.status === "Terlambat").length;
-
-        setStats({
-          totalKaryawan: karyawan.length,
-          hadir,
-          terlambat,
-          tidakHadir: karyawan.length - hadir - terlambat,
-        });
-        setRecent(laporan.slice(0, 10));
-      })
-      .catch(() => {})
-      .finally(() => {
-        setLoading(false);
-        setDataReady(true);
-      });
-  }, []);
+    setRecent(laporan.slice(0, 10));
+  }, [laporan]);
 
   useEffect(() => {
     if (realtimeEvents.length === 0) return;
@@ -85,23 +58,29 @@ export default function Dashboard() {
         .slice(0, 10);
       return merged;
     });
-    setStats((prev) => {
-      let newHadir = prev.hadir;
-      let newTerlambat = prev.terlambat;
+    setRealtimeDelta((prev) => {
+      let hadir = prev.hadir;
+      let terlambat = prev.terlambat;
       realtimeEvents.forEach((ev) => {
-        if (ev.status === "Hadir") newHadir += 1;
-        if (ev.status === "Terlambat") newTerlambat += 1;
+        if (ev.status === "Hadir") hadir += 1;
+        if (ev.status === "Terlambat") terlambat += 1;
       });
-      return {
-        ...prev,
-        hadir: newHadir,
-        terlambat: newTerlambat,
-        tidakHadir: prev.totalKaryawan - newHadir - newTerlambat,
-      };
+      return { hadir, terlambat };
     });
   }, [realtimeEvents]);
 
-  if (loading) return <LoadingSpinner />;
+  const stats = useMemo(() => {
+    const hadir = laporan.filter((l) => l.status === "Hadir").length + realtimeDelta.hadir;
+    const terlambat = laporan.filter((l) => l.status === "Terlambat").length + realtimeDelta.terlambat;
+    return {
+      totalKaryawan: karyawan.length,
+      hadir,
+      terlambat,
+      tidakHadir: karyawan.length - hadir - terlambat,
+    };
+  }, [karyawan, laporan, realtimeDelta]);
+
+  if (isPending) return <LoadingSpinner />;
 
   return (
     <div>

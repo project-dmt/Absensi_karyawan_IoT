@@ -1,7 +1,12 @@
-import { useState, useEffect } from "react";
-import api from "../api/axios";
+import { useEffect, useState } from "react";
 import FormInput from "../components/FormInput";
 import StatusBadge from "../components/StatusBadge";
+import {
+  useKaryawanList,
+  useLaporan,
+  useCreateAbsensiManual,
+  useUpdateAbsensi,
+} from "../api/queries";
 import {
   ArrowLeftRight,
   Check,
@@ -47,7 +52,9 @@ function MessageAlert({ message }) {
 }
 
 export default function InputAbsensiManual() {
-  const [karyawan, setKaryawan] = useState([]);
+  const { data: karyawan = [] } = useKaryawanList();
+  const createAbsensi = useCreateAbsensiManual();
+  const updateAbsensi = useUpdateAbsensi();
   const [form, setForm] = useState({
     employee_id: "",
     tanggal: new Date().toISOString().split("T")[0],
@@ -57,7 +64,6 @@ export default function InputAbsensiManual() {
     keterangan: "",
   });
   const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
   const [updateSearch, setUpdateSearch] = useState({ employee_id: "", tanggal: new Date().toISOString().split("T")[0] });
@@ -65,17 +71,12 @@ export default function InputAbsensiManual() {
   const [updateForm, setUpdateForm] = useState({ status: "", keterangan: "", jam_pulang: "" });
   const [updateErrors, setUpdateErrors] = useState({});
   const [updateMessage, setUpdateMessage] = useState({ type: "", text: "" });
-  const [updateSubmitting, setUpdateSubmitting] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(null);
+  const { data: searchRecords = [], isFetching: searchLoading, isSuccess: searchSuccess } = useLaporan(searchQuery, {
+    enabled: Boolean(searchQuery),
+  });
 
   const statusInfo = STATUS_INFO[form.status] || STATUS_INFO.Hadir;
-
-  useEffect(() => {
-    api
-      .get("/karyawan")
-      .then((res) => setKaryawan(Array.isArray(res.data.data?.data) ? res.data.data.data : (Array.isArray(res.data.data) ? res.data.data : [])))
-      .catch(() => {});
-  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -94,7 +95,6 @@ export default function InputAbsensiManual() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
     setErrors({});
     setMessage({ type: "", text: "" });
     try {
@@ -107,7 +107,7 @@ export default function InputAbsensiManual() {
       if (statusInfo.showJamPulang && form.jam_pulang) payload.jam_pulang = form.jam_pulang + ":00";
       if (form.keterangan) payload.keterangan = form.keterangan;
 
-      await api.post("/absensi/manual", payload);
+      await createAbsensi.mutateAsync(payload);
       setMessage({
         type: "success",
         text: "Absensi manual berhasil ditambahkan",
@@ -134,8 +134,6 @@ export default function InputAbsensiManual() {
           text: err.response?.data?.message || "Gagal menyimpan absensi",
         });
       }
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -152,38 +150,35 @@ export default function InputAbsensiManual() {
     setMessage({ type: "", text: "" });
   };
 
-  const handleUpdateSearch = async () => {
+  const handleUpdateSearch = () => {
     if (!updateSearch.employee_id || !updateSearch.tanggal) {
       setUpdateMessage({ type: "danger", text: "Pilih karyawan dan tanggal" });
       return;
     }
-    setSearchLoading(true);
     setUpdateRecord(null);
     setUpdateMessage({ type: "", text: "" });
-    try {
-      const res = await api.get("/laporan", {
-        params: { dari: updateSearch.tanggal, sampai: updateSearch.tanggal, per_page: 500 },
-      });
-      const records = Array.isArray(res.data.data?.data) ? res.data.data.data : (Array.isArray(res.data.data) ? res.data.data : []);
-      const employeeId = Number(updateSearch.employee_id);
-      const found = records.find((r) => Number(r.employee_id) === employeeId);
-      if (!found) {
-        setUpdateMessage({ type: "danger", text: "Tidak ditemukan data absensi untuk karyawan ini pada tanggal tersebut" });
-        return;
-      }
-      setUpdateRecord(found);
-      setUpdateForm({
-        status: found.status,
-        keterangan: found.keterangan || "",
-        jam_pulang: found.jam_pulang ? found.jam_pulang.substring(0, 5) : "",
-      });
-      setUpdateErrors({});
-    } catch {
-      setUpdateMessage({ type: "danger", text: "Gagal mencari data absensi" });
-    } finally {
-      setSearchLoading(false);
-    }
+    setSearchQuery({ dari: updateSearch.tanggal, sampai: updateSearch.tanggal, per_page: 500 });
   };
+
+  useEffect(() => {
+    if (!searchSuccess) return;
+    const employeeId = Number(updateSearch.employee_id);
+    const found = searchRecords.find((r) => Number(r.employee_id) === employeeId);
+    if (!found) {
+      setUpdateMessage({
+        type: "danger",
+        text: "Tidak ditemukan data absensi untuk karyawan ini pada tanggal tersebut",
+      });
+      return;
+    }
+    setUpdateRecord(found);
+    setUpdateForm({
+      status: found.status,
+      keterangan: found.keterangan || "",
+      jam_pulang: found.jam_pulang ? found.jam_pulang.substring(0, 5) : "",
+    });
+    setUpdateErrors({});
+  }, [searchSuccess, searchRecords]);
 
   const handleUpdateChange = (e) => {
     const { name, value } = e.target;
@@ -194,7 +189,6 @@ export default function InputAbsensiManual() {
 
   const handleUpdateSubmit = async (e) => {
     e.preventDefault();
-    setUpdateSubmitting(true);
     setUpdateErrors({});
     setUpdateMessage({ type: "", text: "" });
     try {
@@ -202,7 +196,7 @@ export default function InputAbsensiManual() {
       if (updateForm.keterangan) payload.keterangan = updateForm.keterangan;
       if (updateForm.jam_pulang) payload.jam_pulang = updateForm.jam_pulang + ":00";
 
-      await api.put(`/absensi/${updateRecord.id}`, payload);
+      await updateAbsensi.mutateAsync({ id: updateRecord.id, ...payload });
       setUpdateMessage({ type: "success", text: "Status absensi berhasil diupdate" });
       setUpdateRecord(null);
     } catch (err) {
@@ -217,8 +211,6 @@ export default function InputAbsensiManual() {
       } else {
         setUpdateMessage({ type: "danger", text: err.response?.data?.message || "Gagal mengupdate absensi" });
       }
-    } finally {
-      setUpdateSubmitting(false);
     }
   };
 
@@ -228,6 +220,7 @@ export default function InputAbsensiManual() {
     setUpdateForm({ status: "", keterangan: "", jam_pulang: "" });
     setUpdateErrors({});
     setUpdateMessage({ type: "", text: "" });
+    setSearchQuery(null);
   };
 
   return (
@@ -316,8 +309,8 @@ export default function InputAbsensiManual() {
               placeholder={statusInfo.keteranganPlaceholder}
             />
             <div className="flex gap-2">
-              <Button type="submit" disabled={submitting}>
-                {submitting ? (
+              <Button type="submit" disabled={createAbsensi.isPending}>
+                {createAbsensi.isPending ? (
                   <>
                     <Loader2 data-icon="inline-start" className="animate-spin" />
                     Menyimpan...
@@ -441,8 +434,8 @@ export default function InputAbsensiManual() {
                 />
               </div>
               <div className="flex gap-2">
-                <Button type="submit" disabled={updateSubmitting}>
-                  {updateSubmitting ? (
+                <Button type="submit" disabled={updateAbsensi.isPending}>
+                  {updateAbsensi.isPending ? (
                     <>
                       <Loader2 data-icon="inline-start" className="animate-spin" />
                       Menyimpan...

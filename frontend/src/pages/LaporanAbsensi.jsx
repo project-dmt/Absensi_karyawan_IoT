@@ -1,13 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { useState } from "react";
 import api from "../api/axios";
+import { useDivisiList, useLaporan, useUpdateAbsensi } from "../api/queries";
 import StatusBadge from "../components/StatusBadge";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Modal from "../components/Modal";
 import FormInput from "../components/FormInput";
 import {
-  CalendarRange,
   CalendarX,
   Check,
   FileSpreadsheet,
@@ -46,42 +45,24 @@ export default function LaporanAbsensi() {
     sampai: today,
     divisi_id: "",
   });
-  const [divisi, setDivisi] = useState([]);
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [fetched, setFetched] = useState(true);
+  const [appliedFilter, setAppliedFilter] = useState({
+    dari: sevenDaysAgo,
+    sampai: today,
+    divisi_id: "",
+  });
+  const { data: divisi = [] } = useDivisiList();
+  const { data = [], isFetching: loading } = useLaporan({
+    dari: appliedFilter.dari,
+    sampai: appliedFilter.sampai,
+    divisi_id: appliedFilter.divisi_id || undefined,
+    per_page: 500,
+  });
+  const updateAbsensi = useUpdateAbsensi();
 
   const [editItem, setEditItem] = useState(null);
   const [editForm, setEditForm] = useState({ status: "", keterangan: "", jam_pulang: "" });
   const [editErrors, setEditErrors] = useState({});
   const [editMessage, setEditMessage] = useState({ type: "", text: "" });
-  const [editSubmitting, setEditSubmitting] = useState(false);
-
-  useEffect(() => {
-    api
-      .get("/divisi")
-      .then((res) => setDivisi(res.data.data))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setFetched(true);
-    try {
-      const params = { dari: filter.dari, sampai: filter.sampai, per_page: 500 };
-      if (filter.divisi_id) params.divisi_id = filter.divisi_id;
-      const res = await api.get("/laporan", { params });
-      setData(Array.isArray(res.data.data?.data) ? res.data.data.data : (Array.isArray(res.data.data) ? res.data.data : []));
-    } catch {
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
 
   const handleChange = (e) => {
     setFilter((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -89,17 +70,12 @@ export default function LaporanAbsensi() {
 
   const handleExport = async (format) => {
     try {
-      const params = new URLSearchParams({ dari: filter.dari, sampai: filter.sampai, format });
-      if (filter.divisi_id) params.append("divisi_id", filter.divisi_id);
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/laporan/export`,
-        {
-          params,
-          responseType: "blob",
-          headers: { Authorization: token ? `Bearer ${token}` : "" },
-        }
-      );
+      const params = { dari: filter.dari, sampai: filter.sampai, format };
+      if (filter.divisi_id) params.divisi_id = filter.divisi_id;
+      const res = await api.get("/laporan/export", {
+        params,
+        responseType: "blob",
+      });
       const url = window.URL.createObjectURL(res.data);
       const link = document.createElement("a");
       link.href = url;
@@ -141,7 +117,6 @@ export default function LaporanAbsensi() {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    setEditSubmitting(true);
     setEditErrors({});
     setEditMessage({ type: "", text: "" });
     try {
@@ -149,9 +124,8 @@ export default function LaporanAbsensi() {
       if (editForm.keterangan) payload.keterangan = editForm.keterangan;
       if (editForm.jam_pulang) payload.jam_pulang = editForm.jam_pulang + ":00";
 
-      await api.put(`/absensi/${editItem.id}`, payload);
+      await updateAbsensi.mutateAsync({ id: editItem.id, ...payload });
       setEditMessage({ type: "success", text: "Absensi berhasil diupdate" });
-      fetchData();
     } catch (err) {
       if (err.response?.status === 422) {
         if (err.response.data.message) {
@@ -161,8 +135,6 @@ export default function LaporanAbsensi() {
       } else {
         setEditMessage({ type: "danger", text: err.response?.data?.message || "Gagal mengupdate absensi" });
       }
-    } finally {
-      setEditSubmitting(false);
     }
   };
 
@@ -205,7 +177,11 @@ export default function LaporanAbsensi() {
             }))}
           />
           <div className="md:col-span-3">
-            <Button onClick={fetchData} disabled={loading} className="w-full md:w-auto">
+            <Button
+              onClick={() => setAppliedFilter(filter)}
+              disabled={loading}
+              className="w-full md:w-auto"
+            >
               {loading ? (
                 <Loader2 className="animate-spin" />
               ) : (
@@ -219,23 +195,19 @@ export default function LaporanAbsensi() {
         </div>
       </div>
 
-      {fetched && (
-        <div className="mb-3 flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleExport("xlsx")}>
-            <FileSpreadsheet data-icon="inline-start" className="size-4" />
-            Export Excel
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport("csv")}>
-            <FileText data-icon="inline-start" className="size-4" />
-            Export CSV
-          </Button>
-        </div>
-      )}
+      <div className="mb-3 flex gap-2">
+        <Button variant="outline" size="sm" onClick={() => handleExport("xlsx")}>
+          <FileSpreadsheet data-icon="inline-start" className="size-4" />
+          Export Excel
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => handleExport("csv")}>
+          <FileText data-icon="inline-start" className="size-4" />
+          Export CSV
+        </Button>
+      </div>
 
       {loading ? (
         <LoadingSpinner />
-      ) : !fetched ? (
-        <EmptyState message="Pilih rentang tanggal lalu klik Terapkan untuk melihat laporan" icon={<CalendarRange className="size-10" />} />
       ) : data.length === 0 ? (
         <EmptyState message="Tidak ada data absensi untuk rentang tanggal ini" icon={<CalendarX className="size-10" />} />
       ) : (
@@ -342,8 +314,8 @@ export default function LaporanAbsensi() {
                 <Button type="button" variant="secondary" onClick={closeEdit}>
                   Batal
                 </Button>
-                <Button type="submit" disabled={editSubmitting}>
-                  {editSubmitting ? (
+                <Button type="submit" disabled={updateAbsensi.isPending}>
+                  {updateAbsensi.isPending ? (
                     <>
                       <Loader2 data-icon="inline-start" className="animate-spin" />
                       Menyimpan...
