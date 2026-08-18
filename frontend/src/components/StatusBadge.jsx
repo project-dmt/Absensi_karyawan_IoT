@@ -1,15 +1,21 @@
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
 const VARIANTS = {
-  Hadir: "bg-success-subtle text-success",
-  Terlambat: "bg-warning-subtle text-warning",
-  Alpha: "bg-danger-subtle text-danger",
-  Izin: "bg-info-subtle text-info",
-  Sakit: "bg-secondary-subtle text-secondary",
-  "Sudah Absen": "bg-secondary-subtle text-secondary",
-  aktif: "bg-success-subtle text-success",
-  nonaktif: "bg-secondary-subtle text-secondary",
+  Hadir: "badge-status-hadir",
+  Terlambat: "badge-status-terlambat",
+  Alpha: "badge-status-alpha",
+  Izin: "badge-status-izin",
+  Sakit: "badge-status-sakit",
+  "Sudah Absen": "badge-status-sakit",
+  aktif: "badge-status-aktif",
+  nonaktif: "badge-status-nonaktif",
 };
 
 export default function StatusBadge({ status }) {
-  const className = VARIANTS[status] || "bg-secondary-subtle text-secondary";
-  return <span className={`badge ${className}`}>{status}</span>;
+  return (
+    <Badge className={cn("rounded-md", VARIANTS[status] || "badge-status-default")}>
+      {status}
+    </Badge>
+  );
 }

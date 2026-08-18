@@ -1,10 +1,10 @@
+import { Loader2 } from "lucide-react";
+
 export default function LoadingSpinner({ text = "Memuat data..." }) {
   return (
-    <div className="text-center py-5">
-      <div className="spinner-border text-primary" role="status" style={{ width: "2rem", height: "2rem" }}>
-        <span className="visually-hidden">Loading</span>
-      </div>
-      <p className="mt-3 text-muted" style={{ fontSize: "0.88rem" }}>{text}</p>
+    <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+      <Loader2 className="size-8 animate-spin text-primary" />
+      <p className="text-sm text-muted-foreground">{text}</p>
     </div>
   );
 }

@@ -1,29 +1,43 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { loginSchema } from "../schemas";
+import { Mail, Lock, LogIn, TriangleAlert, UserCog } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+import { useRouteContext, useRouter } from "../router";
 
-export default function Login({ onLogin }) {
-  const [form, setForm] = useState({ email: "", password: "" });
+export default function Login() {
+  const router = useRouter();
+  const { auth } = useRouteContext({ strict: false });
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
 
-  const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    setError("");
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  const onSubmit = async (data) => {
     setError("");
     try {
-      await onLogin(form.email, form.password);
+      await auth.login(data.email, data.password);
+      router.navigate({ to: "/" });
     } catch (err) {
       const msg =
         err.response?.data?.message ||
         err.response?.data?.errors?.email?.[0] ||
         "Login gagal. Periksa email dan password.";
       setError(msg);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -33,71 +47,72 @@ export default function Login({ onLogin }) {
       <div className="login-card">
         <div className="login-card__header">
           <div className="login-card__icon">
-            <i className="bi bi-person-badge" />
+            <UserCog className="size-7" />
           </div>
           <h4>Sistem Absensi IoT</h4>
           <p>Silakan login untuk melanjutkan</p>
         </div>
 
         {error && (
-          <div className="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
-            <i className="bi bi-exclamation-circle-fill flex-shrink-0" />
-            <span>{error}</span>
-          </div>
+          <Alert variant="destructive" className="mb-4">
+            <TriangleAlert />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label htmlFor="email" className="form-label">Email</label>
-            <div className="input-group">
-              <span className="input-group-text"><i className="bi bi-envelope" /></span>
-              <input
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          <Field data-invalid={errors.email ? true : undefined}>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <InputGroup>
+              <InputGroupAddon>
+                <Mail className="size-4" />
+              </InputGroupAddon>
+              <InputGroupInput
                 type="email"
                 id="email"
-                name="email"
-                className="form-control"
-                value={form.email}
-                onChange={handleChange}
                 placeholder="Masukkan email"
-                required
                 autoFocus
+                aria-invalid={errors.email ? true : undefined}
+                {...register("email")}
               />
-            </div>
-          </div>
-          <div className="mb-4">
-            <label htmlFor="password" className="form-label">Password</label>
-            <div className="input-group">
-              <span className="input-group-text"><i className="bi bi-lock" /></span>
-              <input
+            </InputGroup>
+            {errors.email && <FieldError>{errors.email.message}</FieldError>}
+          </Field>
+          <Field data-invalid={errors.password ? true : undefined}>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <InputGroup>
+              <InputGroupAddon>
+                <Lock className="size-4" />
+              </InputGroupAddon>
+              <InputGroupInput
                 type="password"
                 id="password"
-                name="password"
-                className="form-control"
-                value={form.password}
-                onChange={handleChange}
                 placeholder="Masukkan password"
-                required
+                aria-invalid={errors.password ? true : undefined}
+                {...register("password")}
               />
-            </div>
-          </div>
-          <button
+            </InputGroup>
+            {errors.password && (
+              <FieldError>{errors.password.message}</FieldError>
+            )}
+          </Field>
+          <Button
             type="submit"
-            className="btn btn-primary w-100 py-2"
-            disabled={loading}
-            style={{ fontSize: "0.95rem" }}
+            className="mt-1 h-10 w-full text-sm"
+            disabled={isSubmitting}
           >
-            {loading ? (
+            {isSubmitting ? (
               <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" />
+                <Loader2 data-icon="inline-start" className="animate-spin" />
                 Memproses...
               </>
             ) : (
               <>
-                <i className="bi bi-box-arrow-in-right me-2" />
+                <LogIn data-icon="inline-start" />
                 Login
               </>
             )}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

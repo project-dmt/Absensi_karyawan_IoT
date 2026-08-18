@@ -1,27 +1,53 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Suspense } from "react";
+import { Link, Outlet, useRouteContext, useRouter } from "@tanstack/react-router";
+import {
+  AlertTriangle,
+  ChevronDown,
+  Clock,
+  FileBarChart,
+  LayoutDashboard,
+  LogOut,
+  Network,
+  PenLine,
+  User,
+  UserCog,
+  Users,
+  XCircle,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import AiChatWidget from "../components/AiChatWidget";
 
 const NAV_ITEMS = [
   {
-    to: "/", label: "Dashboard", icon: "bi-speedometer2",
+    to: "/",
+    label: "Dashboard",
+    icon: LayoutDashboard,
     children: [
-      { to: "/dashboard/terlambat", label: "Terlambat", icon: "bi-exclamation-triangle" },
-      { to: "/dashboard/tidak-hadir", label: "Tidak Hadir", icon: "bi-x-circle" },
+      { to: "/dashboard/terlambat", label: "Terlambat", icon: AlertTriangle },
+      { to: "/dashboard/tidak-hadir", label: "Tidak Hadir", icon: XCircle },
     ],
   },
-  { to: "/data-karyawan", label: "Data Karyawan", icon: "bi-people" },
-  { to: "/data-divisi", label: "Data Divisi", icon: "bi-diagram-3" },
-  { to: "/jam-kerja", label: "Jam Kerja", icon: "bi-clock-history" },
-  { to: "/input-absensi-manual", label: "Absensi Manual", icon: "bi-pencil-square" },
-  { to: "/laporan-absensi", label: "Laporan Absensi", icon: "bi-file-earmark-bar-graph" },
+  { to: "/data-karyawan", label: "Data Karyawan", icon: Users },
+  { to: "/data-divisi", label: "Data Divisi", icon: Network },
+  { to: "/jam-kerja", label: "Jam Kerja", icon: Clock },
+  { to: "/input-absensi-manual", label: "Absensi Manual", icon: PenLine },
+  { to: "/laporan-absensi", label: "Laporan Absensi", icon: FileBarChart },
 ];
 
-export default function AdminLayout({ user, onLogout }) {
-  const navigate = useNavigate();
+export default function AdminLayout() {
+  const router = useRouter();
+  const { auth } = useRouteContext({ strict: false });
+  const { user, logout } = auth;
 
   const handleLogout = async () => {
-    await onLogout();
-    navigate("/login");
+    await logout();
+    router.navigate({ to: "/login" });
   };
 
   return (
@@ -29,7 +55,7 @@ export default function AdminLayout({ user, onLogout }) {
       <aside className="sidebar">
         <div className="sidebar__brand">
           <div className="sidebar__brand-icon">
-            <i className="bi bi-person-badge" />
+            <UserCog className="size-5" />
           </div>
           <div>
             <div className="sidebar__brand-title">Absensi IoT</div>
@@ -38,85 +64,92 @@ export default function AdminLayout({ user, onLogout }) {
         </div>
 
         <nav className="sidebar__nav">
-          {NAV_ITEMS.map((item) => (
-            <div key={item.to}>
-              <NavLink
-                to={item.to}
-                end={item.to === "/"}
-                className={({ isActive }) =>
-                  `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
-                }
-              >
-                <i className={`bi ${item.icon} sidebar__link-icon`} />
-                <span>{item.label}</span>
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.to}>
+                <Link
+                  to={item.to}
+                  activeOptions={{ exact: item.to === "/" }}
+                  activeProps={{ className: "sidebar__link sidebar__link--active" }}
+                  inactiveProps={{ className: "sidebar__link" }}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  <span>{item.label}</span>
+                  {item.children && (
+                    <ChevronDown className="sidebar__link-chevron size-3.5" />
+                  )}
+                </Link>
                 {item.children && (
-                  <i className="bi bi-chevron-down sidebar__link-chevron" />
+                  <div className="sidebar__subnav">
+                    {item.children.map((child) => {
+                      const ChildIcon = child.icon;
+                      return (
+                        <Link
+                          key={child.to}
+                          to={child.to}
+                          activeProps={{ className: "sidebar__link sidebar__link--sub sidebar__link--active" }}
+                          inactiveProps={{ className: "sidebar__link sidebar__link--sub" }}
+                        >
+                          <ChildIcon className="size-3.5 shrink-0" />
+                          <span>{child.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 )}
-              </NavLink>
-              {item.children && (
-                <div className="sidebar__subnav">
-                  {item.children.map((child) => (
-                    <NavLink
-                      key={child.to}
-                      to={child.to}
-                      className={({ isActive }) =>
-                        `sidebar__link sidebar__link--sub ${isActive ? "sidebar__link--active" : ""}`
-                      }
-                    >
-                      <i className={`bi ${child.icon} sidebar__link-icon`} />
-                      <span>{child.label}</span>
-                    </NavLink>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="sidebar__footer">
-          <small className="text-muted">v1.0.0</small>
+          <small className="text-muted-foreground">v1.0.0</small>
         </div>
       </aside>
 
       <div className="app-main">
         <header className="topbar">
-          <div className="d-flex align-items-center gap-3">
+          <div className="flex items-center gap-3">
             <h6 className="topbar__title mb-0">
               Sistem Absensi IoT
             </h6>
           </div>
 
-          <div className="dropdown">
-            <button
-              className="topbar__user-btn"
-              data-bs-toggle="dropdown"
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<button type="button" className="topbar__user-btn" />}
             >
               <div className="topbar__avatar">
-                <i className="bi bi-person-fill" />
+                <User className="size-4" />
               </div>
-              <span className="d-none d-sm-inline">{user?.nama || "Admin"}</span>
-              <i className="bi bi-chevron-down ms-1" style={{ fontSize: "0.7rem" }} />
-            </button>
-            <ul className="dropdown-menu dropdown-menu-end topbar__dropdown">
-              <li>
-                <div className="dropdown-item-text">
-                  <div className="fw-semibold">{user?.nama}</div>
-                  <small className="text-muted">{user?.email}</small>
-                </div>
-              </li>
-              <li><hr className="dropdown-divider" /></li>
-              <li>
-                <button className="dropdown-item text-danger" onClick={handleLogout}>
-                  <i className="bi bi-box-arrow-right me-2" />
-                  Logout
-                </button>
-              </li>
-            </ul>
-          </div>
+              <span className="hidden sm:inline">{user?.nama || "Admin"}</span>
+              <ChevronDown className="ms-1 size-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="topbar__dropdown">
+              <div className="px-1.5 py-1.5">
+                <div className="font-semibold">{user?.nama}</div>
+                <small className="text-muted-foreground">{user?.email}</small>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+                <LogOut data-icon="inline-start" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
 
         <main className="app-content">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

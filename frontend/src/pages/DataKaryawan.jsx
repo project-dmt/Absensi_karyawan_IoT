@@ -1,12 +1,58 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { karyawanSchema } from "../schemas";
+import { useRouter } from "../router";
 import { useDebounce } from "../hooks/useDebounce";
 import StatusBadge from "../components/StatusBadge";
 import Modal from "../components/Modal";
-import FormInput from "../components/FormInput";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
+import {
+  useKaryawanList,
+  useDivisiList,
+  useCreateKaryawan,
+  useUpdateKaryawan,
+  useDeleteKaryawan,
+} from "../api/queries";
+import {
+  Check,
+  Eye,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  TriangleAlert,
+  Trash2,
+  Users,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const INITIAL_FORM = {
   nama: "",
@@ -18,37 +64,23 @@ const INITIAL_FORM = {
 };
 
 export default function DataKaryawan() {
-  const navigate = useNavigate();
-  const [data, setData] = useState([]);
-  const [divisi, setDivisi] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { data = [], isPending } = useKaryawanList();
+  const { data: divisi = [] } = useDivisiList();
+  const createKaryawan = useCreateKaryawan();
+  const updateKaryawan = useUpdateKaryawan();
+  const deleteKaryawan = useDeleteKaryawan();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState(INITIAL_FORM);
-  const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const submitting = createKaryawan.isPending || updateKaryawan.isPending;
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [karyawanRes, divisiRes] = await Promise.all([
-        api.get("/karyawan"),
-        api.get("/divisi"),
-      ]);
-      setData(Array.isArray(karyawanRes.data.data?.data) ? karyawanRes.data.data.data : (Array.isArray(karyawanRes.data.data) ? karyawanRes.data.data : []));
-      setDivisi(divisiRes.data.data);
-    } catch {
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { register, handleSubmit, control, reset, setError, formState: { errors } } = useForm({
+    resolver: zodResolver(karyawanSchema),
+    defaultValues: INITIAL_FORM,
+  });
 
   const filtered = data.filter(
     (item) =>
@@ -59,15 +91,15 @@ export default function DataKaryawan() {
 
   const openAdd = () => {
     setEditId(null);
-    setForm(INITIAL_FORM);
-    setErrors({});
     setFormError("");
+    reset(INITIAL_FORM);
     setShowModal(true);
   };
 
   const openEdit = (item) => {
     setEditId(item.id);
-    setForm({
+    setFormError("");
+    reset({
       nama: item.nama,
       nip: item.nip,
       jabatan: item.jabatan || "",
@@ -75,44 +107,33 @@ export default function DataKaryawan() {
       rfid_uid: item.rfid_uid,
       status: item.status,
     });
-    setErrors({});
     setShowModal(true);
   };
 
-  const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    setErrors((prev) => ({ ...prev, [e.target.name]: undefined }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setErrors({});
+  const onSubmit = async (formData) => {
     setFormError("");
+    const mutation = editId
+      ? updateKaryawan.mutateAsync({ id: editId, ...formData })
+      : createKaryawan.mutateAsync(formData);
     try {
-      if (editId) {
-        await api.put(`/karyawan/${editId}`, form);
-      } else {
-        await api.post("/karyawan", form);
-      }
+      await mutation;
       setShowModal(false);
-      fetchData();
     } catch (err) {
       if (err.response?.status === 422) {
-        setErrors(err.response.data.errors || {});
+        const serverErrors = err.response.data.errors || {};
+        Object.entries(serverErrors).forEach(([field, msgs]) => {
+          setError(field, { type: "server", message: msgs[0] });
+        });
       } else {
         setFormError(err.response?.data?.message || "Terjadi kesalahan. Silakan coba lagi.");
       }
-    } finally {
-      setSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin ingin menghapus karyawan ini?")) return;
     try {
-      await api.delete(`/karyawan/${id}`);
-      fetchData();
+      await deleteKaryawan.mutateAsync(id);
     } catch {}
   };
 
@@ -120,90 +141,103 @@ export default function DataKaryawan() {
     <div>
       <div className="page-header">
         <h4>Data Karyawan</h4>
-        <button className="btn btn-primary" onClick={openAdd}>
-          <i className="bi bi-plus-lg me-1" />
+        <Button onClick={openAdd}>
+          <Plus data-icon="inline-start" />
           Tambah Karyawan
-        </button>
+        </Button>
       </div>
 
-      <div className="mb-3" style={{ maxWidth: "360px" }}>
-        <div className="search-input-wrapper">
-          <i className="bi bi-search search-icon" />
-          <input
+      <div className="mb-3 max-w-[360px]">
+        <InputGroup>
+          <InputGroupAddon>
+            <Search className="size-4" />
+          </InputGroupAddon>
+          <InputGroupInput
             type="text"
-            className="form-control"
             placeholder="Cari nama, NIP, atau UID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
+        </InputGroup>
       </div>
 
-      {loading ? (
+      {isPending ? (
         <LoadingSpinner />
       ) : filtered.length === 0 ? (
-        <EmptyState message="Tidak ada karyawan ditemukan" icon="bi-people" />
+        <EmptyState
+          message="Tidak ada karyawan ditemukan"
+          icon={<Users className="size-10" />}
+        />
       ) : (
-        <div className="card">
-          <div className="card-body p-0">
-            <div className="table-responsive">
-              <table className="table table-hover mb-0 align-middle">
-                <thead>
-                  <tr>
-                    <th>No</th>
-                    <th>Nama</th>
-                    <th>NIP</th>
-                    <th>Jabatan</th>
-                    <th>Divisi</th>
-                    <th>RFID UID</th>
-                    <th>Status</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>No</TableHead>
+                    <TableHead>Nama</TableHead>
+                    <TableHead>NIP</TableHead>
+                    <TableHead>Jabatan</TableHead>
+                    <TableHead>Divisi</TableHead>
+                    <TableHead>RFID UID</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filtered.map((item, idx) => (
-                    <tr key={item.id}>
-                      <td>{idx + 1}</td>
-                      <td className="fw-medium">{item.nama}</td>
-                      <td><code>{item.nip}</code></td>
-                      <td>{item.jabatan || "-"}</td>
-                      <td>{item.division?.nama_divisi || "-"}</td>
-                      <td><code>{item.rfid_uid}</code></td>
-                      <td>
+                    <TableRow key={item.id}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell className="font-medium">{item.nama}</TableCell>
+                      <TableCell>
+                        <code>{item.nip}</code>
+                      </TableCell>
+                      <TableCell>{item.jabatan || "-"}</TableCell>
+                      <TableCell>{item.division?.nama_divisi || "-"}</TableCell>
+                      <TableCell>
+                        <code>{item.rfid_uid}</code>
+                      </TableCell>
+                      <TableCell>
                         <StatusBadge status={item.status} />
-                      </td>
-                      <td>
-                        <div className="d-flex gap-1">
-                          <button
-                            className="btn-action btn-action--edit"
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             title="Lihat Detail"
-                            onClick={() => navigate(`/data-karyawan/${item.id}`)}
+                            onClick={() => router.navigate({ to: "/data-karyawan/$id", params: { id: item.id } })}
                           >
-                            <i className="bi bi-eye" />
-                          </button>
-                          <button
-                            className="btn-action btn-action--edit"
+                            <Eye />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="text-primary"
                             title="Edit"
                             onClick={() => openEdit(item)}
                           >
-                            <i className="bi bi-pencil" />
-                          </button>
-                          <button
-                            className="btn-action btn-action--delete"
+                            <Pencil />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="text-destructive"
                             title="Hapus"
                             onClick={() => handleDelete(item.id)}
                           >
-                            <i className="bi bi-trash" />
-                          </button>
+                            <Trash2 />
+                          </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       <Modal
@@ -211,101 +245,116 @@ export default function DataKaryawan() {
         onClose={() => setShowModal(false)}
         title={editId ? "Edit Karyawan" : "Tambah Karyawan"}
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)}>
           {formError && (
-            <div className="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
-              <i className="bi bi-exclamation-circle-fill" />
-              <span>{formError}</span>
-            </div>
+            <Alert variant="destructive" className="mb-4">
+              <TriangleAlert />
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
           )}
-          <FormInput
-            label="Nama"
-            name="nama"
-            value={form.nama}
-            onChange={handleChange}
-            error={errors.nama?.[0]}
-            placeholder="Nama lengkap"
-            required
-          />
-          <FormInput
-            label="NIP"
-            name="nip"
-            value={form.nip}
-            onChange={handleChange}
-            error={errors.nip?.[0]}
-            placeholder="Nomor induk pegawai"
-            required
-          />
-          <FormInput
-            label="Jabatan"
-            name="jabatan"
-            value={form.jabatan}
-            onChange={handleChange}
-            error={errors.jabatan?.[0]}
-            placeholder="Jabatan karyawan"
-          />
-          <FormInput
-            label="Divisi"
-            name="divisi_id"
-            as="select"
-            value={form.divisi_id}
-            onChange={handleChange}
-            error={errors.divisi_id?.[0]}
-            placeholder="Pilih divisi..."
-            options={divisi.map((d) => ({
-              value: d.id,
-              label: d.nama_divisi,
-            }))}
-          />
-          <FormInput
-            label="RFID UID"
-            name="rfid_uid"
-            value={form.rfid_uid}
-            onChange={handleChange}
-            error={errors.rfid_uid?.[0]}
-            placeholder="Contoh: A1B2C3"
-            required
-          />
-          <FormInput
-            label="Status"
-            name="status"
-            as="select"
-            value={form.status}
-            onChange={handleChange}
-            options={[
-              { value: "aktif", label: "Aktif" },
-              { value: "nonaktif", label: "Nonaktif" },
-            ]}
-          />
-          <hr className="my-3" />
-          <div className="d-flex justify-content-end gap-2">
-            <button
+          <div className="flex flex-col gap-4">
+            <Field data-invalid={errors.nama ? true : undefined}>
+              <FieldLabel htmlFor="nama">Nama</FieldLabel>
+              <Input
+                id="nama"
+                placeholder="Nama lengkap"
+                aria-invalid={errors.nama ? true : undefined}
+                {...register("nama")}
+              />
+              {errors.nama && <FieldError>{errors.nama.message}</FieldError>}
+            </Field>
+            <Field data-invalid={errors.nip ? true : undefined}>
+              <FieldLabel htmlFor="nip">NIP</FieldLabel>
+              <Input
+                id="nip"
+                placeholder="Nomor induk pegawai"
+                aria-invalid={errors.nip ? true : undefined}
+                {...register("nip")}
+              />
+              {errors.nip && <FieldError>{errors.nip.message}</FieldError>}
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="jabatan">Jabatan</FieldLabel>
+              <Input id="jabatan" placeholder="Jabatan karyawan" {...register("jabatan")} />
+            </Field>
+            <Controller
+              name="divisi_id"
+              control={control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel>Divisi</FieldLabel>
+                  <Select value={field.value || undefined} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Pilih divisi..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {divisi.map((d) => (
+                          <SelectItem key={d.id} value={String(d.id)}>
+                            {d.nama_divisi}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            />
+            <Field data-invalid={errors.rfid_uid ? true : undefined}>
+              <FieldLabel htmlFor="rfid_uid">RFID UID</FieldLabel>
+              <Input
+                id="rfid_uid"
+                placeholder="Contoh: A1B2C3"
+                aria-invalid={errors.rfid_uid ? true : undefined}
+                {...register("rfid_uid")}
+              />
+              {errors.rfid_uid && (
+                <FieldError>{errors.rfid_uid.message}</FieldError>
+              )}
+            </Field>
+            <Controller
+              name="status"
+              control={control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel>Status</FieldLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="aktif">Aktif</SelectItem>
+                        <SelectItem value="nonaktif">Nonaktif</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            />
+          </div>
+          <Separator className="my-4" />
+          <div className="flex justify-end gap-2">
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setShowModal(false)}
             >
               Batal
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={submitting}
-            >
+            </Button>
+            <Button type="submit" disabled={submitting}>
               {submitting ? (
                 <>
-                  <span
-                    className="spinner-border spinner-border-sm me-1"
-                    role="status"
-                  />
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
                   Menyimpan...
                 </>
               ) : (
                 <>
-                  <i className="bi bi-check-lg me-1" />
+                  <Check data-icon="inline-start" />
                   Simpan
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>

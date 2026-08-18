@@ -1,38 +1,54 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { divisiSchema } from "../schemas";
+import { useRouter } from "../router";
 import { useDebounce } from "../hooks/useDebounce";
 import Modal from "../components/Modal";
-import FormInput from "../components/FormInput";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
+import {
+  useDivisiList,
+  useCreateDivisi,
+  useUpdateDivisi,
+  useDeleteDivisi,
+} from "../api/queries";
+import { Check, Eye, Loader2, Network, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function DataDivisi() {
-  const navigate = useNavigate();
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { data = [], isPending } = useDivisiList();
+  const createDivisi = useCreateDivisi();
+  const updateDivisi = useUpdateDivisi();
+  const deleteDivisi = useDeleteDivisi();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [namaDivisi, setNamaDivisi] = useState("");
-  const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
+  const submitting = createDivisi.isPending || updateDivisi.isPending;
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get("/divisi");
-      setData(res.data.data);
-    } catch {
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { register, handleSubmit, reset, setError, formState: { errors } } = useForm({
+    resolver: zodResolver(divisiSchema),
+  });
 
   const filtered = data.filter((item) =>
     item.nama_divisi.toLowerCase().includes(debouncedSearch.toLowerCase())
@@ -40,45 +56,38 @@ export default function DataDivisi() {
 
   const openAdd = () => {
     setEditId(null);
-    setNamaDivisi("");
-    setErrors({});
+    reset({ nama_divisi: "" });
     setShowModal(true);
   };
 
   const openEdit = (item) => {
     setEditId(item.id);
-    setNamaDivisi(item.nama_divisi);
-    setErrors({});
+    reset({ nama_divisi: item.nama_divisi });
     setShowModal(true);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setErrors({});
+  const onSubmit = async (formData) => {
+    const payload = { nama_divisi: formData.nama_divisi };
+    const mutation = editId
+      ? updateDivisi.mutateAsync({ id: editId, ...payload })
+      : createDivisi.mutateAsync(payload);
     try {
-      const payload = { nama_divisi: namaDivisi };
-      if (editId) {
-        await api.put(`/divisi/${editId}`, payload);
-      } else {
-        await api.post("/divisi", payload);
-      }
+      await mutation;
       setShowModal(false);
-      fetchData();
     } catch (err) {
       if (err.response?.status === 422) {
-        setErrors(err.response.data.errors || {});
+        const serverErrors = err.response.data.errors || {};
+        Object.entries(serverErrors).forEach(([field, msgs]) => {
+          setError(field, { type: "server", message: msgs[0] });
+        });
       }
-    } finally {
-      setSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
     try {
-      await api.delete(`/divisi/${id}`);
-      fetchData();
+      await deleteDivisi.mutateAsync(id);
     } catch {}
   };
 
@@ -86,84 +95,95 @@ export default function DataDivisi() {
     <div>
       <div className="page-header">
         <h4>Data Divisi</h4>
-        <button className="btn btn-primary" onClick={openAdd}>
-          <i className="bi bi-plus-lg me-1" />
+        <Button onClick={openAdd}>
+          <Plus data-icon="inline-start" />
           Tambah Divisi
-        </button>
+        </Button>
       </div>
 
-      <div className="mb-3" style={{ maxWidth: "360px" }}>
-        <div className="search-input-wrapper">
-          <i className="bi bi-search search-icon" />
-          <input
+      <div className="mb-3 max-w-[360px]">
+        <InputGroup>
+          <InputGroupAddon>
+            <Search className="size-4" />
+          </InputGroupAddon>
+          <InputGroupInput
             type="text"
-            className="form-control"
             placeholder="Cari divisi..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
+        </InputGroup>
       </div>
 
-      {loading ? (
+      {isPending ? (
         <LoadingSpinner />
       ) : filtered.length === 0 ? (
-        <EmptyState message="Tidak ada divisi ditemukan" icon="bi-diagram-3" />
+        <EmptyState
+          message="Tidak ada divisi ditemukan"
+          icon={<Network className="size-10" />}
+        />
       ) : (
-        <div className="card">
-          <div className="card-body p-0">
-            <div className="table-responsive">
-              <table className="table table-hover mb-0 align-middle">
-                <thead>
-                  <tr>
-                    <th>No</th>
-                    <th>Nama Divisi</th>
-                    <th>Jumlah Karyawan</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>No</TableHead>
+                    <TableHead>Nama Divisi</TableHead>
+                    <TableHead>Jumlah Karyawan</TableHead>
+                    <TableHead>Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filtered.map((item, idx) => (
-                    <tr key={item.id}>
-                      <td>{idx + 1}</td>
-                      <td className="fw-medium">{item.nama_divisi}</td>
-                      <td>
-                        <span className="badge bg-primary-subtle text-primary">
+                    <TableRow key={item.id}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell className="font-medium">
+                        {item.nama_divisi}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="rounded-md text-primary">
                           {item.employees_count ?? 0} orang
-                        </span>
-                      </td>
-                      <td>
-                        <div className="d-flex gap-1">
-                          <button
-                            className="btn-action btn-action--edit"
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             title="Lihat Detail"
-                            onClick={() => navigate(`/data-divisi/${item.id}`)}
+                            onClick={() => router.navigate({ to: "/data-divisi/$id", params: { id: item.id } })}
                           >
-                            <i className="bi bi-eye" />
-                          </button>
-                          <button
-                            className="btn-action btn-action--edit"
+                            <Eye />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="text-primary"
                             title="Edit"
                             onClick={() => openEdit(item)}
                           >
-                            <i className="bi bi-pencil" />
-                          </button>
-                          <button
-                            className="btn-action btn-action--delete"
+                            <Pencil />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="text-destructive"
                             title="Hapus"
                             onClick={() => handleDelete(item.id)}
                           >
-                            <i className="bi bi-trash" />
-                          </button>
+                            <Trash2 />
+                          </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       <Modal
@@ -171,48 +191,41 @@ export default function DataDivisi() {
         onClose={() => setShowModal(false)}
         title={editId ? "Edit Divisi" : "Tambah Divisi"}
       >
-        <form onSubmit={handleSubmit}>
-          <FormInput
-            label="Nama Divisi"
-            name="nama_divisi"
-            value={namaDivisi}
-            onChange={(e) => {
-              setNamaDivisi(e.target.value);
-              setErrors((prev) => ({ ...prev, nama_divisi: undefined }));
-            }}
-            error={errors.nama_divisi?.[0]}
-            placeholder="Contoh: Teknologi Informasi"
-            required
-          />
-          <hr className="my-3" />
-          <div className="d-flex justify-content-end gap-2">
-            <button
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <Field data-invalid={errors.nama_divisi ? true : undefined}>
+            <FieldLabel htmlFor="nama_divisi">Nama Divisi</FieldLabel>
+            <Input
+              id="nama_divisi"
+              placeholder="Contoh: Teknologi Informasi"
+              aria-invalid={errors.nama_divisi ? true : undefined}
+              {...register("nama_divisi")}
+            />
+            {errors.nama_divisi && (
+              <FieldError>{errors.nama_divisi.message}</FieldError>
+            )}
+          </Field>
+          <Separator className="my-4" />
+          <div className="flex justify-end gap-2">
+            <Button
               type="button"
-              className="btn btn-secondary"
+              variant="secondary"
               onClick={() => setShowModal(false)}
             >
               Batal
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={submitting}
-            >
+            </Button>
+            <Button type="submit" disabled={submitting}>
               {submitting ? (
                 <>
-                  <span
-                    className="spinner-border spinner-border-sm me-1"
-                    role="status"
-                  />
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
                   Menyimpan...
                 </>
               ) : (
                 <>
-                  <i className="bi bi-check-lg me-1" />
+                  <Check data-icon="inline-start" />
                   Simpan
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
