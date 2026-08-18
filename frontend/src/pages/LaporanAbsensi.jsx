@@ -1,9 +1,43 @@
-import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { absensiUpdateSchema } from "../schemas";
 import api from "../api/axios";
+import { useDivisiList, useLaporan, useUpdateAbsensi } from "../api/queries";
 import StatusBadge from "../components/StatusBadge";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
+import Modal from "../components/Modal";
+import FormInput from "../components/FormInput";
+import {
+  CalendarX,
+  Check,
+  FileSpreadsheet,
+  FileText,
+  Funnel,
+  Loader2,
+  Pencil,
+  Search,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const STATUS_OPTIONS = [
   { value: "Hadir", label: "Hadir" },
@@ -12,8 +46,6 @@ const STATUS_OPTIONS = [
   { value: "Izin", label: "Izin" },
   { value: "Sakit", label: "Sakit" },
 ];
-
-const EDITABLE_STATUSES = ["Hadir", "Terlambat", "Alpha", "Izin", "Sakit"];
 
 export default function LaporanAbsensi() {
   const today = new Date().toISOString().split("T")[0];
@@ -26,42 +58,34 @@ export default function LaporanAbsensi() {
     sampai: today,
     divisi_id: "",
   });
-  const [divisi, setDivisi] = useState([]);
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [fetched, setFetched] = useState(true);
+  const [appliedFilter, setAppliedFilter] = useState({
+    dari: sevenDaysAgo,
+    sampai: today,
+    divisi_id: "",
+  });
+  const { data: divisi = [] } = useDivisiList();
+  const { data = [], isFetching: loading } = useLaporan({
+    dari: appliedFilter.dari,
+    sampai: appliedFilter.sampai,
+    divisi_id: appliedFilter.divisi_id || undefined,
+    per_page: 500,
+  });
+  const updateAbsensi = useUpdateAbsensi();
 
   const [editItem, setEditItem] = useState(null);
-  const [editForm, setEditForm] = useState({ status: "", keterangan: "", jam_pulang: "" });
-  const [editErrors, setEditErrors] = useState({});
   const [editMessage, setEditMessage] = useState({ type: "", text: "" });
-  const [editSubmitting, setEditSubmitting] = useState(false);
 
-  useEffect(() => {
-    api
-      .get("/divisi")
-      .then((res) => setDivisi(res.data.data))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setFetched(true);
-    try {
-      const params = { dari: filter.dari, sampai: filter.sampai, per_page: 500 };
-      if (filter.divisi_id) params.divisi_id = filter.divisi_id;
-      const res = await api.get("/laporan", { params });
-      setData(Array.isArray(res.data.data?.data) ? res.data.data.data : (Array.isArray(res.data.data) ? res.data.data : []));
-    } catch {
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    setError,
+    formState: { errors: editErrors },
+  } = useForm({
+    resolver: zodResolver(absensiUpdateSchema),
+    defaultValues: { status: "", keterangan: "", jam_pulang: "" },
+  });
 
   const handleChange = (e) => {
     setFilter((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -69,17 +93,12 @@ export default function LaporanAbsensi() {
 
   const handleExport = async (format) => {
     try {
-      const params = new URLSearchParams({ dari: filter.dari, sampai: filter.sampai, format });
-      if (filter.divisi_id) params.append("divisi_id", filter.divisi_id);
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/laporan/export`,
-        {
-          params,
-          responseType: "blob",
-          headers: { Authorization: token ? `Bearer ${token}` : "" },
-        }
-      );
+      const params = { dari: filter.dari, sampai: filter.sampai, format };
+      if (filter.divisi_id) params.divisi_id = filter.divisi_id;
+      const res = await api.get("/laporan/export", {
+        params,
+        responseType: "blob",
+      });
       const url = window.URL.createObjectURL(res.data);
       const link = document.createElement("a");
       link.href = url;
@@ -97,52 +116,40 @@ export default function LaporanAbsensi() {
 
   const openEdit = (item) => {
     setEditItem(item);
-    setEditForm({
+    setEditMessage({ type: "", text: "" });
+    reset({
       status: item.status,
       keterangan: item.keterangan || "",
       jam_pulang: item.jam_pulang ? item.jam_pulang.substring(0, 5) : "",
     });
-    setEditErrors({});
-    setEditMessage({ type: "", text: "" });
   };
 
   const closeEdit = () => {
     setEditItem(null);
-    setEditErrors({});
     setEditMessage({ type: "", text: "" });
   };
 
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
-    setEditErrors((prev) => ({ ...prev, [name]: undefined }));
-    setEditMessage({ type: "", text: "" });
-  };
-
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    setEditSubmitting(true);
-    setEditErrors({});
+  const onEditSubmit = async (formData) => {
     setEditMessage({ type: "", text: "" });
     try {
-      const payload = { status: editForm.status };
-      if (editForm.keterangan) payload.keterangan = editForm.keterangan;
-      if (editForm.jam_pulang) payload.jam_pulang = editForm.jam_pulang + ":00";
+      const payload = { status: formData.status };
+      if (formData.keterangan) payload.keterangan = formData.keterangan;
+      if (formData.jam_pulang) payload.jam_pulang = formData.jam_pulang + ":00";
 
-      await api.put(`/absensi/${editItem.id}`, payload);
+      await updateAbsensi.mutateAsync({ id: editItem.id, ...payload });
       setEditMessage({ type: "success", text: "Absensi berhasil diupdate" });
-      fetchData();
     } catch (err) {
       if (err.response?.status === 422) {
         if (err.response.data.message) {
           setEditMessage({ type: "danger", text: err.response.data.message });
         }
-        setEditErrors(err.response.data.errors || {});
+        const serverErrors = err.response.data.errors || {};
+        Object.entries(serverErrors).forEach(([field, msgs]) => {
+          setError(field, { type: "server", message: msgs[0] });
+        });
       } else {
         setEditMessage({ type: "danger", text: err.response?.data?.message || "Gagal mengupdate absensi" });
       }
-    } finally {
-      setEditSubmitting(false);
     }
   };
 
@@ -152,239 +159,215 @@ export default function LaporanAbsensi() {
         <h4>Laporan Absensi</h4>
       </div>
 
-      <div className="card mb-4">
-        <div className="card-header d-flex align-items-center gap-2">
-          <i className="bi bi-funnel" />
-          Filter Laporan
+      <div className="mb-4 rounded-lg border bg-card p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-2">
+          <Funnel className="size-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">Filter Laporan</span>
         </div>
-        <div className="card-body">
-          <div className="row g-3 align-items-end">
-            <div className="col-md-3">
-              <label className="form-label">Dari Tanggal</label>
-              <input
-                type="date"
-                className="form-control"
-                name="dari"
-                value={filter.dari}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="col-md-3">
-              <label className="form-label">Sampai Tanggal</label>
-              <input
-                type="date"
-                className="form-control"
-                name="sampai"
-                value={filter.sampai}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="col-md-3">
-              <label className="form-label">Divisi</label>
-              <select
-                className="form-select"
-                name="divisi_id"
-                value={filter.divisi_id}
-                onChange={handleChange}
-              >
-                <option value="">Semua Divisi</option>
-                {divisi.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.nama_divisi}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="col-md-3">
-              <button
-                className="btn btn-primary w-100"
-                onClick={fetchData}
-                disabled={loading}
-              >
-                {loading ? (
-                  <span
-                    className="spinner-border spinner-border-sm"
-                    role="status"
-                  />
-                ) : (
-                  <>
-                    <i className="bi bi-search me-1" />
-                    Terapkan
-                  </>
-                )}
-              </button>
-            </div>
+        <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
+          <FormInput
+            label="Dari Tanggal"
+            name="dari"
+            type="date"
+            value={filter.dari}
+            onChange={handleChange}
+          />
+          <FormInput
+            label="Sampai Tanggal"
+            name="sampai"
+            type="date"
+            value={filter.sampai}
+            onChange={handleChange}
+          />
+          <FormInput
+            label="Divisi"
+            name="divisi_id"
+            as="select"
+            value={filter.divisi_id}
+            onChange={handleChange}
+            placeholder="Semua Divisi"
+            options={divisi.map((d) => ({
+              value: d.id,
+              label: d.nama_divisi,
+            }))}
+          />
+          <div className="md:col-span-3">
+            <Button
+              onClick={() => setAppliedFilter(filter)}
+              disabled={loading}
+              className="w-full md:w-auto"
+            >
+              {loading ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <>
+                  <Search data-icon="inline-start" className="size-4" />
+                  Terapkan
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </div>
 
-      {fetched && (
-        <div className="d-flex gap-2 mb-3">
-          <button
-            className="btn btn-outline-success btn-sm"
-            onClick={() => handleExport("xlsx")}
-          >
-            <i className="bi bi-file-earmark-excel me-1" />
-            Export Excel
-          </button>
-          <button
-            className="btn btn-outline-secondary btn-sm"
-            onClick={() => handleExport("csv")}
-          >
-            <i className="bi bi-filetype-csv me-1" />
-            Export CSV
-          </button>
-        </div>
-      )}
+      <div className="mb-3 flex gap-2">
+        <Button variant="outline" size="sm" onClick={() => handleExport("xlsx")}>
+          <FileSpreadsheet data-icon="inline-start" className="size-4" />
+          Export Excel
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => handleExport("csv")}>
+          <FileText data-icon="inline-start" className="size-4" />
+          Export CSV
+        </Button>
+      </div>
 
       {loading ? (
         <LoadingSpinner />
-      ) : !fetched ? (
-        <EmptyState message="Pilih rentang tanggal lalu klik Terapkan untuk melihat laporan" icon="bi-calendar-range" />
       ) : data.length === 0 ? (
-        <EmptyState message="Tidak ada data absensi untuk rentang tanggal ini" icon="bi-calendar-x" />
+        <EmptyState message="Tidak ada data absensi untuk rentang tanggal ini" icon={<CalendarX className="size-10" />} />
       ) : (
-        <div className="card">
-          <div className="card-body p-0">
-            <div className="table-responsive">
-              <table className="table table-hover mb-0 align-middle">
-                <thead>
-                  <tr>
-                    <th>No</th>
-                    <th>Nama</th>
-                    <th>NIP</th>
-                    <th>Tanggal</th>
-                    <th>Jam Masuk</th>
-                    <th>Jam Pulang</th>
-                    <th>Status</th>
-                    <th>Keterangan</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.map((item, idx) => (
-                    <tr key={item.id}>
-                      <td>{idx + 1}</td>
-                      <td className="fw-medium">{item.employee?.nama}</td>
-                      <td><code>{item.employee?.nip}</code></td>
-                      <td>{item.tanggal}</td>
-                      <td>{item.jam_masuk || "-"}</td>
-                      <td>{item.jam_pulang || "-"}</td>
-                      <td>
-                        <StatusBadge status={item.status} />
-                      </td>
-                      <td>{item.keterangan || "-"}</td>
-                      <td>
-                        <button
-                          className="btn-action btn-action--edit"
-                          title="Edit Absensi"
-                          onClick={() => openEdit(item)}
-                        >
-                          <i className="bi bi-pencil" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {editItem && (
-        <div
-          className="modal fade show d-block"
-          tabIndex={-1}
-          style={{ background: "rgba(15,23,42,0.5)", backdropFilter: "blur(4px)" }}
-          onClick={(e) => { if (e.target === e.currentTarget) closeEdit(); }}
-        >
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  <i className="bi bi-pencil-square me-2 text-primary" />
-                  Edit Absensi
-                </h5>
-                <button type="button" className="btn-close" onClick={closeEdit} />
-              </div>
-              <div className="modal-body">
-                <div className="mb-3 p-2 bg-light rounded">
-                  <small className="text-muted">Karyawan</small>
-                  <div className="fw-semibold">{editItem.employee?.nama} ({editItem.employee?.nip})</div>
-                  <small className="text-muted">Tanggal: {editItem.tanggal} | Jam Masuk: {editItem.jam_masuk || "-"}</small>
-                </div>
-
-                {editMessage.text && (
-                  <div className={`alert alert-${editMessage.type} d-flex align-items-center gap-2 py-2`} role="alert">
-                    <i className={`bi ${editMessage.type === "success" ? "bi-check-circle-fill" : "bi-exclamation-circle-fill"}`} />
-                    {editMessage.text}
-                  </div>
-                )}
-
-                <form onSubmit={handleEditSubmit}>
-                  <div className="mb-3">
-                    <label className="form-label">Status</label>
-                    <select
-                      name="status"
-                      className={`form-select ${editErrors.status ? "is-invalid" : ""}`}
-                      value={editForm.status}
-                      onChange={handleEditChange}
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>No</TableHead>
+                <TableHead>Nama</TableHead>
+                <TableHead>NIP</TableHead>
+                <TableHead>Tanggal</TableHead>
+                <TableHead>Jam Masuk</TableHead>
+                <TableHead>Jam Pulang</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Keterangan</TableHead>
+                <TableHead>Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((item, idx) => (
+                <TableRow key={item.id}>
+                  <TableCell>{idx + 1}</TableCell>
+                  <TableCell className="font-medium">{item.employee?.nama}</TableCell>
+                  <TableCell>
+                    <code>{item.employee?.nip}</code>
+                  </TableCell>
+                  <TableCell>{item.tanggal}</TableCell>
+                  <TableCell>{item.jam_masuk || "-"}</TableCell>
+                  <TableCell>{item.jam_pulang || "-"}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={item.status} />
+                  </TableCell>
+                  <TableCell>{item.keterangan || "-"}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      className="text-primary"
+                      title="Edit Absensi"
+                      onClick={() => openEdit(item)}
                     >
-                      {STATUS_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                    {editErrors.status && <div className="invalid-feedback">{editErrors.status[0]}</div>}
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label">Jam Pulang</label>
-                    <input
-                      type="time"
-                      name="jam_pulang"
-                      className={`form-control ${editErrors.jam_pulang ? "is-invalid" : ""}`}
-                      value={editForm.jam_pulang}
-                      onChange={handleEditChange}
-                    />
-                    {editErrors.jam_pulang && <div className="invalid-feedback">{editErrors.jam_pulang[0]}</div>}
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label">Keterangan</label>
-                    <textarea
-                      name="keterangan"
-                      className={`form-control ${editErrors.keterangan ? "is-invalid" : ""}`}
-                      value={editForm.keterangan}
-                      onChange={handleEditChange}
-                      rows={3}
-                      placeholder="Keterangan (opsional)"
-                      style={{ resize: "vertical" }}
-                    />
-                    {editErrors.keterangan && <div className="invalid-feedback">{editErrors.keterangan[0]}</div>}
-                  </div>
-                  <div className="d-flex justify-content-end gap-2">
-                    <button type="button" className="btn btn-secondary" onClick={closeEdit}>
-                      Batal
-                    </button>
-                    <button type="submit" className="btn btn-primary" disabled={editSubmitting}>
-                      {editSubmitting ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-1" role="status" />
-                          Menyimpan...
-                        </>
-                      ) : (
-                        <>
-                          <i className="bi bi-check-lg me-1" />
-                          Simpan
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
+                      <Pencil />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
+
+      <Modal show={!!editItem} onClose={closeEdit} title="Edit Absensi">
+        {editItem && (
+          <>
+            <div className="mb-4 rounded-md bg-muted p-3 text-sm">
+              <div className="font-semibold">
+                {editItem.employee?.nama} ({editItem.employee?.nip})
+              </div>
+              <small className="text-muted-foreground">
+                Tanggal: {editItem.tanggal} | Jam Masuk: {editItem.jam_masuk || "-"}
+              </small>
+            </div>
+
+            {editMessage.text && (
+              <div
+                className={`mb-3 rounded-md border px-3 py-2 text-sm ${
+                  editMessage.type === "success"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-red-200 bg-red-50 text-red-700"
+                }`}
+              >
+                {editMessage.text}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit(onEditSubmit)} className="space-y-4">
+              <Controller
+                name="status"
+                control={control}
+                render={({ field }) => (
+                  <Field data-invalid={editErrors.status ? true : undefined}>
+                    <FieldLabel>Status</FieldLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full" aria-invalid={editErrors.status ? true : undefined}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {STATUS_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    {editErrors.status && (
+                      <FieldError>{editErrors.status.message}</FieldError>
+                    )}
+                  </Field>
+                )}
+              />
+              <Field data-invalid={editErrors.jam_pulang ? true : undefined}>
+                <FieldLabel htmlFor="jam_pulang_edit">Jam Pulang</FieldLabel>
+                <Input type="time" id="jam_pulang_edit" {...register("jam_pulang")} />
+                {editErrors.jam_pulang && (
+                  <FieldError>{editErrors.jam_pulang.message}</FieldError>
+                )}
+              </Field>
+              <Field data-invalid={editErrors.keterangan ? true : undefined}>
+                <FieldLabel htmlFor="keterangan_edit">Keterangan</FieldLabel>
+                <textarea
+                  id="keterangan_edit"
+                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  rows={3}
+                  style={{ resize: "vertical" }}
+                  placeholder="Keterangan (opsional)"
+                  {...register("keterangan")}
+                />
+                {editErrors.keterangan && (
+                  <FieldError>{editErrors.keterangan.message}</FieldError>
+                )}
+              </Field>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="secondary" onClick={closeEdit}>
+                  Batal
+                </Button>
+                <Button type="submit" disabled={updateAbsensi.isPending}>
+                  {updateAbsensi.isPending ? (
+                    <>
+                      <Loader2 data-icon="inline-start" className="animate-spin" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      <Check data-icon="inline-start" />
+                      Simpan
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

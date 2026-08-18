@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { TextStreamChatTransport } from "ai";
+import { Bot, Send, TriangleAlert, X } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 import TypingIndicator from "./TypingIndicator";
 
@@ -45,9 +46,9 @@ export default function AiChatWidget() {
       {open && (
         <div className="ai-widget__panel">
           <div className="ai-widget__header">
-            <div className="d-flex align-items-center gap-2">
+            <div className="flex items-center gap-2">
               <div className="ai-widget__header-icon">
-                <i className="bi bi-robot" />
+                <Bot className="size-5" />
               </div>
               <div>
                 <div className="ai-widget__header-title">AI Asisten</div>
@@ -55,18 +56,18 @@ export default function AiChatWidget() {
               </div>
             </div>
             <button
-              className="btn btn-sm ai-widget__close"
+              className="ai-widget__close"
               onClick={() => setOpen(false)}
               aria-label="Tutup"
             >
-              <i className="bi bi-x-lg" />
+              <X className="size-4" />
             </button>
           </div>
 
           <div className="ai-widget__messages" ref={messagesRef}>
             {messages.length === 0 && (
               <div className="ai-widget__empty">
-                <i className="bi bi-robot" />
+                <Bot className="mx-auto mb-2 size-10 text-primary-light" />
                 <p>
                   Halo! Tanyakan hal seputar data absensi, contohnya jumlah
                   karyawan yang tidak hadir atau persentase kehadiran.
@@ -81,7 +82,7 @@ export default function AiChatWidget() {
             ))}
             {error && (
               <div className="ai-widget__error">
-                <i className="bi bi-exclamation-triangle me-1" />
+                <TriangleAlert className="mr-1 inline size-3.5" />
                 Terjadi kesalahan: {error.message}
               </div>
             )}
@@ -104,7 +105,7 @@ export default function AiChatWidget() {
 
           <form className="ai-widget__form" onSubmit={handleSubmit}>
             <input
-              className="form-control"
+              className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Tulis pertanyaan..."
@@ -116,7 +117,7 @@ export default function AiChatWidget() {
               disabled={!input.trim() || status === "streaming"}
               aria-label="Kirim"
             >
-              <i className="bi bi-send" />
+              <Send className="size-5" />
             </button>
           </form>
         </div>
@@ -127,7 +128,7 @@ export default function AiChatWidget() {
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Tutup asisten" : "Buka asisten"}
       >
-        <i className={`bi ${open ? "bi-x-lg" : "bi-robot"}`} />
+        {open ? <X className="size-6" /> : <Bot className="size-6" />}
       </button>
     </div>
   );
