@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Link, Outlet, useRouteContext, useRouter } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -140,7 +141,15 @@ export default function AdminLayout() {
         </header>
 
         <main className="app-content">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

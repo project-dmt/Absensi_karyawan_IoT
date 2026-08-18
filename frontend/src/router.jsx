@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import {
   createRootRouteWithContext,
   createRoute,
@@ -14,15 +15,16 @@ import {
 import { useAuth } from "./hooks/useAuth";
 import AdminLayout from "./layouts/AdminLayout";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import DataKaryawan from "./pages/DataKaryawan";
-import DataDivisi from "./pages/DataDivisi";
-import JamKerja from "./pages/JamKerja";
-import InputAbsensiManual from "./pages/InputAbsensiManual";
-import LaporanAbsensi from "./pages/LaporanAbsensi";
-import DetailKaryawan from "./pages/DetailKaryawan";
-import DetailDivisi from "./pages/DetailDivisi";
-import DetailDashboard from "./pages/DetailDashboard";
+
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const DataKaryawan = lazy(() => import("./pages/DataKaryawan"));
+const DataDivisi = lazy(() => import("./pages/DataDivisi"));
+const JamKerja = lazy(() => import("./pages/JamKerja"));
+const InputAbsensiManual = lazy(() => import("./pages/InputAbsensiManual"));
+const LaporanAbsensi = lazy(() => import("./pages/LaporanAbsensi"));
+const DetailKaryawan = lazy(() => import("./pages/DetailKaryawan"));
+const DetailDivisi = lazy(() => import("./pages/DetailDivisi"));
+const DetailDashboard = lazy(() => import("./pages/DetailDashboard"));
 
 function RootComponent() {
   const auth = useAuth();
