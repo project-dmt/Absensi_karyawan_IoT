@@ -23,7 +23,7 @@ class QueryDatabaseTool implements Tool
             divisions(id, nama_divisi).
             schedules(jam_masuk_standar, jam_pulang_standar, toleransi_menit).
             attendance(employee_id, tanggal, jam_masuk, jam_pulang, status, keterangan) —
-            status absensi: 'Hadir', 'Terlambat', 'Izin', 'Alpha' (tidak hadir).
+            status absensi: 'Hadir', 'Terlambat', 'Izin', 'Sakit', 'Alpha' (tidak hadir).
             Panduan:
             - "tidak hadir" = karyawan status 'aktif' yang tidak punya record attendance di tanggal itu,
               atau status 'Alpha'.
@@ -68,12 +68,28 @@ class QueryDatabaseTool implements Tool
             throw new RuntimeException('Query harus dimulai dengan SELECT (read-only).');
         }
 
+        // Tolak multi-statement (SQL injection / stacked queries) — hanya izinkan satu query
+        if (preg_match('/;\s*SELECT|;\s*$|;\s*(?!\s*$)/i', $trimmed)) {
+            throw new RuntimeException('Multi-statement query tidak diizinkan.');
+        }
+
+        // Komentar SQL tingkat lanjut / bypass
+        if (preg_match('/(--[^\n]*|\/\*.*?\*\/|\#)/s', $sql)) {
+            throw new RuntimeException('Komentar SQL tidak diizinkan.');
+        }
+
         if (preg_match('/;\s*(UPDATE|DELETE|INSERT|ALTER|DROP|CREATE|TRUNCATE|RENAME|GRANT|REVOKE)\b/i', $trimmed)) {
             throw new RuntimeException('Query berisi perintah berbahaya yang tidak diizinkan.');
         }
 
-        if (preg_match('/\b(INTO\s+OUTFILE|LOAD_FILE|SLEEP|BENCHMARK|INFORMATION_SCHEMA|SHUTDOWN)\b/i', $trimmed)) {
+        // Blokir fungsi berbahaya + eksfiltrasi data via file/network
+        if (preg_match('/\b(INTO\s+(OUTFILE|DUMPFILE)|LOAD_FILE|SLEEP|BENCHMARK|INFORMATION_SCHEMA|SHUTDOWN|MYSQL_HELP_TOPIC|GET_LOCK|RELEASE_LOCK|UUID|CONNECTION_ID|DUMPFILE)\b/i', $trimmed)) {
             throw new RuntimeException('Query berisi fungsi berbahaya yang tidak diizinkan.');
+        }
+
+        // Blokir token berbahaya di mana pun dalam statement (bukan cuma setelah ;)
+        if (preg_match('/\b(UPDATE|DELETE|INSERT|ALTER|DROP|CREATE|TRUNCATE|RENAME|GRANT|REVOKE)\b/i', $trimmed)) {
+            throw new RuntimeException('Perintah manipulasi data tidak diizinkan.');
         }
 
         if (! preg_match('/\bLIMIT\s+\d+\b/i', $trimmed)) {
