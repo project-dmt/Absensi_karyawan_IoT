@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import {
   createRootRouteWithContext,
   createRoute,
@@ -25,6 +25,10 @@ const LaporanAbsensi = lazy(() => import("./pages/LaporanAbsensi"));
 const DetailKaryawan = lazy(() => import("./pages/DetailKaryawan"));
 const DetailDivisi = lazy(() => import("./pages/DetailDivisi"));
 const DetailDashboard = lazy(() => import("./pages/DetailDashboard"));
+const LiveMonitoring = lazy(() => import("./pages/LiveMonitoring"));
+const SemuaAbsensi = lazy(() => import("./pages/SemuaAbsensi"));
+const PerangkatIoT = lazy(() => import("./pages/PerangkatIoT"));
+const PengaturanSistem = lazy(() => import("./pages/PengaturanSistem"));
 
 function RootComponent() {
   const auth = useAuth();
@@ -121,6 +125,30 @@ const laporanAbsensiRoute = createRoute({
   component: LaporanAbsensi,
 });
 
+const liveMonitoringRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/live-monitoring",
+  component: LiveMonitoring,
+});
+
+const semuaAbsensiRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/semua-absensi",
+  component: SemuaAbsensi,
+});
+
+const perangkatIoTRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/perangkat-iot",
+  component: PerangkatIoT,
+});
+
+const pengaturanSistemRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/pengaturan-sistem",
+  component: PengaturanSistem,
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   adminRoute.addChildren([
@@ -133,6 +161,10 @@ const routeTree = rootRoute.addChildren([
     jamKerjaRoute,
     inputAbsensiManualRoute,
     laporanAbsensiRoute,
+    liveMonitoringRoute,
+    semuaAbsensiRoute,
+    perangkatIoTRoute,
+    pengaturanSistemRoute,
   ]),
 ]);
 
