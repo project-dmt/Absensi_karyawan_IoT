@@ -500,6 +500,21 @@ app.get("/api/dashboard/tidak-hadir", authMiddleware, (req, res) => {
   res.json({ success: true, data });
 });
 
+// === SERVER TIME (public, no auth — untuk jam topbar FE) ===
+app.get("/api/server-time", (req, res) => {
+  const now = new Date();
+  res.json({
+    success: true,
+    message: "Waktu server",
+    data: {
+      time: now.toISOString(),
+      timestamp: Math.floor(now.getTime() / 1000),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Jakarta",
+      formatted: now.toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
+    },
+  });
+});
+
 // === AI CHAT (mock, AI SDK text-stream protocol) ===
 app.post("/api/ai/chat", authMiddleware, (req, res) => {
   const messages = req.body?.messages || [];
