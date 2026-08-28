@@ -363,6 +363,28 @@ body {
   min-width: 16rem !important;
 }
 
+.topbar__clock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-left: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.topbar__clock-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.topbar__clock-date {
+  color: #64748b;
+  font-weight: 400;
+}
+
 /* ===== STATUS BADGES ===== */
 .badge-status-hadir { background: #d1e7dd; color: #0f5132; }
 .badge-status-terlambat { background: #fff3cd; color: #664d03; }
