@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import api from "../api/axios";
 
 export function useAuth() {
@@ -7,11 +7,20 @@ export function useAuth() {
     return stored ? JSON.parse(stored) : null;
   });
   const [loading, setLoading] = useState(true);
+  const resolveReady = useRef(null);
+  const readyRef = useRef(null);
+  if (!readyRef.current) {
+    readyRef.current = new Promise((resolve) => {
+      resolveReady.current = resolve;
+    });
+  }
+  const ready = readyRef.current;
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
       setLoading(false);
+      resolveReady.current();
       return;
     }
     api
@@ -25,7 +34,10 @@ export function useAuth() {
         localStorage.removeItem("user");
         setUser(null);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        resolveReady.current();
+      });
   }, []);
 
   const login = useCallback(async (email, password) => {
@@ -47,5 +59,5 @@ export function useAuth() {
     }
   }, []);
 
-  return { user, loading, login, logout };
+  return { user, loading, ready, login, logout };
 }

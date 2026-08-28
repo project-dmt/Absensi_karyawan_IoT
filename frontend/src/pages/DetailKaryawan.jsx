@@ -1,15 +1,42 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "../router";
+import { useKaryawanDetail, useKaryawanAbsensi } from "../api/queries";
 import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarCheck,
+  CalendarX,
+  CheckCircle,
+  Clock3,
+  FileCheck2,
+  RotateCcw,
+  Search,
+  UserCog,
+  UserX,
+  XCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import EmptyState from "../components/EmptyState";
 
 const SUMMARY_CARDS = [
-  { key: "total", label: "Total Absensi", bg: "linear-gradient(135deg, #4f6d7a, #7b9aab)", icon: "bi-calendar-check" },
-  { key: "hadir", label: "Hadir", bg: "linear-gradient(135deg, #10b981, #34d399)", icon: "bi-check-circle" },
-  { key: "terlambat", label: "Terlambat", bg: "linear-gradient(135deg, #f59e0b, #fbbf24)", icon: "bi-exclamation-triangle" },
-  { key: "alpha", label: "Alpha", bg: "linear-gradient(135deg, #ef4444, #f87171)", icon: "bi-x-circle" },
-  { key: "izin", label: "Izin", bg: "linear-gradient(135deg, #6366f1, #818cf8)", icon: "bi-file-earmark-check" },
+  { key: "total", label: "Total Absensi", bg: "linear-gradient(135deg, #4f6d7a, #7b9aab)", icon: CalendarCheck },
+  { key: "hadir", label: "Hadir", bg: "linear-gradient(135deg, #10b981, #34d399)", icon: CheckCircle },
+  { key: "terlambat", label: "Terlambat", bg: "linear-gradient(135deg, #f59e0b, #fbbf24)", icon: XCircle },
+  { key: "alpha", label: "Alpha", bg: "linear-gradient(135deg, #ef4444, #f87171)", icon: UserX },
+  { key: "izin", label: "Izin", bg: "linear-gradient(135deg, #6366f1, #818cf8)", icon: FileCheck2 },
 ];
 
 function calcSummary(absensi) {
@@ -24,37 +51,16 @@ function calcSummary(absensi) {
 }
 
 export default function DetailKaryawan() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [employee, setEmployee] = useState(null);
-  const [absensi, setAbsensi] = useState([]);
+  const { id } = useParams({ strict: false });
+  const router = useRouter();
+  const { data: employee, isPending } = useKaryawanDetail(id);
+  const { data: absensi = [] } = useKaryawanAbsensi(id);
   const [filteredAbsensi, setFilteredAbsensi] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ dari: "", sampai: "" });
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [empRes, absRes] = await Promise.all([
-        api.get(`/karyawan/${id}`),
-        api.get(`/karyawan/${id}/absensi`, { params: { per_page: 500 } }),
-      ]);
-      setEmployee(empRes.data.data);
-      const records = absRes.data.data.riwayat?.data || [];
-      setAbsensi(records);
-      setFilteredAbsensi(records);
-    } catch {
-      setEmployee(null);
-      setAbsensi([]);
-      setFilteredAbsensi([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchData();
-  }, [id]);
+    setFilteredAbsensi(absensi);
+  }, [absensi]);
 
   const handleFilter = () => {
     let result = [...absensi];
@@ -68,16 +74,16 @@ export default function DetailKaryawan() {
     setFilteredAbsensi(absensi);
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (isPending) return <LoadingSpinner />;
   if (!employee) {
     return (
-      <div className="text-center py-5">
-        <i className="bi bi-person-x d-block mb-3" style={{ fontSize: "3rem", color: "#94a3b8" }} />
-        <p className="text-muted">Karyawan tidak ditemukan</p>
-        <button className="btn btn-primary mt-2" onClick={() => navigate("/data-karyawan")}>
-          <i className="bi bi-arrow-left me-1" />
+      <div className="flex flex-col items-center gap-2 py-12 text-center">
+        <UserX className="mb-2 size-12 text-slate-400" />
+        <p className="text-muted-foreground">Karyawan tidak ditemukan</p>
+        <Button className="mt-2" onClick={() => router.navigate({ to: "/data-karyawan" })}>
+          <ArrowLeft data-icon="inline-start" />
           Kembali
-        </button>
+        </Button>
       </div>
     );
   }
@@ -87,169 +93,175 @@ export default function DetailKaryawan() {
   return (
     <div>
       <div className="page-header">
-        <div className="d-flex align-items-center gap-3">
-          <button
-            className="btn btn-secondary btn-icon"
-            onClick={() => navigate("/data-karyawan")}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => router.navigate({ to: "/data-karyawan" })}
             title="Kembali"
           >
-            <i className="bi bi-arrow-left" />
-          </button>
+            <ArrowLeft className="size-4" />
+          </Button>
           <div>
             <h4 className="mb-0">Detail Karyawan</h4>
-            <small className="text-muted">{employee.nama}</small>
+            <small className="text-muted-foreground">{employee.nama}</small>
           </div>
         </div>
       </div>
 
       {/* Employee Info Card */}
-      <div className="card mb-4">
-        <div className="card-header d-flex align-items-center gap-2">
-          <i className="bi bi-person-badge" />
-          Informasi Karyawan
-        </div>
-        <div className="card-body">
-          <div className="row g-3">
-            <div className="col-sm-6 col-lg-3">
-              <small className="text-muted d-block mb-1">Nama Lengkap</small>
-              <div className="fw-semibold">{employee.nama}</div>
-            </div>
-            <div className="col-sm-6 col-lg-3">
-              <small className="text-muted d-block mb-1">NIP</small>
-              <div><code>{employee.nip}</code></div>
-            </div>
-            <div className="col-sm-6 col-lg-3">
-              <small className="text-muted d-block mb-1">Jabatan</small>
-              <div>{employee.jabatan || "-"}</div>
-            </div>
-            <div className="col-sm-6 col-lg-3">
-              <small className="text-muted d-block mb-1">Divisi</small>
-              <div>{employee.division?.nama_divisi || "-"}</div>
-            </div>
-            <div className="col-sm-6 col-lg-3">
-              <small className="text-muted d-block mb-1">RFID UID</small>
-              <div><code>{employee.rfid_uid}</code></div>
-            </div>
-            <div className="col-sm-6 col-lg-3">
-              <small className="text-muted d-block mb-1">Status</small>
-              <div>
-                <StatusBadge status={employee.status} />
-              </div>
+      <Card className="mb-4">
+        <CardHeader className="flex flex-row items-center gap-2 py-4">
+          <UserCog className="size-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-semibold">
+            Informasi Karyawan
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <small className="mb-1 block text-muted-foreground">
+              Nama Lengkap
+            </small>
+            <div className="font-semibold">{employee.nama}</div>
+          </div>
+          <div>
+            <small className="mb-1 block text-muted-foreground">NIP</small>
+            <div><code>{employee.nip}</code></div>
+          </div>
+          <div>
+            <small className="mb-1 block text-muted-foreground">Jabatan</small>
+            <div>{employee.jabatan || "-"}</div>
+          </div>
+          <div>
+            <small className="mb-1 block text-muted-foreground">Divisi</small>
+            <div>{employee.division?.nama_divisi || "-"}</div>
+          </div>
+          <div>
+            <small className="mb-1 block text-muted-foreground">RFID UID</small>
+            <div><code>{employee.rfid_uid}</code></div>
+          </div>
+          <div>
+            <small className="mb-1 block text-muted-foreground">Status</small>
+            <div>
+              <StatusBadge status={employee.status} />
             </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Summary Cards */}
-      <div className="row g-3 mb-4">
-        {SUMMARY_CARDS.map((card) => (
-          <div key={card.key} className="col-6 col-md-4 col-lg">
-            <div className="stat-card" style={{ background: card.bg }}>
-              <i className={`bi ${card.icon} stat-card__icon`} />
-              <div className="stat-card__value">{summary[card.key]}</div>
-              <div className="stat-card__label">{card.label}</div>
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+        {SUMMARY_CARDS.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div key={card.key} className="stat-card" style={{ background: card.bg }}>
+              <Icon className="stat-card__icon size-10" />
+              <div className="stat-card__content">
+                <div className="stat-card__value">{summary[card.key]}</div>
+                <div className="stat-card__label">{card.label}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Filter */}
-      <div className="card mb-4 border-0 shadow-sm">
-        <div className="card-body py-3">
-          <div className="d-flex flex-wrap gap-2 align-items-end">
+      <Card className="mb-4 shadow-sm">
+        <CardContent className="py-3">
+          <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>
-                <i className="bi bi-calendar-start me-1" />
+              <Label htmlFor="filter-dari" className="mb-1 flex items-center gap-1 text-xs font-semibold">
+                <ArrowRight className="size-3.5" />
                 Dari
-              </label>
-              <input
+              </Label>
+              <Input
+                id="filter-dari"
                 type="date"
-                className="form-control form-control-sm"
+                className="h-8 w-[170px]"
                 value={filter.dari}
                 onChange={(e) => setFilter((prev) => ({ ...prev, dari: e.target.value }))}
-                style={{ width: 170 }}
               />
             </div>
             <div>
-              <label className="form-label fw-semibold mb-1" style={{ fontSize: "0.8rem" }}>
-                <i className="bi bi-calendar-end me-1" />
+              <Label htmlFor="filter-sampai" className="mb-1 flex items-center gap-1 text-xs font-semibold">
+                <ArrowRight className="size-3.5" />
                 Sampai
-              </label>
-              <input
+              </Label>
+              <Input
+                id="filter-sampai"
                 type="date"
-                className="form-control form-control-sm"
+                className="h-8 w-[170px]"
                 value={filter.sampai}
                 onChange={(e) => setFilter((prev) => ({ ...prev, sampai: e.target.value }))}
-                style={{ width: 170 }}
               />
             </div>
-            <div className="d-flex gap-2 pb-1">
-              <button className="btn btn-primary btn-sm d-flex align-items-center gap-1" onClick={handleFilter}>
-                <i className="bi bi-search" />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleFilter}>
+                <Search data-icon="inline-start" className="size-3.5" />
                 Terapkan
-              </button>
-              <button className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1" onClick={handleResetFilter}>
-                <i className="bi bi-arrow-counterclockwise" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleResetFilter}>
+                <RotateCcw data-icon="inline-start" className="size-3.5" />
                 Reset
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Attendance History Table */}
-      <div className="card">
-        <div className="card-header d-flex align-items-center justify-content-between">
-          <div className="d-flex align-items-center gap-2">
-            <i className="bi bi-clock-history" />
-            Riwayat Absensi
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between py-4">
+          <div className="flex items-center gap-2">
+            <Clock3 className="size-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-semibold">Riwayat Absensi</CardTitle>
           </div>
-          <small className="text-muted">{filteredAbsensi.length} record</small>
-        </div>
-        <div className="card-body p-0">
+          <small className="text-muted-foreground">
+            {filteredAbsensi.length} record
+          </small>
+        </CardHeader>
+        <CardContent className="p-0">
           {filteredAbsensi.length === 0 ? (
-            <div className="empty-state">
-              <i className="bi bi-calendar-x" />
-              <p>Tidak ada data absensi untuk periode ini</p>
-            </div>
+            <EmptyState
+              message="Tidak ada data absensi untuk periode ini"
+              icon={<CalendarX className="size-10" />}
+            />
           ) : (
-            <div className="table-responsive">
-              <table className="table table-hover mb-0 align-middle">
-                <thead>
-                  <tr>
-                    <th>No</th>
-                    <th>Tanggal</th>
-                    <th>Status</th>
-                    <th>Jam Masuk</th>
-                    <th>Jam Pulang</th>
-                    <th>Keterangan</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>No</TableHead>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Jam Masuk</TableHead>
+                    <TableHead>Jam Pulang</TableHead>
+                    <TableHead>Keterangan</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filteredAbsensi.map((item, idx) => (
-                    <tr key={item.id}>
-                      <td>{idx + 1}</td>
-                      <td className="fw-medium">{item.tanggal}</td>
-                      <td>
+                    <TableRow key={item.id}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell className="font-medium">{item.tanggal}</TableCell>
+                      <TableCell>
                         <StatusBadge status={item.status} />
-                      </td>
-                      <td>{item.jam_masuk || "-"}</td>
-                      <td>{item.jam_pulang || "-"}</td>
-                      <td>
-                        {item.keterangan ? (
-                          <span className="text-muted">{item.keterangan}</span>
-                        ) : (
-                          <span className="text-muted">-</span>
-                        )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell>{item.jam_masuk || "-"}</TableCell>
+                      <TableCell>{item.jam_pulang || "-"}</TableCell>
+                      <TableCell>
+                        <span className="text-muted-foreground">
+                          {item.keterangan || "-"}
+                        </span>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
