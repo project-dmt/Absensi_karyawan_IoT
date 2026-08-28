@@ -55,13 +55,13 @@ export default function AdminLayout() {
               <span className="hidden sm:inline">{user?.nama || "Admin"}</span>
               <ChevronDown className="ms-1 size-3" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="topbar__dropdown">
-              <div className="px-1.5 py-1.5">
-                <div className="font-semibold">{user?.nama}</div>
-                <small className="text-muted-foreground">{user?.email}</small>
+            <DropdownMenuContent align="end" sideOffset={8} className="topbar__dropdown w-64">
+              <div className="px-2 py-2">
+                <div className="text-sm font-semibold leading-tight">{user?.nama || "Admin"}</div>
+                <div className="text-xs leading-tight text-muted-foreground truncate">{user?.email || "admin@example.com"}</div>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+              <DropdownMenuItem variant="destructive" onClick={handleLogout} className="py-2">
                 <LogOut data-icon="inline-start" />
                 Logout
               </DropdownMenuItem>

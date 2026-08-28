@@ -358,6 +358,9 @@ body {
   border: 1px solid #e2e8f0;
   box-shadow: var(--card-shadow-hover);
   padding: 4px;
+  /* override Base UI anchor-width for account menu */
+  width: 16rem !important;
+  min-width: 16rem !important;
 }
 
 /* ===== STATUS BADGES ===== */
