@@ -85,6 +85,7 @@ body {
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
+  height: 100vh;
   background: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
@@ -129,11 +130,13 @@ body {
 
 .sidebar__nav {
   flex: 1;
-  padding: 10px 10px;
+  padding: 10px 10px 8px;
   overflow-y: hidden;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 0;
 }
 
 .sidebar__link {
@@ -194,7 +197,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  margin-top: 12px;
+  margin-top: 0;
 }
 
 .sidebar__group-label {
