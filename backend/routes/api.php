@@ -9,7 +9,6 @@ use App\Http\Controllers\Api\AbsensiController;
 use App\Http\Controllers\Api\LaporanController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\GlobalSearchController;
-use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\SseController;
 
 // =====================================================
@@ -46,9 +45,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Global Search
     Route::get('/search', [GlobalSearchController::class, 'index'])->name('api.search');
-
-    // AI Assistant
-    Route::post('/ai/chat', [AiController::class, 'chat'])->name('api.ai.chat');
 
     // Data Karyawan
     Route::apiResource('karyawan', KaryawanController::class);
