@@ -5,19 +5,29 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\RealtimeEventService;
-use Illuminate\Http\StreamedResponse;
+use Laravel\Sanctum\PersonalAccessToken;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SseController extends Controller
 {
     public function stream(Request $request): StreamedResponse
     {
+        $token = PersonalAccessToken::findToken((string) $request->query('token', ''));
+
+        if (! $token || ! $token->can('*')) {
+            abort(401, 'Unauthorized');
+        }
+
         $lastId = (int) $request->query('lastId', 0);
 
         return response()->stream(function () use ($lastId) {
+            set_time_limit(0);
             $currentLastId = $lastId;
-            $startTime = time();
+            // ponytail: artisan serve = 1 worker; berhenti tiap 10s agar worker
+            // tidak tergantung lama (browser EventSource auto-reconnect via lastId).
+            $deadline = time() + 10;
 
-            while (true) {
+            while (time() < $deadline) {
                 $events = RealtimeEventService::getSince($currentLastId);
 
                 foreach ($events as $event) {
@@ -41,14 +51,15 @@ class SseController extends Controller
                     $currentLastId = $event->id;
                 }
 
-                // keepalive setiap 30 detik
-                if (time() - $startTime >= 30) {
-                    echo ": keepalive\n\n";
-                    if (ob_get_level() > 0) {
-                        ob_flush();
-                    }
-                    flush();
-                    $startTime = time();
+                // keepalive tiap iterasi agar worker cepat sadar saat klien pindah halaman
+                echo ": keepalive\n\n";
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
+                flush();
+
+                if (connection_aborted()) {
+                    break;
                 }
 
                 // cleanup event lama setiap 1 jam
