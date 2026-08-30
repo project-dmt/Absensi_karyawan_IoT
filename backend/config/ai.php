@@ -40,6 +40,18 @@ return [
                 ],
             ],
         ],
+
+        // Backup failover — dipakai otomatis kalau provider utama rate-limited (429)
+        'attendance-ai-backup' => [
+            'driver' => 'openai-compatible',
+            'url' => env('OPENAI_COMPATIBLE_URL', 'https://generativelanguage.googleapis.com/v1beta/openai/'),
+            'key' => env('OPENAI_COMPATIBLE_API_KEY'),
+            'models' => [
+                'text' => [
+                    'default' => env('OPENAI_COMPATIBLE_MODEL_BACKUP', 'gemini-2.5-flash-lite'),
+                ],
+            ],
+        ],
     ],
 
 ];
