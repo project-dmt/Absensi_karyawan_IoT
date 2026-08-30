@@ -1,65 +1,59 @@
-import { useState, useEffect } from "react";
-import api from "../api/axios";
-import FormInput from "../components/FormInput";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { jadwalSchema } from "../schemas";
+import { useJadwal, useUpdateJadwal } from "../api/queries";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { Check, Clock, Info, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 export default function JamKerja() {
-  const [form, setForm] = useState({
-    jam_masuk_standar: "08:00",
-    jam_pulang_standar: "17:00",
-    toleransi_menit: 15,
-  });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
+  const updateJadwal = useUpdateJadwal();
+  const { isPending, data: jadwal } = useJadwal();
+
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(jadwalSchema),
+    defaultValues: {
+      jam_masuk_standar: "08:00",
+      jam_pulang_standar: "17:00",
+      toleransi_menit: 15,
+    },
+  });
+
+  const watchJamMasuk = watch("jam_masuk_standar");
+  const watchToleransi = watch("toleransi_menit");
 
   useEffect(() => {
-    api
-      .get("/jadwal")
-      .then((res) => {
-        if (res.data.data) {
-          const d = res.data.data;
-          setForm({
-            jam_masuk_standar: d.jam_masuk_standar?.substring(0, 5) || "08:00",
-            jam_pulang_standar: d.jam_pulang_standar?.substring(0, 5) || "17:00",
-            toleransi_menit: d.toleransi_menit ?? 15,
-          });
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    if (jadwal) {
+      reset({
+        jam_masuk_standar: jadwal.jam_masuk_standar?.substring(0, 5) || "08:00",
+        jam_pulang_standar: jadwal.jam_pulang_standar?.substring(0, 5) || "17:00",
+        toleransi_menit: jadwal.toleransi_menit ?? 15,
+      });
+    }
+  }, [jadwal, reset]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: name === "toleransi_menit" ? parseInt(value) || 0 : value,
-    }));
-    setMessage({ type: "", text: "" });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
+  const onSubmit = async (data) => {
     setMessage({ type: "", text: "" });
     try {
-      await api.put("/jadwal", {
-        jam_masuk_standar: form.jam_masuk_standar + ":00",
-        jam_pulang_standar: form.jam_pulang_standar + ":00",
-        toleransi_menit: form.toleransi_menit,
+      await updateJadwal.mutateAsync({
+        jam_masuk_standar: data.jam_masuk_standar + ":00",
+        jam_pulang_standar: data.jam_pulang_standar + ":00",
+        toleransi_menit: data.toleransi_menit,
       });
       setMessage({ type: "success", text: "Jam kerja berhasil disimpan" });
     } catch (err) {
-      const msg =
-        err.response?.data?.message || "Gagal menyimpan jam kerja";
+      const msg = err.response?.data?.message || "Gagal menyimpan jam kerja";
       setMessage({ type: "danger", text: msg });
-    } finally {
-      setSaving(false);
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (isPending) return <LoadingSpinner />;
 
   return (
     <div>
@@ -68,81 +62,69 @@ export default function JamKerja() {
       </div>
 
       {message.text && (
-        <div className={`alert alert-${message.type} d-flex align-items-center gap-2 py-2`} role="alert">
-          <i className={`bi ${message.type === "success" ? "bi-check-circle-fill" : "bi-exclamation-circle-fill"}`} />
-          {message.text}
-        </div>
+        <Alert
+          variant={message.type === "success" ? "default" : "destructive"}
+          className="mb-3"
+        >
+          <AlertTitle>
+            {message.type === "success" ? "Berhasil" : "Gagal"}
+          </AlertTitle>
+          <AlertDescription>{message.text}</AlertDescription>
+        </Alert>
       )}
 
-      <div className="card">
-        <div className="card-header d-flex align-items-center gap-2">
-          <i className="bi bi-clock" />
-          Pengaturan Jam Kerja
-        </div>
-        <div className="card-body">
-          <form onSubmit={handleSubmit}>
-            <div className="row g-3">
-              <div className="col-md-6">
-                <FormInput
-                  label="Jam Masuk Standar"
-                  name="jam_masuk_standar"
-                  type="time"
-                  value={form.jam_masuk_standar}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="col-md-6">
-                <FormInput
-                  label="Jam Pulang Standar"
-                  name="jam_pulang_standar"
-                  type="time"
-                  value={form.jam_pulang_standar}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2 py-4">
+          <Clock className="size-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-semibold">
+            Pengaturan Jam Kerja
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="jam_masuk_standar">Jam Masuk Standar</FieldLabel>
+                <Input type="time" id="jam_masuk_standar" {...register("jam_masuk_standar")} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="jam_pulang_standar">Jam Pulang Standar</FieldLabel>
+                <Input type="time" id="jam_pulang_standar" {...register("jam_pulang_standar")} />
+              </Field>
             </div>
-            <FormInput
-              label="Toleransi Keterlambatan (menit)"
-              name="toleransi_menit"
-              type="number"
-              value={form.toleransi_menit}
-              onChange={handleChange}
-              min={0}
-              required
-            />
-            <div className="alert alert-info py-2 mb-3 d-flex align-items-start gap-2" style={{ fontSize: "0.85rem" }}>
-              <i className="bi bi-info-circle mt-1" />
-              <span>
+            <Field>
+              <FieldLabel htmlFor="toleransi_menit">Toleransi Keterlambatan (menit)</FieldLabel>
+              <Input type="number" id="toleransi_menit" min={0} {...register("toleransi_menit")} />
+              {errors.toleransi_menit && (
+                <span className="text-sm text-destructive">{errors.toleransi_menit.message}</span>
+              )}
+            </Field>
+            <Alert className="text-sm">
+              <Info className="size-4" />
+              <AlertDescription>
                 Karyawan yang masuk setelah jam{" "}
-                <strong>{form.jam_masuk_standar} + {form.toleransi_menit} menit</strong>{" "}
+                <strong>
+                  {watchJamMasuk} + {watchToleransi} menit
+                </strong>{" "}
                 akan ditandai sebagai <strong>Terlambat</strong>.
-              </span>
-            </div>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saving}
-            >
-              {saving ? (
+              </AlertDescription>
+            </Alert>
+            <Button type="submit" disabled={updateJadwal.isPending}>
+              {updateJadwal.isPending ? (
                 <>
-                  <span
-                    className="spinner-border spinner-border-sm me-1"
-                    role="status"
-                  />
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
                   Menyimpan...
                 </>
               ) : (
                 <>
-                  <i className="bi bi-check-lg me-1" />
+                  <Check data-icon="inline-start" />
                   Simpan
                 </>
               )}
-            </button>
+            </Button>
           </form>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

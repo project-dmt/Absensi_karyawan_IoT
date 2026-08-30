@@ -178,6 +178,14 @@ app.get("/api/karyawan/:id/laporan", authMiddleware, (req, res) => {
   res.json({ success: true, data: { employee: { ...emp, division: divisions.find((d) => d.id === emp.divisi_id) || null }, absensi: data, summary } });
 });
 
+app.get("/api/karyawan/:id/absensi", authMiddleware, (req, res) => {
+  const emp = employees.find((e) => e.id === parseInt(req.params.id));
+  if (!emp) return res.status(404).json({ success: false, message: "Karyawan tidak ditemukan" });
+  let data = attendance.filter((a) => a.employee_id === emp.id);
+  data.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+  res.json({ success: true, data: { riwayat: { data } } });
+});
+
 // === DIVISI ===
 app.get("/api/divisi", authMiddleware, (req, res) => {
   const data = divisions.map((d) => ({ ...d, employees_count: employees.filter((e) => e.divisi_id === d.id).length }));
@@ -490,6 +498,39 @@ app.get("/api/dashboard/tidak-hadir", authMiddleware, (req, res) => {
       };
     });
   res.json({ success: true, data });
+});
+
+// === SERVER TIME (public, no auth — untuk jam topbar FE) ===
+app.get("/api/server-time", (req, res) => {
+  const now = new Date();
+  res.json({
+    success: true,
+    message: "Waktu server",
+    data: {
+      time: now.toISOString(),
+      timestamp: Math.floor(now.getTime() / 1000),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Jakarta",
+      formatted: now.toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
+    },
+  });
+});
+
+// === AI CHAT (mock, AI SDK text-stream protocol) ===
+app.post("/api/ai/chat", authMiddleware, (req, res) => {
+  const messages = req.body?.messages || [];
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  const parts = lastUser?.parts || (Array.isArray(lastUser?.content) ? lastUser.content : []);
+  const text = parts.map((p) => p.text ?? "").join("") || String(lastUser?.text ?? lastUser?.content ?? "");
+  const late = attendance.filter((a) => a.tanggal === today() && a.status === "Terlambat");
+  const absent = attendance.filter((a) => a.tanggal === today() && (a.status === "Alpha" || a.status === "Izin"));
+  let answer = "Terima kasih atas pertanyaan Anda. (Mock)";
+  if (/tidak hadir|alpha/i.test(text)) {
+    answer = `Hari ini ada ${absent.length} karyawan yang tidak hadir.`;
+  } else if (/terlambat/i.test(text)) {
+    answer = `Hari ini ada ${late.length} karyawan yang terlambat.`;
+  }
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.send(answer);
 });
 
 // === SSE STREAM ===

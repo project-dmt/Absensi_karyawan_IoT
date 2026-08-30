@@ -41,6 +41,7 @@ return [
         'Terlambat',
         'Alpha',
         'Izin',
+        'Sakit',
     ],
 
     /*
@@ -52,6 +53,6 @@ return [
     |
     */
 
-    'no_checkout_statuses' => ['Alpha', 'Izin'],
+    'no_checkout_statuses' => ['Alpha', 'Izin', 'Sakit'],
 
 ];

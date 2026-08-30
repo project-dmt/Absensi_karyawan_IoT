@@ -1,3 +1,14 @@
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 export default function FormInput({
   label,
   name,
@@ -13,60 +24,63 @@ export default function FormInput({
   ...props
 }) {
   return (
-    <div className="mb-3">
-      <label htmlFor={name} className="form-label">
+    <Field data-invalid={error ? true : undefined}>
+      <FieldLabel htmlFor={name}>
         {label}
-        {required && <span className="text-danger ms-1">*</span>}
-      </label>
+        {required && <span className="text-destructive"> *</span>}
+      </FieldLabel>
       {Tag === "select" ? (
-        <select
-          id={name}
-          name={name}
-          className={`form-select ${error ? "is-invalid" : ""}`}
-          value={value}
-          onChange={onChange}
-          required={required}
-          {...props}
+        <Select
+          value={value ?? undefined}
+          onValueChange={(v) => onChange?.({ target: { name, value: v } })}
         >
-          {placeholder && (
-            <option value="" disabled>
-              {placeholder}
-            </option>
-          )}
-          {options?.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-          {children}
-        </select>
+          <SelectTrigger
+            id={name}
+            name={name}
+            className="w-full"
+            aria-invalid={error ? true : undefined}
+          >
+            <SelectValue placeholder={placeholder} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {options?.map((opt) => (
+                <SelectItem key={opt.value} value={String(opt.value)}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+              {children}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       ) : Tag === "textarea" ? (
         <textarea
           id={name}
           name={name}
-          className={`form-control ${error ? "is-invalid" : ""}`}
+          className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20"
           value={value}
           onChange={onChange}
           placeholder={placeholder}
           required={required}
           rows={3}
           style={{ resize: "vertical" }}
+          aria-invalid={error ? true : undefined}
           {...props}
         />
       ) : (
-        <input
+        <Input
           type={type}
           id={name}
           name={name}
-          className={`form-control ${error ? "is-invalid" : ""}`}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
           required={required}
+          aria-invalid={error ? true : undefined}
           {...props}
         />
       )}
-      {error && <div className="invalid-feedback">{error}</div>}
-    </div>
+      {error && <FieldError>{error}</FieldError>}
+    </Field>
   );
 }

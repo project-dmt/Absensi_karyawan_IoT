@@ -1,123 +1,118 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Suspense, useState } from "react";
+import { Outlet, useRouteContext, useRouter } from "@tanstack/react-router";
+import { useRouterState } from "@tanstack/react-router";
+import { ChevronDown, LogOut, Menu, User } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import AiChatWidget from "../components/AiChatWidget";
+import Sidebar from "../components/Sidebar";
+import TopbarClock from "../components/TopbarClock";
 
-const NAV_ITEMS = [
-  {
-    to: "/", label: "Dashboard", icon: "bi-speedometer2",
-    children: [
-      { to: "/dashboard/terlambat", label: "Terlambat", icon: "bi-exclamation-triangle" },
-      { to: "/dashboard/tidak-hadir", label: "Tidak Hadir", icon: "bi-x-circle" },
-    ],
-  },
-  { to: "/data-karyawan", label: "Data Karyawan", icon: "bi-people" },
-  { to: "/data-divisi", label: "Data Divisi", icon: "bi-diagram-3" },
-  { to: "/jam-kerja", label: "Jam Kerja", icon: "bi-clock-history" },
-  { to: "/input-absensi-manual", label: "Absensi Manual", icon: "bi-pencil-square" },
-  { to: "/laporan-absensi", label: "Laporan Absensi", icon: "bi-file-earmark-bar-graph" },
-];
+const PAGE_TITLES = {
+  "/": "Dashboard",
+  "/dashboard/terlambat": "Karyawan Terlambat",
+  "/dashboard/tidak-hadir": "Karyawan Tidak Hadir",
+  "/data-karyawan": "Data Karyawan",
+  "/data-divisi": "Data Divisi",
+  "/jam-kerja": "Jam Kerja",
+  "/input-absensi-manual": "Input Absensi Manual",
+  "/laporan-absensi": "Laporan Absensi",
+  "/live-monitoring": "Live Monitoring",
+  "/semua-absensi": "Semua Absensi",
+  "/perangkat-iot": "Perangkat IoT",
+  "/pengaturan-sistem": "Pengaturan Sistem",
+};
 
-export default function AdminLayout({ user, onLogout }) {
-  const navigate = useNavigate();
+function getPageTitle(pathname) {
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+  if (pathname.startsWith("/data-karyawan/")) return "Detail Karyawan";
+  if (pathname.startsWith("/data-divisi/")) return "Detail Divisi";
+  if (pathname.startsWith("/dashboard/")) return "Dashboard";
+  return PAGE_TITLES[pathname] || "Dashboard";
+}
+
+export default function AdminLayout() {
+  const router = useRouter();
+  const { auth } = useRouteContext({ strict: false });
+  const { user, logout } = auth;
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pageTitle = getPageTitle(pathname);
 
   const handleLogout = async () => {
-    await onLogout();
-    navigate("/login");
+    await logout();
+    router.navigate({ to: "/login" });
   };
 
   return (
     <div className="app-layout">
-      <aside className="sidebar">
-        <div className="sidebar__brand">
-          <div className="sidebar__brand-icon">
-            <i className="bi bi-person-badge" />
-          </div>
-          <div>
-            <div className="sidebar__brand-title">Absensi IoT</div>
-            <div className="sidebar__brand-sub">RFID System</div>
-          </div>
-        </div>
-
-        <nav className="sidebar__nav">
-          {NAV_ITEMS.map((item) => (
-            <div key={item.to}>
-              <NavLink
-                to={item.to}
-                end={item.to === "/"}
-                className={({ isActive }) =>
-                  `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
-                }
-              >
-                <i className={`bi ${item.icon} sidebar__link-icon`} />
-                <span>{item.label}</span>
-                {item.children && (
-                  <i className="bi bi-chevron-down sidebar__link-chevron" />
-                )}
-              </NavLink>
-              {item.children && (
-                <div className="sidebar__subnav">
-                  {item.children.map((child) => (
-                    <NavLink
-                      key={child.to}
-                      to={child.to}
-                      className={({ isActive }) =>
-                        `sidebar__link sidebar__link--sub ${isActive ? "sidebar__link--active" : ""}`
-                      }
-                    >
-                      <i className={`bi ${child.icon} sidebar__link-icon`} />
-                      <span>{child.label}</span>
-                    </NavLink>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </nav>
-
-        <div className="sidebar__footer">
-          <small className="text-muted">v1.0.0</small>
-        </div>
-      </aside>
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        user={user}
+        onLogout={handleLogout}
+      />
 
       <div className="app-main">
         <header className="topbar">
-          <div className="d-flex align-items-center gap-3">
-            <h6 className="topbar__title mb-0">
-              Sistem Absensi IoT
-            </h6>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="inline-flex size-9 items-center justify-center rounded-md border border-border bg-background lg:hidden"
+              onClick={() => setSidebarOpen((v) => !v)}
+              aria-label="Toggle sidebar"
+            >
+              <Menu className="size-4" />
+            </button>
+            <h6 className="topbar__title mb-0">{pageTitle}</h6>
           </div>
 
-          <div className="dropdown">
-            <button
-              className="topbar__user-btn"
-              data-bs-toggle="dropdown"
-            >
-              <div className="topbar__avatar">
-                <i className="bi bi-person-fill" />
-              </div>
-              <span className="d-none d-sm-inline">{user?.nama || "Admin"}</span>
-              <i className="bi bi-chevron-down ms-1" style={{ fontSize: "0.7rem" }} />
-            </button>
-            <ul className="dropdown-menu dropdown-menu-end topbar__dropdown">
-              <li>
-                <div className="dropdown-item-text">
-                  <div className="fw-semibold">{user?.nama}</div>
-                  <small className="text-muted">{user?.email}</small>
+          <div className="flex items-center gap-3">
+            <TopbarClock />
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<button type="button" className="topbar__user-btn" />}
+              >
+                <div className="topbar__avatar">
+                  <User className="size-4" />
                 </div>
-              </li>
-              <li><hr className="dropdown-divider" /></li>
-              <li>
-                <button className="dropdown-item text-danger" onClick={handleLogout}>
-                  <i className="bi bi-box-arrow-right me-2" />
+                <span className="hidden sm:inline">{user?.nama || "Admin"}</span>
+                <ChevronDown className="ms-1 size-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={8} className="topbar__dropdown w-64">
+                <div className="px-2 py-2">
+                  <div className="text-sm font-semibold leading-tight">{user?.nama || "Admin"}</div>
+                  <div className="text-xs leading-tight text-muted-foreground truncate">{user?.email || "admin@example.com"}</div>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={handleLogout} className="py-2">
+                  <LogOut data-icon="inline-start" />
                   Logout
-                </button>
-              </li>
-            </ul>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
         <main className="app-content">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
+
+      <AiChatWidget />
     </div>
   );
 }
