@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../api/axios';
 
-export function useRealtime() {
+export function useRealtime(enabled = true) {
   const [events, setEvents] = useState([]);
   const lastIdRef = useRef(0);
   const reconnectTimeoutRef = useRef(null);
 
   useEffect(() => {
+    if (!enabled) return;
+
     let eventSource = null;
     let isActive = true;
 
@@ -51,7 +53,7 @@ export function useRealtime() {
       if (eventSource) eventSource.close();
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
     };
-  }, []);
+  }, [enabled]);
 
   return events;
 }

@@ -1,58 +1,57 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { useParams, useRouter } from "../router";
+import { useDashboardDetail } from "../api/queries";
 import LoadingSpinner from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
+import { ArrowLeft, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const PAGE_CONFIG = {
   terlambat: {
     title: "Karyawan Terlambat Hari Ini",
-    endpoint: "/dashboard/terlambat",
     columns: ["No", "Nama", "NIP", "Divisi", "Jam Masuk", "Jam Standar", "Keterlambatan"],
   },
   "tidak-hadir": {
     title: "Karyawan Tidak Hadir Hari Ini",
-    endpoint: "/dashboard/tidak-hadir",
     columns: ["No", "Nama", "NIP", "Divisi", "Keterangan"],
   },
 };
 
 export default function DetailDashboard() {
-  const { type } = useParams();
-  const navigate = useNavigate();
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-
+  const { type } = useParams({ strict: false });
+  const router = useRouter();
+  const { data = [], isPending } = useDashboardDetail(type);
   const config = PAGE_CONFIG[type];
-
-  useEffect(() => {
-    if (!config) return;
-    setLoading(true);
-    api
-      .get(config.endpoint)
-      .then((res) => setData(res.data.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [type]);
 
   if (!config) {
     return <EmptyState message="Halaman tidak ditemukan" />;
   }
 
-  if (loading) return <LoadingSpinner />;
+  if (isPending) return <LoadingSpinner />;
 
   return (
     <div>
-      <div className="page-header d-flex align-items-center gap-3">
-        <button
-          className="btn btn-sm btn-outline-secondary"
-          onClick={() => navigate("/")}
+      <div className="page-header flex items-center gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.navigate({ to: "/" })}
         >
-          <i className="bi bi-arrow-left" /> Kembali
-        </button>
+          <ArrowLeft data-icon="inline-start" className="size-4" />
+          Kembali
+        </Button>
         <div>
           <h4>{config.title}</h4>
-          <small className="text-muted">
+          <small className="text-muted-foreground">
             {new Date().toLocaleDateString("id-ID", {
               weekday: "long",
               year: "numeric",
@@ -63,55 +62,57 @@ export default function DetailDashboard() {
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-body p-0">
+      <Card>
+        <CardContent className="p-0">
           {data.length === 0 ? (
             <EmptyState
               message={`Tidak ada data ${config.title.toLowerCase()}`}
-              icon="bi-check-circle"
+              icon={<CheckCircle className="size-10" />}
             />
           ) : (
-            <div className="table-responsive">
-              <table className="table table-hover mb-0 align-middle">
-                <thead>
-                  <tr>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
                     {config.columns.map((col) => (
-                      <th key={col}>{col}</th>
+                      <TableHead key={col}>{col}</TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {data.map((item, idx) => (
-                    <tr key={item.id}>
-                      <td>{idx + 1}</td>
-                      <td className="fw-medium">{item.nama}</td>
-                      <td><code>{item.nip}</code></td>
-                      <td>{item.divisi}</td>
+                    <TableRow key={item.id}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell className="font-medium">{item.nama}</TableCell>
+                      <TableCell>
+                        <code>{item.nip}</code>
+                      </TableCell>
+                      <TableCell>{item.divisi}</TableCell>
                       {type === "terlambat" && (
                         <>
-                          <td>{item.jam_masuk}</td>
-                          <td>{item.jam_standar}</td>
-                          <td>
-                            <span className="badge bg-warning text-dark">
+                          <TableCell>{item.jam_masuk}</TableCell>
+                          <TableCell>{item.jam_standar}</TableCell>
+                          <TableCell>
+                            <Badge className="rounded-md badge-status-terlambat">
                               +{item.keterlambatan} menit
-                            </span>
-                          </td>
+                            </Badge>
+                          </TableCell>
                         </>
                       )}
                       {type === "tidak-hadir" && (
-                        <td>{item.keterangan || "-"}</td>
+                        <TableCell>{item.keterangan || "-"}</TableCell>
                       )}
-                    </tr>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       <div className="mt-3">
-        <small className="text-muted">
+        <small className="text-muted-foreground">
           Total: {data.length} karyawan
         </small>
       </div>
