@@ -68,8 +68,9 @@ class QueryDatabaseTool implements Tool
             throw new RuntimeException('Query harus dimulai dengan SELECT (read-only).');
         }
 
-        // Tolak multi-statement (SQL injection / stacked queries) — hanya izinkan satu query
-        if (preg_match('/;\s*SELECT|;\s*$|;\s*(?!\s*$)/i', $trimmed)) {
+        // Tolak multi-statement — izinkan 1 trailing ; tapi blokir statement tambahan
+        $withoutTrailing = rtrim($trimmed, ';');
+        if (str_contains($withoutTrailing, ';')) {
             throw new RuntimeException('Multi-statement query tidak diizinkan.');
         }
 
