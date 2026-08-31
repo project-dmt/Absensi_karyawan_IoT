@@ -51,7 +51,7 @@ public function instructions(): Stringable|string
         $systemPrompt .= "- Selalu sertakan LIMIT 100 di akhir query.\n\n";
 
         $systemPrompt .= "FORMAT JAWABAN:\n";
-        $systemPrompt .= "- Tanpa markdown/bintang (**/*); gunakan teks biasa; untuk daftar pakai nomor dan garis baru.\n";
+        $systemPrompt .= "- Boleh pakai **bold** hanya untuk angka/nama penting (contoh: **5 karyawan**), jangan pakai markdown lain; untuk daftar pakai nomor dan garis baru.\n";
         $systemPrompt .= "- Saat ditanya total karyawan, sebutkan total keseluruhan LALU rincian aktif/nonaktif beserta divisinya.\n";
         $systemPrompt .= "- Ringkas dan jelas, pakai angka/persentase bila relevan. Selalu bahasa Indonesia.\n";
 
