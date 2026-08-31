@@ -17,6 +17,34 @@ const messageText = (message) =>
     .map((part) => part.text)
     .join("");
 
+function renderWithBold(text) {
+  // ponytail: minimal **bold** parser, tanpa lib markdown
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
+      return (
+        <strong key={i} className="font-semibold">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.includes("\n")) {
+      const lines = part.split("\n");
+      return (
+        <span key={i}>
+          {lines.map((line, j) => (
+            <span key={j}>
+              {line}
+              {j < lines.length - 1 && <br />}
+            </span>
+          ))}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
 function friendlyError(error) {
   const raw = error?.message || "";
   // ponytail: template mapping, jangan tampilkan stack trace ke user
@@ -91,12 +119,14 @@ export default function AiChatWidget() {
                 </p>
               </div>
             )}
-            {messages.map((message) => (
-              <MessageBubble key={message.id} message={message}>
-                {messageText(message) ||
-                  (message.role === "assistant" && <TypingIndicator />)}
-              </MessageBubble>
-            ))}
+            {messages.map((message) => {
+              const text = messageText(message);
+              return (
+                <MessageBubble key={message.id} message={message}>
+                  {text ? renderWithBold(text) : message.role === "assistant" && <TypingIndicator />}
+                </MessageBubble>
+              );
+            })}
             {error && (
               <div className="ai-widget__error">
                 <TriangleAlert className="mr-1 inline size-3.5" />
