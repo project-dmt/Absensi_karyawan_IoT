@@ -17,6 +17,23 @@ const messageText = (message) =>
     .map((part) => part.text)
     .join("");
 
+function friendlyError(error) {
+  const raw = error?.message || "";
+  // ponytail: template mapping, jangan tampilkan stack trace ke user
+  if (/Multi-statement|tidak bisa memproses/i.test(raw))
+    return "Maaf, saya tidak bisa memproses pertanyaan itu. Coba tanyakan dengan kalimat lebih spesifik.";
+  if (/AI tidak merespon/i.test(raw))
+    return "Maaf, AI tidak merespon. Silakan coba lagi dalam beberapa detik.";
+  if (/Terjadi gangguan|500|Network|Failed to fetch|Load failed/i.test(raw))
+    return "Terjadi gangguan server. Silakan coba beberapa saat lagi.";
+  if (raw) {
+    console.error("[AI]", raw);
+    const short = raw.split("\n")[0].slice(0, 120);
+    return `Terjadi kesalahan: ${short}`;
+  }
+  return "Terjadi kesalahan. Silakan coba lagi.";
+}
+
 export default function AiChatWidget() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -83,7 +100,7 @@ export default function AiChatWidget() {
             {error && (
               <div className="ai-widget__error">
                 <TriangleAlert className="mr-1 inline size-3.5" />
-                Terjadi kesalahan: {error.message}
+                {friendlyError(error)}
               </div>
             )}
           </div>
