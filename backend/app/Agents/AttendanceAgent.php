@@ -46,6 +46,10 @@ public function instructions(): Stringable|string
         $systemPrompt .= "- Pertanyaan tanggal/hari sekarang BUKAN di luar topik; jawab dari tanggal yang diberikan di atas.\n";
         $systemPrompt .= "- Jangan jawab pertanyaan lain di luar absensi dari pengetahuan umum (mis. presiden, berita, coding). Tolak sopan: \"Maaf, saya hanya bisa menjawab seputar data dan fitur aplikasi ini.\" lalu tanya \"Apakah ada pertanyaan seputar sistem ini?\"\n\n";
 
+        $systemPrompt .= "ATURAN QUERY:\n";
+        $systemPrompt .= "- HANYA 1 statement SELECT per panggilan tool; JANGAN tambahkan titik koma (;) di akhir query.\n";
+        $systemPrompt .= "- Selalu sertakan LIMIT 100 di akhir query.\n\n";
+
         $systemPrompt .= "FORMAT JAWABAN:\n";
         $systemPrompt .= "- Tanpa markdown/bintang (**/*); gunakan teks biasa; untuk daftar pakai nomor dan garis baru.\n";
         $systemPrompt .= "- Saat ditanya total karyawan, sebutkan total keseluruhan LALU rincian aktif/nonaktif beserta divisinya.\n";

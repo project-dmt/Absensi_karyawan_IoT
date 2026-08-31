@@ -6,7 +6,9 @@ use App\Agents\AttendanceAgent;
 use App\Http\Controllers\Controller;
 use App\Services\PromptInjectionGuard;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Streaming\Events\TextDelta;
+use RuntimeException;
 
 class AiController extends Controller
 {
@@ -54,19 +56,36 @@ class AiController extends Controller
         $last = $messages->pop();
 
         return response()->stream(function () use ($messages, $last) {
-            $agent = new AttendanceAgent($messages->all());
+            try {
+                $agent = new AttendanceAgent($messages->all());
 
-            // Failover: utama dulu, kalau rate-limited/sibuk otomatis pindah ke backup
-            $stream = $agent->stream($last['content'], provider: [
-                'attendance-ai' => null,
-                'attendance-ai-backup' => null,
-            ]);
+                // Failover: utama dulu, kalau rate-limited/sibuk otomatis pindah ke backup
+                $stream = $agent->stream($last['content'], provider: [
+                    'attendance-ai' => null,
+                    'attendance-ai-backup' => null,
+                ]);
 
-            foreach ($stream as $event) {
-                if ($event instanceof TextDelta) {
-                    echo $event->delta;
+                $hadOutput = false;
+                foreach ($stream as $event) {
+                    if ($event instanceof TextDelta) {
+                        $hadOutput = true;
+                        echo $event->delta;
+                        flush();
+                    }
+                }
+
+                if (! $hadOutput) {
+                    echo 'Maaf, AI tidak merespon. Silakan coba lagi dalam beberapa detik.';
                     flush();
                 }
+            } catch (RuntimeException $e) {
+                Log::warning('AI tool blocked', ['message' => $e->getMessage()]);
+                echo 'Maaf, saya tidak bisa memproses pertanyaan itu. Coba tanyakan dengan kalimat lebih spesifik.';
+                flush();
+            } catch (\Throwable $e) {
+                Log::error('AI chat error', ['message' => $e->getMessage()]);
+                echo 'Terjadi gangguan server. Silakan coba beberapa saat lagi.';
+                flush();
             }
         }, 200, [
             'Content-Type' => 'text/plain; charset=utf-8',
