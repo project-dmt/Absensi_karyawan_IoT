@@ -22,33 +22,25 @@
 
 // Generate API Key: php artisan api:generate-key
 
-// =====================================================
-// Pin RC522 RFID (SPI)
-// =====================================================
-#define RC522_SS_PIN    5
-#define RC522_RST_PIN   4
-// SCK  = GPIO 18 (default ESP32 SPI)
-// MOSI = GPIO 23 (default ESP32 SPI)
-// MISO = GPIO 19 (default ESP32 SPI)
+// ================= RFID (RC522) - SPI - SISI KANAN =================
+#define RC522_SS_PIN    5     // GPIO 5  (kanan)
+#define RC522_RST_PIN   4     // GPIO 4  (kanan)
+// SCK=18, MISO=19, MOSI=23 otomatis (kanan)
 
-// =====================================================
-// Pin LCD 16x2 I2C
-// =====================================================
-#define LCD_SDA_PIN     21
-#define LCD_SCL_PIN     22
+// ================= LCD I2C - SISI KIRI =================
+#define LCD_SDA_PIN     32    // GPIO 32 (kiri)
+#define LCD_SCL_PIN     33    // GPIO 33 (kiri)
 #define LCD_ADDRESS     0x27  // Ganti ke 0x3F kalau LCD gak terdeteksi
 
-// =====================================================
-// Pin Buzzer
-// =====================================================
-#define BUZZER_PIN      15
+// ================= Buzzer - SISI KIRI =================
+#define BUZZER_PIN      26    // GPIO 26 (kiri)
 
 // =====================================================
 // Timing
 // =====================================================
 #define WIFI_TIMEOUT_MS         15000
 #define HTTP_TIMEOUT_MS         10000
-#define DISPLAY_DELAY_MS        3000
+#define DISPLAY_DELAY_MS        1500
 #define DEBOUNCE_DELAY_MS       2000
 #define WIFI_RECONNECT_MS       5000
 
