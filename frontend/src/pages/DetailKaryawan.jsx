@@ -6,6 +6,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import {
   ArrowLeft,
   ArrowRight,
+  BedDouble,
   CalendarCheck,
   CalendarX,
   CheckCircle,
@@ -37,6 +38,7 @@ const SUMMARY_CARDS = [
   { key: "terlambat", label: "Terlambat", bg: "linear-gradient(135deg, #f59e0b, #fbbf24)", icon: XCircle },
   { key: "alpha", label: "Alpha", bg: "linear-gradient(135deg, #ef4444, #f87171)", icon: UserX },
   { key: "izin", label: "Izin", bg: "linear-gradient(135deg, #6366f1, #818cf8)", icon: FileCheck2 },
+  { key: "sakit", label: "Sakit", bg: "linear-gradient(135deg, #0ea5e9, #38bdf8)", icon: BedDouble },
 ];
 
 function calcSummary(absensi) {
@@ -150,7 +152,7 @@ export default function DetailKaryawan() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         {SUMMARY_CARDS.map((card) => {
           const Icon = card.icon;
           return (

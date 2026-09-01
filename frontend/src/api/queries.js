@@ -172,3 +172,9 @@ export function useUpdateAbsensi() {
     },
   });
 }
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (payload) => api.post("/change-password", payload),
+  });
+}

@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../api/axios';
 
+// status: "connecting" | "live" | "reconnecting"
 export function useRealtime(enabled = true) {
   const [events, setEvents] = useState([]);
+  const [status, setStatus] = useState('connecting');
   const lastIdRef = useRef(0);
   const reconnectTimeoutRef = useRef(null);
 
@@ -20,26 +22,34 @@ export function useRealtime(enabled = true) {
 
       eventSource = new EventSource(url);
 
-      eventSource.addEventListener('check_in', (e) => {
-        const data = JSON.parse(e.data);
-        setEvents(prev => [data, ...prev].slice(0, 20));
-        lastIdRef.current = data.id;
-      });
+      eventSource.onopen = () => {
+        setStatus('live');
+      };
 
-      eventSource.addEventListener('checkout', (e) => {
-        const data = JSON.parse(e.data);
-        setEvents(prev => {
-          const exists = prev.find(ev => ev.id === data.id);
-          if (exists) {
-            return prev.map(ev => ev.id === data.id ? data : ev);
-          }
-          return [data, ...prev].slice(0, 20);
-        });
-        lastIdRef.current = data.id;
-      });
+      const handleEvent = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          setEvents(prev => {
+            const exists = prev.find(ev => ev.id === data.id);
+            if (exists) {
+              return prev.map(ev => (ev.id === data.id ? data : ev));
+            }
+            return [data, ...prev].slice(0, 20);
+          });
+          // checkout memakai id absensi yang bisa lebih kecil dari id
+          // event check_in terakhir — jangan biarkan kursor mundur
+          lastIdRef.current = Math.max(lastIdRef.current, data.id);
+        } catch {
+          // payload tidak valid — abaikan agar koneksi tetap hidup
+        }
+      };
+
+      eventSource.addEventListener('check_in', handleEvent);
+      eventSource.addEventListener('checkout', handleEvent);
 
       eventSource.onerror = () => {
         eventSource.close();
+        setStatus('reconnecting');
         if (isActive) {
           reconnectTimeoutRef.current = setTimeout(connect, 3000);
         }
@@ -55,5 +65,5 @@ export function useRealtime(enabled = true) {
     };
   }, [enabled]);
 
-  return events;
+  return { events, status };
 }
