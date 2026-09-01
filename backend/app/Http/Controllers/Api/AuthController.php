@@ -53,6 +53,14 @@ class AuthController extends Controller
         );
     }
 
+    public function serverTime()
+    {
+        return $this->successResponse([
+            'timestamp' => now()->timestamp,
+            'time' => now()->toIso8601String(),
+        ], 'Waktu server berhasil diambil');
+    }
+
     public function changePassword(Request $request)
     {
         $request->validate([

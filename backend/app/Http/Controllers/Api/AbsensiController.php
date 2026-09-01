@@ -58,6 +58,31 @@ class AbsensiController extends Controller
         return $this->successResponse(null, 'Absensi berhasil dihapus');
     }
 
+    // ponytail: testing helper — hapus absensi hari ini (bulk), dipakai tombol Testing di Laporan
+    // handle offset UTC vs Asia/Jakarta: hapus tanggal WIB + fallback created_at hari ini
+    public function clearToday(Request $request)
+    {
+        if ($request->filled('tanggal')) {
+            $request->validate(['tanggal' => 'date']);
+            $query = Attendance::whereDate('tanggal', $request->tanggal);
+            $label = $request->tanggal;
+        } else {
+            $today = now('Asia/Jakarta')->toDateString();
+            $query = Attendance::whereDate('tanggal', $today)
+                ->orWhereDate('created_at', $today);
+            $label = 'hari ini';
+        }
+        $count = $query->count();
+        if ($count === 0) {
+            return $this->successResponse(['deleted' => 0], 'Tidak ada absensi hari ini');
+        }
+        $old = $query->get()->toArray();
+        $query->delete();
+        AuditLogService::log('clear_absensi_today', null, ['count' => $count, 'sample' => array_slice($old, 0, 3)], null, $request);
+
+        return $this->successResponse(['deleted' => $count], "Berhasil hapus {$count} absensi {$label}");
+    }
+
     public function index(Request $request)
     {
         $request->validate([
