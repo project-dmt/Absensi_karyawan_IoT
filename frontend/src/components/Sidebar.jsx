@@ -74,9 +74,14 @@ function NavLink({ to, icon: Icon, label, onClose }) {
   );
 }
 
+const ROLE_LABELS = {
+  superadmin: "Super Admin",
+  admin: "Admin",
+};
+
 export default function Sidebar({ isOpen, onClose, user, onLogout }) {
   const displayName = user?.nama || "Admin";
-  const displayRole = user?.role === "superadmin" ? "Super Admin" : user?.role || "Super Admin";
+  const displayRole = ROLE_LABELS[user?.role] || user?.role || "-";
   const avatarInitial = displayName.charAt(0).toUpperCase();
 
   return (

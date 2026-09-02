@@ -65,7 +65,11 @@ const INITIAL_FORM = {
 
 export default function DataKaryawan() {
   const router = useRouter();
-  const { data = [], isPending } = useKaryawanList();
+  const {
+    data = [],
+    isPending,
+    isError,
+  } = useKaryawanList();
   const { data: divisi = [] } = useDivisiList();
   const createKaryawan = useCreateKaryawan();
   const updateKaryawan = useUpdateKaryawan();
@@ -75,6 +79,7 @@ export default function DataKaryawan() {
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [formError, setFormError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const submitting = createKaryawan.isPending || updateKaryawan.isPending;
 
   const { register, handleSubmit, control, reset, setError, formState: { errors } } = useForm({
@@ -112,9 +117,14 @@ export default function DataKaryawan() {
 
   const onSubmit = async (formData) => {
     setFormError("");
+    const payload = {
+      ...formData,
+      divisi_id: formData.divisi_id ? Number(formData.divisi_id) : null,
+      jabatan: formData.jabatan?.trim() || null,
+    };
     const mutation = editId
-      ? updateKaryawan.mutateAsync({ id: editId, ...formData })
-      : createKaryawan.mutateAsync(formData);
+      ? updateKaryawan.mutateAsync({ id: editId, ...payload })
+      : createKaryawan.mutateAsync(payload);
     try {
       await mutation;
       setShowModal(false);
@@ -132,9 +142,15 @@ export default function DataKaryawan() {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin ingin menghapus karyawan ini?")) return;
+    setDeleteError("");
     try {
       await deleteKaryawan.mutateAsync(id);
-    } catch {}
+    } catch (err) {
+      setDeleteError(
+        err.response?.data?.message ||
+          "Gagal menghapus karyawan. Pastikan Anda memiliki izin (khusus Super Admin)."
+      );
+    }
   };
 
   return (
@@ -161,7 +177,21 @@ export default function DataKaryawan() {
         </InputGroup>
       </div>
 
-      {isPending ? (
+      {deleteError && (
+        <Alert variant="destructive" className="mb-3">
+          <TriangleAlert />
+          <AlertDescription>{deleteError}</AlertDescription>
+        </Alert>
+      )}
+
+      {isError ? (
+        <Alert variant="destructive">
+          <TriangleAlert />
+          <AlertDescription>
+            Gagal memuat data karyawan. Coba muat ulang halaman.
+          </AlertDescription>
+        </Alert>
+      ) : isPending ? (
         <LoadingSpinner />
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -281,10 +311,10 @@ export default function DataKaryawan() {
               name="divisi_id"
               control={control}
               render={({ field }) => (
-                <Field>
+                <Field data-invalid={errors.divisi_id ? true : undefined}>
                   <FieldLabel>Divisi</FieldLabel>
-                  <Select value={field.value || undefined} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
+                  <Select value={field.value ? String(field.value) : undefined} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full" aria-invalid={errors.divisi_id ? true : undefined}>
                       <SelectValue placeholder="Pilih divisi..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -297,6 +327,7 @@ export default function DataKaryawan() {
                       </SelectGroup>
                     </SelectContent>
                   </Select>
+                  {errors.divisi_id && <FieldError>{errors.divisi_id.message}</FieldError>}
                 </Field>
               )}
             />

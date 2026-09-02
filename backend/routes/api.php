@@ -35,6 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
     Route::get('/user', [AuthController::class, 'user'])->name('api.user');
+    Route::get('/server-time', [AuthController::class, 'serverTime'])->name('api.server-time');
     Route::post('/change-password', [AuthController::class, 'changePassword'])
         ->middleware('throttle:change-password')
         ->name('api.change-password');
@@ -74,6 +75,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Absensi (CRUD)
     Route::get('/absensi', [AbsensiController::class, 'index'])->name('absensi.index');
     Route::post('/absensi/manual', [AbsensiController::class, 'storeManual'])->name('absensi.manual');
+    // ponytail: testing — hapus absensi hari ini (bulk) — harus di atas {attendance} biar tidak ketangkap param
+    Route::delete('/absensi/clear-today', [AbsensiController::class, 'clearToday'])
+        ->middleware('role:admin,superadmin')
+        ->name('absensi.clearToday');
     Route::put('/absensi/{attendance}', [AbsensiController::class, 'update'])
         ->middleware('role:admin,superadmin')
         ->name('absensi.update');

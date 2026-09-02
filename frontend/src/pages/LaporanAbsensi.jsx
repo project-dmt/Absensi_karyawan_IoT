@@ -18,6 +18,7 @@ import {
   Loader2,
   Pencil,
   Search,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -210,7 +211,7 @@ export default function LaporanAbsensi() {
         </div>
       </div>
 
-      <div className="mb-3 flex gap-2">
+      <div className="mb-3 flex flex-wrap gap-2">
         <Button variant="outline" size="sm" onClick={() => handleExport("xlsx")}>
           <FileSpreadsheet data-icon="inline-start" className="size-4" />
           Export Excel
@@ -218,6 +219,27 @@ export default function LaporanAbsensi() {
         <Button variant="outline" size="sm" onClick={() => handleExport("csv")}>
           <FileText data-icon="inline-start" className="size-4" />
           Export CSV
+        </Button>
+        {/* ponytail: testing helper — hapus absensi hari ini */}
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={async () => {
+            const today = new Date().toISOString().split("T")[0];
+            const msg = `Hapus SEMUA absensi tanggal ${today} (testing)?\nIni akan menghapus ${data.filter((d) => d.tanggal === today).length || data.length} record.`;
+            if (!window.confirm(msg)) return;
+            try {
+              const res = await api.delete("/absensi/clear-today", { params: { tanggal: today } });
+              alert(res.data?.message || `Berhasil hapus ${res.data?.data?.deleted ?? 0} record`);
+              setAppliedFilter({ ...appliedFilter });
+            } catch (err) {
+              alert(err.response?.data?.message || "Gagal hapus — butuh role admin/superadmin");
+            }
+          }}
+          title="Testing: hapus absensi hari ini"
+        >
+          <Trash2 data-icon="inline-start" className="size-4" />
+          Hapus Hari Ini (Testing)
         </Button>
       </div>
 

@@ -4,7 +4,15 @@ import StatusBadge from "../components/StatusBadge";
 import LoadingSpinner from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
 import { useRealtime } from "../hooks/useRealtime";
-import { AlertTriangle, CalendarX, Clock3, Users, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarX,
+  CheckCircle,
+  Clock3,
+  Users,
+  XCircle,
+} from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -23,6 +31,12 @@ const CARDS = [
     bg: "linear-gradient(135deg, #4f6d7a, #7b9aab)",
   },
   {
+    label: "Hadir",
+    valueKey: "hadir",
+    icon: CheckCircle,
+    bg: "linear-gradient(135deg, #10b981, #34d399)",
+  },
+  {
     label: "Terlambat",
     valueKey: "terlambat",
     icon: AlertTriangle,
@@ -38,47 +52,48 @@ const CARDS = [
 
 export default function Dashboard() {
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
-  const { data: karyawan = [], isPending } = useKaryawanList();
-  const { data: laporan = [] } = useLaporan({ dari: today, sampai: today });
+  const {
+    data: karyawan = [],
+    isPending,
+    isError: karyawanError,
+  } = useKaryawanList();
+  const {
+    data: laporan = [],
+    isError: laporanError,
+  } = useLaporan({ dari: today, sampai: today });
   const dataReady = !isPending;
-  const realtimeEvents = useRealtime(dataReady);
+  const { events: realtimeEvents } = useRealtime(dataReady);
 
   const [recent, setRecent] = useState([]);
-  const [realtimeDelta, setRealtimeDelta] = useState({ hadir: 0, terlambat: 0 });
 
   useEffect(() => {
-    setRecent(laporan.slice(0, 10));
-  }, [laporan]);
-
-  useEffect(() => {
-    if (realtimeEvents.length === 0) return;
-    setRecent((prev) => {
-      const merged = [...realtimeEvents, ...prev]
-        .filter((v, i, a) => a.findIndex((t) => t.id === v.id) === i)
-        .slice(0, 10);
-      return merged;
-    });
-    setRealtimeDelta((prev) => {
-      let hadir = prev.hadir;
-      let terlambat = prev.terlambat;
-      realtimeEvents.forEach((ev) => {
-        if (ev.status === "Hadir") hadir += 1;
-        if (ev.status === "Terlambat") terlambat += 1;
+    const merged = [...realtimeEvents, ...laporan]
+      .filter((v, i, a) => a.findIndex((t) => t.id === v.id) === i)
+      .sort((a, b) => {
+        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return tb - ta;
       });
-      return { hadir, terlambat };
-    });
-  }, [realtimeEvents]);
+    setRecent(merged.slice(0, 10));
+  }, [laporan, realtimeEvents]);
 
+  // Gabungkan laporan + event realtime (dedupe by id) lalu hitung dari
+  // hasil gabungan — event yang sudah ada di laporan tidak dihitung ganda.
   const stats = useMemo(() => {
-    const hadir = laporan.filter((l) => l.status === "Hadir").length + realtimeDelta.hadir;
-    const terlambat = laporan.filter((l) => l.status === "Terlambat").length + realtimeDelta.terlambat;
-    return {
-      totalKaryawan: karyawan.length,
-      hadir,
-      terlambat,
-      tidakHadir: karyawan.length - hadir - terlambat,
-    };
-  }, [karyawan, laporan, realtimeDelta]);
+    const merged = [...realtimeEvents, ...laporan].filter(
+      (v, i, a) => a.findIndex((t) => t.id === v.id) === i
+    );
+    const hadir = merged.filter((l) => l.status === "Hadir").length;
+    const terlambat = merged.filter((l) => l.status === "Terlambat").length;
+    const izin = merged.filter((l) => l.status === "Izin").length;
+    const sakit = merged.filter((l) => l.status === "Sakit").length;
+    // Izin/Sakit bukan "tidak hadir" — karyawan mengajukan ketidakhadiran
+    const tidakHadir = Math.max(
+      0,
+      karyawan.length - hadir - terlambat - izin - sakit
+    );
+    return { totalKaryawan: karyawan.length, hadir, terlambat, tidakHadir };
+  }, [karyawan, laporan, realtimeEvents]);
 
   if (isPending) return <LoadingSpinner />;
 
@@ -96,7 +111,16 @@ export default function Dashboard() {
         </small>
       </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {(karyawanError || laporanError) && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTriangle />
+          <AlertDescription>
+            Gagal memuat data dashboard. Coba muat ulang halaman.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {CARDS.map((card) => {
           const Icon = card.icon;
           return (
@@ -139,12 +163,12 @@ export default function Dashboard() {
                   {recent.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">
-                        {item.employee?.nama}
+                        {item.employee?.nama || item.nama || "-"}
                       </TableCell>
                       <TableCell>
-                        <code>{item.employee?.nip}</code>
+                        <code>{item.employee?.nip || item.nip || "-"}</code>
                       </TableCell>
-                      <TableCell>{item.jam_masuk || "-"}</TableCell>
+                      <TableCell>{item.jam_masuk || item.jam || "-"}</TableCell>
                       <TableCell>
                         <StatusBadge status={item.status} />
                       </TableCell>
