@@ -131,7 +131,7 @@ Dashboard admin menerima SSE ÔåÆ statistik & tabel ter-update otomatis
 
 ### Wiring ESP32
 
-#### RC522 RFID (SPI)
+#### RC522 RFID (SPI) — SISI KANAN
 ```
 ESP32          RC522
 ÔöÇÔöÇÔöÇÔöÇÔöÇ          ÔöÇÔöÇÔöÇÔöÇÔöÇ
@@ -145,25 +145,25 @@ GPIO 4   ÔåÆ    RST
 ```
 > **Perhatian:** RC522 **wajib 3.3V** ÔÇö jangan 5V (bisa merusak modul). Cek `MFRC522` version di serial monitor jika tidak terbaca.
 
-#### LCD 16x2 I2C
+#### LCD 16x2 I2C — SISI KIRI
 ```
 ESP32          LCD
 ÔöÇÔöÇÔöÇÔöÇÔöÇ          ÔöÇÔöÇÔöÇ
 5V/VIN   ÔåÆ    VCC
 GND      ÔåÆ    GND
-GPIO 21  ÔåÆ    SDA
-GPIO 22  ÔåÆ    SCL
+GPIO 32  ÔåÆ    SDA
+GPIO 33  ÔåÆ    SCL
 ```
 > Alamat I2C default `0x27`, fallback `0x3F` (atur di `include/config.h` ÔåÆ `LCD_ADDRESS`). Beberapa modul LCD butuh **5V**, bukan 3.3V ÔÇö jika tidak menyala coba ganti alamat atau tegangan.
 
-#### Buzzer
+#### Buzzer — SISI KIRI
 ```
 ESP32          Buzzer
 ÔöÇÔöÇÔöÇÔöÇÔöÇ          ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-GPIO 15  ÔåÆ    (+)
+GPIO 26  ÔåÆ    (+)
 GND      ÔåÆ    (-)
 ```
-> Konfigurasi pin terpusat di `firmware/include/config.example.h` (SS=GPIO5, RST=GPIO4, SCK=18, MOSI=23, MISO=19, SDA=21, SCL=22, Buzzer=15). [Ôåæ Kembali ke Setup Firmware](#3-firmware-esp32)
+> Konfigurasi pin terpusat di `firmware/include/config.example.h` (SISI KANAN: SS=GPIO5, RST=GPIO4, SCK=18, MOSI=23, MISO=19 — SISI KIRI: SDA=32, SCL=33, Buzzer=26). [Ôåæ Kembali ke Setup Firmware](#3-firmware-esp32)
 
 ---
 
@@ -565,7 +565,7 @@ pio device monitor
 
 Konfigurasi penting (`include/config.h` ÔÇö lihat [Wiring ESP32](#wiring-esp32) untuk pin):
 - `WIFI_SSID` / `WIFI_PASSWORD`, `API_BASE_URL` (mis. `http://192.168.1.100:8000`), `API_KEY`
-- Pin: SS=GPIO5, RST=GPIO4, SCK=18, MOSI=23, MISO=19, SDA=21, SCL=22, alamat LCD `0x27` (fallback `0x3F`), Buzzer GPIO15
+- Pin: SISI KANAN: SS=GPIO5, RST=GPIO4, SCK=18, MOSI=23, MISO=19 — SISI KIRI: SDA=32, SCL=33, alamat LCD `0x27` (fallback `0x3F`), Buzzer GPIO26
 - `OFFLINE_MODE=true` ÔåÆ testing hardware tanpa server (hanya tampilkan UID di LCD/Serial)
 - Timeout: WIFI 15s, HTTP 10s, DISPLAY 3s, DEBOUNCE 2s, RECONNECT 5s
 
@@ -574,7 +574,7 @@ Konfigurasi penting (`include/config.h` ÔÇö lihat [Wiring ESP32](#wiring-esp3
 ## Troubleshooting
 
 ### LCD tidak menyala
-- Cek wiring SDA/SCL (GPIO21 ÔåÆ SDA, GPIO22 ÔåÆ SCL)
+- Cek wiring SDA/SCL (GPIO32 ÔåÆ SDA, GPIO33 ÔåÆ SCL)
 - Coba ganti `LCD_ADDRESS` di `config.h` dari `0x27` ke `0x3F`
 - Cek voltage (beberapa modul LCD butuh **5V/VIN ÔåÆ VCC**, bukan 3.3V)
 
