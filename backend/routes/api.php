@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\GlobalSearchController;
 use App\Http\Controllers\Api\SseController;
 use App\Http\Controllers\Api\AiController;
+use App\Http\Controllers\Api\RfidScanController;
 use App\Http\Controllers\Api\ServerTimeController;
 
 // =====================================================
@@ -20,12 +21,20 @@ Route::post('/absensi', [AbsensiController::class, 'storeFromDevice'])
     ->middleware(['api.key', 'throttle:60,1'])
     ->name('api.absensi.device');
 
+// ESP32 melaporkan kartu discan; kalau ada sesi registrasi, UID ditangkap
+Route::post('/rfid/announce', [RfidScanController::class, 'announce'])
+    ->middleware(['api.key', 'throttle:60,1'])
+    ->name('api.rfid.announce');
+
 // =====================================================
 // PUBLIC API - Endpoint untuk React (Login)
 // =====================================================
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:login')
     ->name('api.login');
+
+// Public: waktu server untuk sinkronisasi jam di frontend
+Route::get('/server-time', [ServerTimeController::class, 'show'])->name('api.server-time');
 
 // =====================================================
 // PROTECTED API - Endpoint untuk React (Sanctum Auth)
@@ -48,6 +57,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Global Search
     Route::get('/search', [GlobalSearchController::class, 'index'])->name('api.search');
+
+    // RFID Scan session (untuk tombol "Scan Kartu" di form karyawan)
+    Route::post('/rfid/register', [RfidScanController::class, 'store'])->name('api.rfid.register');
+    Route::get('/rfid/register/{token}', [RfidScanController::class, 'show'])->name('api.rfid.register.show');
 
     // AI Assistant
     Route::post('/ai/chat', [AiController::class, 'chat'])->name('api.ai.chat');
