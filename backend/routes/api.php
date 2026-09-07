@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\SseController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\RfidScanController;
 use App\Http\Controllers\Api\ServerTimeController;
+use App\Http\Controllers\Api\EspConfigController;
 
 // =====================================================
 // PUBLIC API - Endpoint untuk ESP32 (API Key Auth)
@@ -102,11 +103,16 @@ Route::middleware('auth:sanctum')->group(function () {
     // Laporan
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
     Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
+
+    // Konfigurasi ESP32 dari web admin (proxy ke listener LAN port 8080)
+    Route::get('/esp/config-info', [EspConfigController::class, 'info'])->name('esp.info');
+    Route::post('/esp/config', [EspConfigController::class, 'store'])->name('esp.config');
+    Route::get('/esp/{ip}/status', [EspConfigController::class, 'check'])->name('esp.status');
 });
 
 // Server time (public — untuk jam topbar FE, sinkron semua device)
 Route::get('/server-time', [ServerTimeController::class, 'show'])
-    ->name('api.server-time');
+        ->name('api.server-time');
 
 // Realtime SSE Stream (token via query string — EventSource tidak bisa pakai header)
 Route::get('/absensi/stream', [SseController::class, 'stream'])
