@@ -1,15 +1,27 @@
+import { useEffect, useState } from "react";
 import { useRealtime } from "../hooks/useRealtime";
+import api from "../api/axios";
 import {
   Activity,
+  CheckCircle2,
   Cpu,
   KeyRound,
+  Loader2,
   Nfc,
   Radio,
+  Search,
+  Send,
+  Settings,
   Wifi,
   WifiOff,
+  XCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const FIRMWARE_CONFIG = [
   { key: "WIFI_SSID / WIFI_PASSWORD", value: "Kredensial WiFi lokal" },
@@ -31,6 +43,90 @@ function formatJam(ev) {
 export default function PerangkatIoT() {
   const { events, status } = useRealtime(true);
   const lastEvent = events[0];
+
+  const [espIp, setEspIp] = useState("");
+  const [serverUrl, setServerUrl] = useState("");
+  const [espInfo, setEspInfo] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [notice, setNotice] = useState(null);
+
+  useEffect(() => {
+    let on = true;
+    api
+      .get("/esp/config-info")
+      .then((res) => {
+        if (on) setServerUrl(res.data?.data?.server_url || "");
+      })
+      .catch(() => {
+        if (on) {
+          const base = (import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
+          setServerUrl(base || "http://localhost:8000");
+        }
+      });
+    return () => {
+      on = false;
+    };
+  }, []);
+
+  // Otomatis sembunyikan notifikasi setelah 5 detik
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  const handleCheck = async () => {
+    if (!espIp.trim()) {
+      setNotice({ type: "error", title: "IP kosong", message: "Isi alamat IP ESP dulu." });
+      return;
+    }
+    setChecking(true);
+    setNotice(null);
+    try {
+      const res = await api.get(`/esp/${espIp.trim()}/status`);
+      setEspInfo(res.data?.data);
+      setNotice({
+        type: "success",
+        title: "Perangkat ditemukan",
+        message: `ESP aktif di ${espIp.trim()}.`,
+      });
+    } catch (err) {
+      setEspInfo(null);
+      setNotice({
+        type: "error",
+        title: "Tidak merespon",
+        message: err.response?.data?.message || "ESP di IP tersebut tidak bisa dijangkau.",
+      });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const handleSend = async () => {
+    if (!espIp.trim()) {
+      setNotice({ type: "error", title: "IP kosong", message: "Isi alamat IP ESP dulu." });
+      return;
+    }
+    setSending(true);
+    setNotice(null);
+    try {
+      const res = await api.post("/esp/config", { ip: espIp.trim() });
+      setNotice({
+        type: "success",
+        title: "Terkirim",
+        message: res.data?.message || "Konfigurasi dikirim ke ESP. Device akan restart & terhubung otomatis.",
+      });
+    } catch (err) {
+      setNotice({
+        type: "error",
+        title: "Gagal",
+        message: err.response?.data?.message || "Konfigurasi gagal dikirim ke ESP.",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div>
@@ -101,6 +197,93 @@ export default function PerangkatIoT() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mb-4">
+        <CardHeader className="flex flex-row items-center gap-2 py-4">
+          <Settings className="size-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-semibold">
+            Kirim Konfigurasi ke ESP
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {notice && (
+            <Alert
+              variant={notice.type === "success" ? "default" : "destructive"}
+            >
+              {notice.type === "success" ? (
+                <CheckCircle2 className="size-4" />
+              ) : (
+                <XCircle className="size-4" />
+              )}
+              <AlertDescription>
+                <strong>{notice.title}.</strong> {notice.message}
+              </AlertDescription>
+            </Alert>
+          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel>IP ESP32 (lihat dari LCD alat atau halaman router)</FieldLabel>
+              <Input
+                value={espIp}
+                onChange={(e) => setEspIp(e.target.value)}
+                placeholder="contoh: 192.168.1.50"
+              />
+            </Field>
+            <Field>
+              <FieldLabel>Server URL (otomatis dari backend)</FieldLabel>
+              <Input
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+              />
+            </Field>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handleCheck} disabled={checking}>
+              {checking ? (
+                <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+              ) : (
+                <Search className="size-4" data-icon="inline-start" />
+              )}
+              Cek Perangkat
+            </Button>
+            <Button onClick={handleSend} disabled={sending}>
+              {sending ? (
+                <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+              ) : (
+                <Send className="size-4" data-icon="inline-start" />
+              )}
+              {sending ? "Mengirim..." : "Kirim Konfigurasi ke ESP"}
+            </Button>
+          </div>
+          {espInfo && (
+            <div className="rounded-md border p-3 text-sm">
+              <div className="flex items-center gap-2 font-semibold">
+                <Cpu className="size-4" />
+                {espInfo.device}
+                <Badge className="rounded-md badge-status-aktif">Online</Badge>
+              </div>
+              <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs text-muted-foreground">IP</dt>
+                  <dd><code>{espInfo.ip}</code></dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">MAC</dt>
+                  <dd><code>{espInfo.mac}</code></dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Server</dt>
+                  <dd><code>{espInfo.server || "-"}</code></dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">API Key</dt>
+                  <dd>{espInfo.key_set ? "Tersimpan" : "Belum di-set"}</dd>
+                </div>
+              </dl>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
