@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { absensiUpdateSchema } from "../schemas";
+import api from "../api/axios";
 import { useDivisiList, useLaporan, useUpdateAbsensi } from "../api/queries";
 import StatusBadge from "../components/StatusBadge";
 import EmptyState from "../components/EmptyState";
@@ -14,12 +15,13 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  FileSpreadsheet,
   Loader2,
   Pencil,
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -67,6 +69,7 @@ export default function SemuaAbsensi() {
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
   const { data: divisi = [] } = useDivisiList();
   const {
@@ -120,6 +123,41 @@ export default function SemuaAbsensi() {
 
   const handleChange = (e) => {
     setFilter((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = {
+        dari: filter.dari,
+        sampai: filter.sampai,
+        format: "xlsx",
+      };
+      if (filter.divisi_id) params.divisi_id = filter.divisi_id;
+      if (statusFilter) params.status = statusFilter;
+      if (search.trim()) params.search = search.trim().slice(0, 100);
+
+      const res = await api.get("/laporan/export", {
+        params,
+        responseType: "blob",
+      });
+
+      const url = window.URL.createObjectURL(res.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `semua_absensi_${filter.dari}_sd_${filter.sampai}.xlsx`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch {
+      alert("Gagal export Excel. Coba lagi.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const openEdit = (item) => {
@@ -253,6 +291,23 @@ export default function SemuaAbsensi() {
             </SelectContent>
           </Select>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={exporting || loading}
+          title="Export Excel sesuai filter"
+        >
+          {exporting ? (
+            <Loader2 className="animate-spin" />
+          ) : (
+            <FileSpreadsheet
+              data-icon="inline-start"
+              className="size-4 text-green-600"
+            />
+          )}
+          Export Excel
+        </Button>
         <small className="ms-auto text-muted-foreground">
           {filtered.length} record
         </small>
