@@ -38,11 +38,31 @@ bool lcdPresent = false;
 // =====================================================
 // Buzzer Helpers
 // =====================================================
+#ifndef BUZZER_ACTIVE_LOW
+#define BUZZER_ACTIVE_LOW 0
+#endif
+
+void buzzerOn() {
+#if BUZZER_ACTIVE_LOW
+    digitalWrite(BUZZER_PIN, LOW);
+#else
+    digitalWrite(BUZZER_PIN, HIGH);
+#endif
+}
+
+void buzzerOff() {
+#if BUZZER_ACTIVE_LOW
+    digitalWrite(BUZZER_PIN, HIGH);
+#else
+    digitalWrite(BUZZER_PIN, LOW);
+#endif
+}
+
 void beep(int count, int onMs = 150, int offMs = 100) {
     for (int i = 0; i < count; i++) {
-        digitalWrite(BUZZER_PIN, HIGH);
+        buzzerOn();
         delay(onMs);
-        digitalWrite(BUZZER_PIN, LOW);
+        buzzerOff();
         if (i < count - 1) delay(offMs);
     }
 }
@@ -52,7 +72,7 @@ void beepCheckout() { beep(2, 120, 80); }
 void beepError()    { beep(3, 80, 60); }
 
 // =====================================================
-// LCD Helpers
+// LCD Helpers (16x2 — tiap baris max 16 karakter)
 // =====================================================
 void lcdLine(int row, const String &text) {
     if (!lcdPresent) return;
@@ -62,13 +82,54 @@ void lcdLine(int row, const String &text) {
     lcd.print(text.substring(0, 16));
 }
 
+// Tampilkan teks di 2 baris (max 32 karakter total)
+void lcdFit2(const String &msg) {
+    if (!lcdPresent) return;
+    lcd.clear();
+    lcdLine(0, msg.substring(0, 16));
+    lcdLine(1, msg.length() > 16 ? msg.substring(16, 32) : "");
+}
+
+// Singkat pesan error API biar muat & terbaca
+String lcdShortError(const String &msg) {
+    String m = msg;
+    m.toLowerCase();
+    if (m.indexOf("tidak terdaftar") >= 0) return "Kartu tidak     terdaftar"; // 16+9 → 2 baris
+    if (m.indexOf("tidak aktif") >= 0)     return "Karyawan nonaktif";
+    if (m.indexOf("sudah checkout") >= 0)  return "Sudah checkout";
+    if (m.indexOf("belum bisa") >= 0 || m.indexOf("jam pulang") >= 0)
+        return "Belum jam pulang";
+    if (m.indexOf("tidak bisa checkout") >= 0) return "Tak bisa checkout";
+    if (m.indexOf("invalid api") >= 0 || m.indexOf("unauthorized") >= 0)
+        return "API key salah";
+    if (m.indexOf("server offline") >= 0)  return "Server offline";
+    if (m.indexOf("tidak merespon") >= 0 || m.indexOf("timeout") >= 0)
+        return "Server timeout";
+    if (m.indexOf("response invalid") >= 0) return "Resp. invalid";
+    // potong rapi ke 32 char (2 baris)
+    return msg.substring(0, 32);
+}
+
+String lcdShortStatus(const String &status) {
+    if (status.indexOf("Checkout") >= 0) return "Pulang";
+    if (status == "Terlambat") return "Telat";
+    if (status == "Hadir") return "Hadir";
+    return status.substring(0, 8);
+}
+
+// Jam "14:30:05" -> "14:30"
+String lcdShortJam(const String &jam) {
+    if (jam.length() >= 5) return jam.substring(0, 5);
+    return jam;
+}
+
 void lcdShowReady() {
     Serial.println("[LCD] Ready - Tempel Kartu RFID");
     if (!lcdPresent) return;
     lcd.clear();
     lcdLine(0, "Sistem Absensi");
     lcdLine(1, "IoT RFID");
-    delay(800);
+    delay(400);
     lcd.clear();
     lcdLine(0, "Tempel Kartu");
     lcdLine(1, "RFID Anda...");
@@ -86,35 +147,31 @@ void lcdShowResult(const String &nama, const String &status, const String &jam) 
     Serial.printf("[LCD] %s - %s %s\n", nama.c_str(), status.c_str(), jam.c_str());
     if (!lcdPresent) return;
     lcd.clear();
-    String displayName = nama.length() > 16 ? nama.substring(0, 16) : nama;
-    lcdLine(0, displayName);
-    String detail = status + " " + jam;
-    lcdLine(1, detail.length() > 16 ? detail.substring(0, 16) : detail);
+    lcdLine(0, nama);  // lcdLine potong 16
+    String detail = lcdShortStatus(status) + " " + lcdShortJam(jam);
+    lcdLine(1, detail);
 }
 
 void lcdShowError(const String &msg) {
     Serial.printf("[LCD] ERROR: %s\n", msg.c_str());
     if (!lcdPresent) return;
-    lcd.clear();
-    lcdLine(0, "GAGAL");
-    lcdLine(1, msg.length() > 16 ? msg.substring(0, 16) : msg);
+    lcdFit2(lcdShortError(msg));
 }
 
 void lcdShowOfflineResult(const String &uid) {
     Serial.printf("[LCD] Offline - UID: %s\n", uid.c_str());
     if (!lcdPresent) return;
     lcd.clear();
-    lcdLine(0, "Terkoneksi!");
-    String shortUid = uid.length() > 16 ? uid.substring(0, 16) : uid;
-    lcdLine(1, shortUid);
+    lcdLine(0, "Offline OK");
+    lcdLine(1, uid);  // lcdLine potong 16
 }
 
 void lcdShowSuccess(const String &msg) {
     Serial.printf("[LCD] SUCCESS: %s\n", msg.c_str());
     if (!lcdPresent) return;
     lcd.clear();
-    lcdLine(0, "Scan Berhasil");
-    lcdLine(1, msg.length() > 16 ? msg.substring(0, 16) : msg);
+    lcdLine(0, "Scan OK");
+    lcdLine(1, msg);
 }
 
 void lcdShowWifiStatus(bool connected) {
@@ -125,7 +182,7 @@ void lcdShowWifiStatus(bool connected) {
         lcdLine(1, WiFi.SSID());
     } else {
         lcdLine(0, "WiFi Gagal!");
-        lcdLine(1, "Cek Koneksi...");
+        lcdLine(1, "Cek koneksi");
     }
 }
 
@@ -204,8 +261,8 @@ void startConfigPortal() {
     Serial.println("[CFG] AP: '" CONFIG_AP_NAME "' -> http://192.168.4.1");
     if (lcdPresent) {
         lcd.clear();
-        lcdLine(0, "SET KONFIGURASI");
-        lcdLine(1, "Cfg: 192.168.4.1");
+        lcdLine(0, "SET KONFIG");
+        lcdLine(1, "192.168.4.1");
     }
     beep(2, 150, 120);
 
@@ -324,6 +381,11 @@ void ensureWifi() {
         wifiLostStart = 0;
         return;
     }
+
+    // Portal aktif: jangan WiFi.mode(WIFI_STA) / reconnect — itu mematikan softAP
+    // padahal portalActive masih true, jadi AP tidak pernah hidup lagi.
+    if (portalActive) return;
+
     if (millis() - lastWifiAttempt < WIFI_RECONNECT_MS) return;
     lastWifiAttempt = millis();
 
@@ -387,52 +449,6 @@ String sendAttendance(const String &uid) {
 }
 
 // =====================================================
-// Announce Scan ke Backend (mode registrasi kartu)
-// =====================================================
-// return: true = UID tertangkap sebagai registrasi, jangan lanjut absensi
-//         false = lanjut alur absensi normal
-bool announceScan(const String &uid) {
-    if (WiFi.status() != WL_CONNECTED) return false;
-
-    HTTPClient http;
-    String url = apiBaseUrl + "/api/rfid/announce";
-
-    http.begin(url);
-    http.addHeader("Content-Type", "application/json");
-    http.addHeader("X-API-Key", apiKey);
-    http.setTimeout(4000);
-
-    JsonDocument doc;
-    doc["uid"] = uid;
-    String body;
-    serializeJson(doc, body);
-
-    int httpCode = http.POST(body);
-
-    if (httpCode <= 0) {
-        http.end();
-        return false;
-    }
-
-    String response = http.getString();
-    http.end();
-
-    Serial.printf("ANNOUNCE %d: %s\n", httpCode, response.c_str());
-
-    JsonDocument res;
-    DeserializationError err = deserializeJson(res, response);
-    if (!err && httpCode == 200) {
-        const char *mode = res["data"]["mode"] | "";
-        if (strcmp(mode, "register") == 0) {
-            lcdShowSuccess("UID Scan OK!");
-            beepSuccess();
-            return true;
-        }
-    }
-    return false;
-}
-
-// =====================================================
 // Parse & Display Response
 // =====================================================
 void handleResponse(const String &json) {
@@ -441,7 +457,7 @@ void handleResponse(const String &json) {
 
     if (err) {
         Serial.printf("JSON parse error: %s\n", err.c_str());
-        lcdShowError("Response Invalid");
+        lcdShowError("Resp. invalid");
         beepError();
         return;
     }
@@ -460,6 +476,15 @@ void handleResponse(const String &json) {
     String jamMasuk  = doc["data"]["jam_masuk"] | "";
     String jamPulang = doc["data"]["jam_pulang"] | "";
 
+    // Registrasi kartu murni (admin nunggu tap, kartu belum dikenal) — tidak ada data absensi
+    const char *mode = doc["data"]["mode"] | "";
+    if (strcmp(mode, "register") == 0 && nama.length() == 0) {
+        lcdShowSuccess("UID tersimpan");
+        beepSuccess();
+        return;
+    }
+
+    // Kalau mode=register TAPI kartu sudah milik karyawan -> tetep tampilkan hasil absensinya
     String jam = jamMasuk.length() > 0 ? jamMasuk : jamPulang;
 
     lcdShowResult(nama, status, jam);
@@ -481,9 +506,9 @@ void setup() {
     appConfig.begin();
     loadAppConfig();
 
-    // Buzzer init
+    // Buzzer init — pastikan OFF sesuai tipe trigger (active HIGH/LOW)
     pinMode(BUZZER_PIN, OUTPUT);
-    digitalWrite(BUZZER_PIN, LOW);
+    buzzerOff();
 
     // Tombol BOOT (GPIO0) dipakai buat reset konfigurasi & buka portal
     pinMode(CONFIG_BUTTON_PIN, INPUT_PULLUP);
@@ -561,7 +586,7 @@ void setup() {
     } else {
         lcd.clear();
         lcdLine(0, "Hubungkan WiFi");
-        lcdLine(1, CONFIG_AP_NAME);
+        lcdLine(1, "AP: AbsensiRFID");  // SSID penuh: AbsensiRFID-Config
 
         bool wifiOk = false;
         if (!appConfig.isConfigured()) {
@@ -581,7 +606,7 @@ void setup() {
         if (WiFi.status() != WL_CONNECTED) {
             lcd.clear();
             lcdLine(0, "WiFi Gagal!");
-            lcdLine(1, "Portal 192.168.4.1");
+            lcdLine(1, "Buka 192.168.4.1");
         } else {
             lcd.clear();
             lcdLine(0, "WiFi Terhubung");
@@ -600,7 +625,10 @@ void setup() {
         configSrv.begin();
         Serial.println("[CONF] Listener admin LAN: port 8080 (/status, /config)");
     }
-    lcdShowReady();
+    // Portal aktif: biarkan LCD tetap "SET KONFIGURASI / 192.168.4.1"
+    if (!portalActive) {
+        lcdShowReady();
+    }
 }
 
 // =====================================================
@@ -628,7 +656,7 @@ void loop() {
             if (lcdPresent) {
                 lcd.clear();
                 lcdLine(0, "RESET CONFIG");
-                lcdLine(1, "Buka Portal...");
+                lcdLine(1, "Buka portal...");
             }
             beep(3, 200, 150);
             appConfig.reset();
@@ -666,7 +694,7 @@ void loop() {
             lcdShowReady();
         } else {
             if (WiFi.status() != WL_CONNECTED) {
-                lcdShowError("Server Offline");
+                lcdShowError("Server offline");
                 beepError();
                 mfrc522.PICC_HaltA();
                 mfrc522.PCD_StopCrypto1();
@@ -678,25 +706,12 @@ void loop() {
 
             lcdShowProcessing();
 
-            // Cek dulu ada sesi registrasi kartu apa nggak
-            bool registered = announceScan(uid);
-
-            if (registered) {
-                // UID udah ditangkap buat registrasi form -> jangan lanjut absensi
-                delay(DISPLAY_DELAY_MS);
-                lcdShowReady();
-                mfrc522.PICC_HaltA();
-                mfrc522.PCD_StopCrypto1();
-                lastCardPresent = false;
-                return;
-            }
-
             String response = sendAttendance(uid);
 
             if (response.length() > 0) {
                 handleResponse(response);
             } else {
-                lcdShowError("Server Tidak Merespon");
+                lcdShowError("Server timeout");
                 beepError();
             }
 

@@ -23,9 +23,9 @@ class SseController extends Controller
         return response()->stream(function () use ($lastId) {
             set_time_limit(0);
             $currentLastId = $lastId;
-            // ponytail: artisan serve = 1 worker; berhenti tiap 10s agar worker
-            // tidak tergantung lama (browser EventSource auto-reconnect via lastId).
-            $deadline = time() + 10;
+            // ponytail: artisan serve = 1 worker. Loop pendek biar POST ESP
+            // tidak ngantri lama; EventSource auto-reconnect via lastId.
+            $deadline = time() + 1;
 
             while (time() < $deadline) {
                 $events = RealtimeEventService::getSince($currentLastId);
@@ -67,7 +67,7 @@ class SseController extends Controller
                     RealtimeEventService::cleanup(24);
                 }
 
-                sleep(1);
+                usleep(200_000); // 200ms — responsif tanpa nahan worker lama
             }
         }, 200, [
             'Content-Type' => 'text/event-stream',

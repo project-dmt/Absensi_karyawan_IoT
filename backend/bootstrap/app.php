@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use App\Exceptions\ApiException;
 use Illuminate\Auth\AuthenticationException;
@@ -94,6 +95,18 @@ return Application::configure(basePath: dirname(__DIR__))
                     'success' => false,
                     'message' => 'Unauthenticated',
                 ], 401);
+            }
+        });
+
+        // HttpException generik (401/403/429/...) -> pertahankan status code aslinya.
+        // WAJIB daftar sebelum handler \Throwable di bawah, kalau tidak
+        // abort(401) jadi 500 "Terjadi kesalahan server".
+        $exceptions->renderable(function (HttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage() ?: 'Terjadi kesalahan',
+                ], $e->getStatusCode());
             }
         });
 

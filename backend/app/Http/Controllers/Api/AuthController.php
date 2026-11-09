@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\User;
+use App\Services\AuditLogService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
-use App\Services\AuditLogService;
 
 class AuthController extends Controller
 {
@@ -20,7 +21,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             AuditLogService::log('login_failed', null, null, ['email' => $request->email], $request);
 
             throw ValidationException::withMessages([
@@ -53,14 +54,6 @@ class AuthController extends Controller
         );
     }
 
-    public function serverTime()
-    {
-        return $this->successResponse([
-            'timestamp' => now()->timestamp,
-            'time' => now()->toIso8601String(),
-        ], 'Waktu server berhasil diambil');
-    }
-
     public function changePassword(Request $request)
     {
         $request->validate([
@@ -70,8 +63,8 @@ class AuthController extends Controller
 
         $user = $request->user();
 
-        if (!Hash::check($request->old_password, $user->password)) {
-            throw new \App\Exceptions\ApiException('Password lama salah', 422);
+        if (! Hash::check($request->old_password, $user->password)) {
+            throw new ApiException('Password lama salah', 422);
         }
 
         $user->update([

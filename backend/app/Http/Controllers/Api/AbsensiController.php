@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\Employee;
-use App\Models\Attendance;
-use App\Services\AbsensiService;
-use App\Services\AuditLogService;
 use App\Http\Requests\StoreAbsensiManualRequest;
 use App\Http\Requests\UpdateAbsensiRequest;
+use App\Models\Attendance;
+use App\Models\Employee;
+use App\Services\AbsensiService;
+use App\Services\AuditLogService;
+use Illuminate\Http\Request;
 
 class AbsensiController extends Controller
 {
@@ -20,10 +20,15 @@ class AbsensiController extends Controller
     public function storeFromDevice(Request $request)
     {
         $validated = $request->validate([
-            'uid' => 'required|string',
+            'uid' => 'required|string|max:64',
         ]);
 
         $result = $this->absensiService->processFromDevice($validated['uid']);
+
+        // Murni registrasi kartu (kartu belum dikenal) -> belum ada absensi yang tercatat
+        if (($result['mode'] ?? null) === 'register' && ! isset($result['nama'])) {
+            return $this->successResponse($result, 'UID diterima untuk registrasi kartu');
+        }
 
         return $this->successResponse($result, 'Absensi berhasil', 201);
     }
@@ -101,6 +106,12 @@ class AbsensiController extends Controller
 
     public function history(Request $request, Employee $employee)
     {
+        $request->validate([
+            'dari' => 'nullable|date',
+            'sampai' => 'nullable|date|after_or_equal:dari',
+            'per_page' => 'nullable|integer|min:1|max:1000',
+        ]);
+
         $employee->load('division');
 
         $query = Attendance::where('employee_id', $employee->id)
@@ -114,15 +125,23 @@ class AbsensiController extends Controller
             $query->whereDate('tanggal', '<=', $request->sampai);
         }
 
-        $absensi = $query->get();
+        // Summary dihitung dari SELURUH riwayat (bukan cuma halaman yang dikirim)
+        $rekap = (clone $query)
+            ->reorder()
+            ->selectRaw('status, COUNT(*) as jml')
+            ->groupBy('status')
+            ->pluck('jml', 'status');
 
         $summary = [
-            'total' => $absensi->count(),
-            'hadir' => $absensi->where('status', 'Hadir')->count(),
-            'terlambat' => $absensi->where('status', 'Terlambat')->count(),
-            'alpha' => $absensi->where('status', 'Alpha')->count(),
-            'izin' => $absensi->where('status', 'Izin')->count(),
+            'total' => (int) $rekap->sum(),
+            'hadir' => (int) ($rekap['Hadir'] ?? 0),
+            'terlambat' => (int) ($rekap['Terlambat'] ?? 0),
+            'alpha' => (int) ($rekap['Alpha'] ?? 0),
+            'izin' => (int) ($rekap['Izin'] ?? 0),
+            'sakit' => (int) ($rekap['Sakit'] ?? 0),
         ];
+
+        $absensi = $query->limit((int) $request->input('per_page', 500))->get();
 
         return $this->successResponse([
             'employee' => $employee,

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\Attendance;
 use App\Http\Requests\LaporanRequest;
+use App\Models\Attendance;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -32,13 +34,13 @@ class LaporanController extends Controller
             $search = addcslashes($validated['search'], '%_');
             $query->whereHas('employee', function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
-                  ->orWhere('nip', 'like', "%{$search}%");
+                    ->orWhere('nip', 'like', "%{$search}%");
             });
         }
 
         $laporan = $query->orderBy('tanggal', 'desc')
             ->orderBy('employee_id')
-            ->get();
+            ->paginate((int) $request->input('per_page', 100));
 
         return $this->successResponse($laporan, 'Laporan absensi berhasil diambil');
     }
@@ -49,7 +51,7 @@ class LaporanController extends Controller
             'dari' => 'required|date',
             'sampai' => 'required|date|after_or_equal:dari',
             'divisi_id' => 'nullable|exists:divisions,id',
-            'status' => 'nullable|in:' . implode(',', config('absensi.statuses')),
+            'status' => 'nullable|in:'.implode(',', config('absensi.statuses')),
             'search' => 'nullable|string|max:100',
             'format' => 'nullable|in:xlsx,csv',
         ]);
@@ -71,7 +73,7 @@ class LaporanController extends Controller
             $search = addcslashes($request->search, '%_');
             $query->whereHas('employee', function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
-                  ->orWhere('nip', 'like', "%{$search}%");
+                    ->orWhere('nip', 'like', "%{$search}%");
             });
         }
 
@@ -90,7 +92,7 @@ class LaporanController extends Controller
 
     private function exportXlsx($records, $request)
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         $headers = ['No', 'Tanggal', 'NIP', 'Nama', 'Divisi', 'Jam Masuk', 'Jam Pulang', 'Status', 'Keterangan'];
@@ -105,7 +107,7 @@ class LaporanController extends Controller
         ];
 
         foreach ($headers as $col => $header) {
-            $cellRef = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . '1';
+            $cellRef = Coordinate::stringFromColumnIndex($col + 1).'1';
             $cell = $sheet->getCell($cellRef)->setValue($header);
             $cell->getStyle()->applyFromArray($headerStyle);
         }
@@ -113,7 +115,7 @@ class LaporanController extends Controller
         $no = 1;
         $row = 2;
         foreach ($records as $record) {
-            $tanggal = $record->tanggal instanceof \Carbon\Carbon
+            $tanggal = $record->tanggal instanceof Carbon
                 ? $record->tanggal->format('d/m/Y')
                 : $record->tanggal;
 
@@ -130,7 +132,7 @@ class LaporanController extends Controller
             ];
 
             foreach ($data as $col => $value) {
-                $cellRef = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . $row;
+                $cellRef = Coordinate::stringFromColumnIndex($col + 1).$row;
                 $sheet->getCell($cellRef)->setValue($value);
             }
 
@@ -142,7 +144,7 @@ class LaporanController extends Controller
                 default => 'F9FAFB',
             };
 
-            $statusCellRef = 'H' . $row;
+            $statusCellRef = 'H'.$row;
             $sheet->getCell($statusCellRef)->getStyle()->applyFromArray([
                 'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => $statusColor]],
             ]);
@@ -154,7 +156,7 @@ class LaporanController extends Controller
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
-        $filename = 'laporan_absensi_' . $request->dari . '_sd_' . $request->sampai . '.xlsx';
+        $filename = 'laporan_absensi_'.$request->dari.'_sd_'.$request->sampai.'.xlsx';
 
         $writer = new Xlsx($spreadsheet);
         $writer->setIncludeCharts(false);
@@ -169,7 +171,7 @@ class LaporanController extends Controller
 
     private function exportCsv($records, $request)
     {
-        $filename = 'laporan_absensi_' . $request->dari . '_sd_' . $request->sampai . '.csv';
+        $filename = 'laporan_absensi_'.$request->dari.'_sd_'.$request->sampai.'.csv';
 
         $headers = [
             'Content-Type' => 'text/csv',
@@ -185,7 +187,7 @@ class LaporanController extends Controller
             foreach ($records as $row) {
                 fputcsv($file, [
                     $no++,
-                    $this->sanitizeCsvCell($row->tanggal instanceof \Carbon\Carbon
+                    $this->sanitizeCsvCell($row->tanggal instanceof Carbon
                         ? $row->tanggal->format('Y-m-d')
                         : $row->tanggal),
                     $this->sanitizeCsvCell($row->employee->nip ?? ''),
@@ -208,8 +210,9 @@ class LaporanController extends Controller
     {
         $value = (string) $value;
         if (in_array(substr($value, 0, 1), ['=', '+', '-', '@', "\t"], true)) {
-            return "\t" . $value;
+            return "\t".$value;
         }
+
         return $value;
     }
 }

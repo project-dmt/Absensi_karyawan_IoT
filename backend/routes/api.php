@@ -1,19 +1,19 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\KaryawanController;
-use App\Http\Controllers\Api\DivisiController;
-use App\Http\Controllers\Api\JadwalController;
 use App\Http\Controllers\Api\AbsensiController;
-use App\Http\Controllers\Api\LaporanController;
-use App\Http\Controllers\Api\DashboardController;
-use App\Http\Controllers\Api\GlobalSearchController;
-use App\Http\Controllers\Api\SseController;
 use App\Http\Controllers\Api\AiController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DivisiController;
+use App\Http\Controllers\Api\EspConfigController;
+use App\Http\Controllers\Api\GlobalSearchController;
+use App\Http\Controllers\Api\JadwalController;
+use App\Http\Controllers\Api\KaryawanController;
+use App\Http\Controllers\Api\LaporanController;
 use App\Http\Controllers\Api\RfidScanController;
 use App\Http\Controllers\Api\ServerTimeController;
-use App\Http\Controllers\Api\EspConfigController;
+use App\Http\Controllers\Api\SseController;
+use Illuminate\Support\Facades\Route;
 
 // =====================================================
 // PUBLIC API - Endpoint untuk ESP32 (API Key Auth)
@@ -22,7 +22,8 @@ Route::post('/absensi', [AbsensiController::class, 'storeFromDevice'])
     ->middleware(['api.key', 'throttle:60,1'])
     ->name('api.absensi.device');
 
-// ESP32 melaporkan kartu discan; kalau ada sesi registrasi, UID ditangkap
+// LEGACY: firmware lama masih POST ke sini sebelum alur digabung ke POST /absensi.
+// Firmware >= 2026-09 tidak memanggil endpoint ini (mode register ikut di /absensi).
 Route::post('/rfid/announce', [RfidScanController::class, 'announce'])
     ->middleware(['api.key', 'throttle:60,1'])
     ->name('api.rfid.announce');
@@ -45,7 +46,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
     Route::get('/user', [AuthController::class, 'user'])->name('api.user');
-    Route::get('/server-time', [AuthController::class, 'serverTime'])->name('api.server-time');
     Route::post('/change-password', [AuthController::class, 'changePassword'])
         ->middleware('throttle:change-password')
         ->name('api.change-password');
@@ -109,10 +109,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/esp/config', [EspConfigController::class, 'store'])->name('esp.config');
     Route::get('/esp/{ip}/status', [EspConfigController::class, 'check'])->name('esp.status');
 });
-
-// Server time (public — untuk jam topbar FE, sinkron semua device)
-Route::get('/server-time', [ServerTimeController::class, 'show'])
-        ->name('api.server-time');
 
 // Realtime SSE Stream (token via query string — EventSource tidak bisa pakai header)
 Route::get('/absensi/stream', [SseController::class, 'stream'])

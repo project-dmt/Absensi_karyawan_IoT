@@ -6,7 +6,7 @@
 // =====================================================
 // true  = Offline mode (tanpa backend, untuk testing hardware)
 // false = Online mode (butuh backend Laravel)
-#define OFFLINE_MODE    true
+#define OFFLINE_MODE    false
 
 // Nama Access Point saat konfigurasi web (captive portal)
 // Browser konek ke WiFi "AbsensiRFID-Config" lalu buka http://192.168.4.1
@@ -46,14 +46,24 @@
 // Pin Buzzer (SISI KIRI)
 // =====================================================
 #define BUZZER_PIN      26
+// 1 = modul buzzer active LOW (I/O LOW = bunyi) — umum di modul 3 pin "low level trigger"
+// 0 = buzzer active HIGH (I/O HIGH = bunyi)
+#define BUZZER_ACTIVE_LOW   0
+
+// =====================================================
+// Pin untuk RESET konfigurasi web
+// Tahan tombol BOOT (GPIO0) 5 detik -> config dihapus & portal kebuka.
+// =====================================================
+#define CONFIG_BUTTON_PIN       0
+#define CONFIG_RESET_HOLD_MS    5000
 
 // =====================================================
 // Timing
 // =====================================================
 #define WIFI_TIMEOUT_MS         15000
-#define HTTP_TIMEOUT_MS         10000
-#define DISPLAY_DELAY_MS        3000
-#define DEBOUNCE_DELAY_MS       2000
+#define HTTP_TIMEOUT_MS         5000
+#define DISPLAY_DELAY_MS        1000
+#define DEBOUNCE_DELAY_MS       500
 #define WIFI_RECONNECT_MS       5000
 #define PORTAL_AUTO_MS          180000   // auto buka portal kalau WiFi putus > 3 menit
 

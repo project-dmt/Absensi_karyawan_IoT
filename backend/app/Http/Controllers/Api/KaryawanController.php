@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\Employee;
 use App\Http\Requests\StoreKaryawanRequest;
 use App\Http\Requests\UpdateKaryawanRequest;
-use App\Exceptions\ApiException;
+use App\Models\Employee;
 use App\Services\AuditLogService;
+use Illuminate\Http\Request;
 
 class KaryawanController extends Controller
 {
@@ -18,7 +18,8 @@ class KaryawanController extends Controller
             'search' => 'nullable|string|max:100',
             'divisi_id' => 'nullable|exists:divisions,id',
             'status' => 'nullable|in:aktif,nonaktif',
-            'per_page' => 'nullable|integer|min:1|max:100',
+            'per_page' => 'nullable|integer|min:1|max:500',
+            'page' => 'nullable|integer|min:1',
         ]);
 
         $query = Employee::with('division');
@@ -27,8 +28,8 @@ class KaryawanController extends Controller
             $search = addcslashes($request->search, '%_');
             $query->where(function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
-                  ->orWhere('nip', 'like', "%{$search}%")
-                  ->orWhere('rfid_uid', 'like', "%{$search}%");
+                    ->orWhere('nip', 'like', "%{$search}%")
+                    ->orWhere('rfid_uid', 'like', "%{$search}%");
             });
         }
 
@@ -40,7 +41,8 @@ class KaryawanController extends Controller
             $query->where('status', $request->status);
         }
 
-        $karyawan = $query->orderBy('nama')->get();
+        $perPage = (int) $request->input('per_page', 100);
+        $karyawan = $query->orderBy('nama')->paginate($perPage);
 
         return $this->successResponse($karyawan, 'Data karyawan berhasil diambil');
     }

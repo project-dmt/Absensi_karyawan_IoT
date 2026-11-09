@@ -2,24 +2,46 @@
 
 namespace App\Services;
 
-use App\Models\Employee;
-use App\Models\Attendance;
-use App\Models\Schedule;
 use App\Exceptions\ApiException;
-use App\Services\RealtimeEventService;
+use App\Models\Attendance;
+use App\Models\Employee;
+use App\Models\RfidScan;
+use App\Models\Schedule;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class AbsensiService
 {
+    /**
+     * Entry point untuk tap kartu dari ESP32.
+     *
+     * Flow:
+     *  1. Kalau ada sesi registrasi kartu yang masih waiting (admin lagi nunggu tap
+     *     di form karyawan), UID kartu langsung ditangkap ke sesi itu.
+     *  2. Kalau kartu itu milik karyawan yang sudah terdaftar, absensi tetap diproses
+     *     normal (biar tap-nya tidak hilang) dan digabung dengan mode register.
+     *  3. Kalau kartu belum dikenal dan tidak ada sesi registrasi -> error 404.
+     */
     public function processFromDevice(string $rfidUid): array
     {
-        return DB::transaction(function () use ($rfidUid) {
-            $karyawan = Employee::where('rfid_uid', $rfidUid)
-                ->lockForUpdate()
-                ->first();
+        // Normalisasi UID: ESP32 kirim hex uppercase, tapi tetep aman kalau ada spasi/case beda
+        $uid = strtoupper(trim($rfidUid));
 
-            if (!$karyawan) {
+        $captured = $this->captureForRegistration($uid);
+
+        $result = DB::transaction(function () use ($uid, $captured) {
+            $karyawan = $this->findEmployeeByUid($uid);
+
+            if (! $karyawan) {
+                // Kartu belum terdaftar. Kalau sesi registrasi yang menangkapnya,
+                // ini sukses (admin tinggal simpan karyawannya).
+                if ($captured) {
+                    return [
+                        'mode' => 'register',
+                        'uid' => $uid,
+                    ];
+                }
+
                 throw new ApiException('Kartu RFID tidak terdaftar', 404);
             }
 
@@ -40,6 +62,55 @@ class AbsensiService
 
             return $this->handleCheckin($karyawan, $today);
         });
+
+        // Kartu lama yang ikut ketangkap sesi registrasi: gabung mode register ke hasil absensi
+        if ($captured && ! isset($result['mode'])) {
+            $result['mode'] = 'register';
+            $result['uid'] = $uid;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Tangkap UID ke sesi registrasi yang masih waiting (kalau ada).
+     *
+     * @return bool true kalau UID berhasil ditangkap
+     */
+    private function captureForRegistration(string $uid): bool
+    {
+        return DB::transaction(function () use ($uid) {
+            $pending = RfidScan::where('status', 'waiting')
+                ->where('expires_at', '>', now())
+                ->orderByDesc('id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $pending) {
+                return false;
+            }
+
+            $pending->update(['status' => 'completed', 'uid' => $uid]);
+
+            return true;
+        });
+    }
+
+    /**
+     * Cari karyawan berdasarkan rfid_uid (exact dulu, fallback case-insensitive).
+     */
+    private function findEmployeeByUid(string $uid): ?Employee
+    {
+        $karyawan = Employee::where('rfid_uid', $uid)->lockForUpdate()->first();
+
+        if ($karyawan) {
+            return $karyawan;
+        }
+
+        // Fallback: UID tersimpan dengan huruf kecil (data lama)
+        return Employee::whereRaw('UPPER(rfid_uid) = ?', [$uid])
+            ->lockForUpdate()
+            ->first();
     }
 
     public function processManual(array $data, int $userId): Attendance
@@ -55,6 +126,7 @@ class AbsensiService
             }
 
             $data['input_by'] = $userId;
+
             return Attendance::create($data);
         });
     }
@@ -65,7 +137,7 @@ class AbsensiService
 
         if (in_array($absensi->status, $noCheckoutStatuses)) {
             throw new ApiException(
-                'Absensi dengan status ' . $absensi->status . ' tidak bisa checkout'
+                'Absensi dengan status '.$absensi->status.' tidak bisa checkout'
             );
         }
 
