@@ -57,7 +57,10 @@
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi",
-            "@php -r \"eval(base64_decode('JHAgPSAndmVuZG9yL2xhcmF2ZWwvYWkvc3JjL0dhdGV3YXkvT3BlbkFpQ29tcGF0aWJsZS9Db25jZXJucy9IYW5kbGVzVGV4dFN0cmVhbWluZy5waHAnOwppZiAoIWZpbGVfZXhpc3RzKCRwKSkgeyBleGl0OyB9CiRmID0gZmlsZV9nZXRfY29udGVudHMoJHApOwokcGFpcnMgPSBbCiAgICAiXCRpZHggPSBcJHRjRGVsdGFbJ2luZGV4J107IiA9PiAiXCRpZHggPSBcJHRjRGVsdGFbJ2luZGV4J10gPz8gXCR0Y0RlbHRhWydpZCddID8/IGNvdW50KFwkcGVuZGluZ1Rvb2xDYWxscyk7IiwKICAgICJpZiAoZmlsbGVkKFwkcGVuZGluZ1Rvb2xDYWxscykgJiYgXCRmaW5pc2hSZWFzb24gPT09ICd0b29sX2NhbGxzJykgeyIgPT4gImlmIChmaWxsZWQoXCRwZW5kaW5nVG9vbENhbGxzKSAmJiBpbl9hcnJheShcJGZpbmlzaFJlYXNvbiwgWyd0b29sX2NhbGxzJywgJ3N0b3AnXSwgdHJ1ZSkpIHsiLAogICAgIidmaW5pc2hfcmVhc29uJyA9PiBcJGZpbmlzaFJlYXNvbiA/PyAnJyIgPT4gIidmaW5pc2hfcmVhc29uJyA9PiBmaWxsZWQoXCR0b29sQ2FsbHMpID8gJ3Rvb2xfY2FsbHMnIDogKFwkZmluaXNoUmVhc29uID8/ICcnKSIsCl07CiRuID0gMDsKZm9yZWFjaCAoJHBhaXJzIGFzICRvbGQgPT4gJG5ldykgewogICAgJGMgPSBzdWJzdHJfY291bnQoJGYsICRvbGQpOwogICAgaWYgKCRjID4gMCkgeyAkZiA9IHN0cl9yZXBsYWNlKCRvbGQsICRuZXcsICRmKTsgJG4gKz0gJGM7IH0KfQppZiAoJG4gPiAwKSB7CiAgICBmaWxlX3B1dF9jb250ZW50cygkcCwgJGYpOwogICAgZWNobyAiW2xhcmF2ZWwvYWldIGhvdGZpeGVkICgkbiByZXBsYWNlbWVudHMpLiI7Cn0gZWxzZSB7CiAgICBlY2hvICdbbGFyYXZlbC9haV0gcGF0dGVybnMgbm90IGZvdW5kIC0gdmVyc2lvbiBjaGFuZ2VkPyBza2lwLic7Cn0='));\""
+            "@php scripts/patch-laravel-ai.php"
+        ],
+        "patch:ai": [
+            "@php scripts/patch-laravel-ai.php"
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
