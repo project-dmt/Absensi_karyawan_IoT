@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useRealtime } from "../hooks/useRealtime";
+import { useEspStatus } from "../hooks/useEspStatus";
 import StatusBadge from "../components/StatusBadge";
 import EmptyState from "../components/EmptyState";
 import {
@@ -34,30 +35,6 @@ const SESSION_CARDS = [
   },
 ];
 
-const STATUS_UI = {
-  live: {
-    label: "Live",
-    dot: "bg-emerald-500",
-    text: "text-emerald-600",
-    icon: Wifi,
-    description: "Terhubung ke stream realtime perangkat.",
-  },
-  reconnecting: {
-    label: "Menyambungkan ulang...",
-    dot: "bg-amber-500 animate-pulse",
-    text: "text-amber-600",
-    icon: WifiOff,
-    description: "Koneksi terputus, mencoba menyambung kembali tiap 3 detik.",
-  },
-  connecting: {
-    label: "Menyambungkan...",
-    dot: "bg-amber-500 animate-pulse",
-    text: "text-amber-600",
-    icon: WifiOff,
-    description: "Membuka koneksi ke stream realtime.",
-  },
-};
-
 function formatJam(ev) {
   if (ev.jam) return ev.jam;
   if (!ev.created_at) return "-";
@@ -69,8 +46,24 @@ function formatJam(ev) {
 }
 
 export default function LiveMonitoring() {
-  const { events, status } = useRealtime(true);
-  const ui = STATUS_UI[status] || STATUS_UI.connecting;
+  const { events } = useRealtime(true);
+  const { status: espStatus } = useEspStatus();
+  const espConnected = espStatus === "connected";
+  const ui = espConnected
+    ? {
+        label: "Terhubung",
+        dot: "bg-emerald-500",
+        text: "text-emerald-600",
+        icon: Wifi,
+        description: "ESP32 terhubung ke server.",
+      }
+    : {
+        label: "Tidak",
+        dot: "bg-rose-500",
+        text: "text-rose-600",
+        icon: WifiOff,
+        description: "ESP32 tidak terdeteksi.",
+      };
 
   const stats = useMemo(
     () => ({
@@ -133,7 +126,7 @@ export default function LiveMonitoring() {
           {events.length === 0 ? (
             <EmptyState
               message={
-                status === "live"
+                espConnected
                   ? "Terhubung. Menunggu aktivitas tap RFID dari perangkat..."
                   : "Belum ada event realtime. Pastikan perangkat ESP32 aktif dan terhubung."
               }

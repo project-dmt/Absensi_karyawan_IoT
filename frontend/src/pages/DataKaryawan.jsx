@@ -14,7 +14,8 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import {
   Check,
   CheckCircle2,
-  Eye,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   Pencil,
   Plus,
@@ -30,7 +31,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -62,6 +63,8 @@ const INITIAL_FORM = {
   status: "aktif",
 };
 
+const PAGE_SIZE = 20;
+
 export default function DataKaryawan() {
   const queryClient = useQueryClient();
   const { data = [], isPending } = useKaryawanList();
@@ -69,6 +72,7 @@ export default function DataKaryawan() {
   const deleteKaryawan = useDeleteKaryawan();
 
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
@@ -291,6 +295,13 @@ export default function DataKaryawan() {
       item.rfid_uid.toLowerCase().includes(search.toLowerCase())
   );
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = filtered.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE
+  );
+
   return (
     <div>
       <div className="page-header">
@@ -326,7 +337,10 @@ export default function DataKaryawan() {
             type="text"
             placeholder="Cari nama, NIP, atau UID..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </InputGroup>
       </div>
@@ -354,9 +368,11 @@ export default function DataKaryawan() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((item, idx) => (
+                  {pageRows.map((item, idx) => (
                     <TableRow key={item.id}>
-                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell>
+                        {(safePage - 1) * PAGE_SIZE + idx + 1}
+                      </TableCell>
                       <TableCell className="font-medium">{item.nama}</TableCell>
                       <TableCell>
                         <code>{item.nip}</code>
@@ -393,6 +409,31 @@ export default function DataKaryawan() {
                 </TableBody>
               </Table>
             </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
+                <small className="text-muted-foreground">
+                  Halaman {safePage} dari {totalPages}
+                </small>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  title="Sebelumnya"
+                >
+                  <ChevronLeft />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  title="Berikutnya"
+                >
+                  <ChevronRight />
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

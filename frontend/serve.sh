@@ -4,7 +4,8 @@
 
 set -e
 
-LOCAL_IP=$(hostname -I | awk '{print $1}')
+LOCAL_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')
+[ -z "$LOCAL_IP" ] && LOCAL_IP=$(hostname -I | awk '{print $1}')
 
 if [ -z "$LOCAL_IP" ]; then
     echo "Gagal deteksi IP lokal. Pastikan terhubung ke WiFi."
@@ -20,8 +21,8 @@ echo "  Backend    : http://$LOCAL_IP:8000"
 echo "========================================"
 echo ""
 
-# Update API URL biar指向 backend di IP lokal
-export VITE_API_URL="http://$LOCAL_IP:8000/api"
+# API URL otomatis ngikut hostname browser (lihat src/api/axios.js)
+export VITE_API_URL=""
 
 # Start Vite dev server — bind 0.0.0.0 biar bisa diakses LAN
 npx vite --host 0.0.0.0 --port 5173

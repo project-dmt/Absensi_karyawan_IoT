@@ -22,6 +22,7 @@ const DataDivisi = lazy(() => import("./pages/DataDivisi"));
 const JamKerja = lazy(() => import("./pages/JamKerja"));
 const InputAbsensiManual = lazy(() => import("./pages/InputAbsensiManual"));
 const LaporanAbsensi = lazy(() => import("./pages/LaporanAbsensi"));
+const LaporanGrafik = lazy(() => import("./pages/LaporanGrafik"));
 const DetailKaryawan = lazy(() => import("./pages/DetailKaryawan"));
 const DetailDivisi = lazy(() => import("./pages/DetailDivisi"));
 const DetailDashboard = lazy(() => import("./pages/DetailDashboard"));
@@ -125,6 +126,12 @@ const laporanAbsensiRoute = createRoute({
   component: LaporanAbsensi,
 });
 
+const laporanGrafikRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/laporan-grafik",
+  component: LaporanGrafik,
+});
+
 const liveMonitoringRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: "/live-monitoring",
@@ -161,6 +168,7 @@ const routeTree = rootRoute.addChildren([
     jamKerjaRoute,
     inputAbsensiManualRoute,
     laporanAbsensiRoute,
+    laporanGrafikRoute,
     liveMonitoringRoute,
     semuaAbsensiRoute,
     perangkatIoTRoute,

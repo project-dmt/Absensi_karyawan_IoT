@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRealtime } from "../hooks/useRealtime";
+import { useEspStatus } from "../hooks/useEspStatus";
 import api from "../api/axios";
 import {
   Activity,
@@ -8,7 +9,6 @@ import {
   KeyRound,
   Loader2,
   Nfc,
-  Radio,
   Search,
   Send,
   Settings,
@@ -22,6 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+const EVENT_ONLINE_WINDOW_MS = 15 * 60 * 1000;
 
 const FIRMWARE_CONFIG = [
   { key: "WIFI_SSID / WIFI_PASSWORD", value: "Kredensial WiFi lokal" },
@@ -41,15 +43,35 @@ function formatJam(ev) {
 }
 
 export default function PerangkatIoT() {
-  const { events, status } = useRealtime(true);
+  const { events } = useRealtime(true);
+  const {
+    ip: espIp,
+    setIp: setEspIp,
+    status: espStatus,
+    info: espInfo,
+    checking,
+    check: checkEsp,
+  } = useEspStatus();
   const lastEvent = events[0];
+  const [now, setNow] = useState(() => Date.now());
 
-  const [espIp, setEspIp] = useState("");
   const [serverUrl, setServerUrl] = useState("");
-  const [espInfo, setEspInfo] = useState(null);
-  const [checking, setChecking] = useState(false);
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState(null);
+  const espConnected = espStatus === "connected";
+  const lastEventTime = lastEvent?.created_at
+    ? new Date(lastEvent.created_at).getTime()
+    : 0;
+  const recentEvent =
+    Number.isFinite(lastEventTime) &&
+    lastEventTime > 0 &&
+    now - lastEventTime <= EVENT_ONLINE_WINDOW_MS;
+  const deviceOnline = espConnected || recentEvent;
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let on = true;
@@ -81,25 +103,20 @@ export default function PerangkatIoT() {
       setNotice({ type: "error", title: "IP kosong", message: "Isi alamat IP ESP dulu." });
       return;
     }
-    setChecking(true);
     setNotice(null);
-    try {
-      const res = await api.get(`/esp/${espIp.trim()}/status`);
-      setEspInfo(res.data?.data);
+    const ok = await checkEsp(espIp, { silent: false });
+    if (ok) {
       setNotice({
         type: "success",
         title: "Perangkat ditemukan",
         message: `ESP aktif di ${espIp.trim()}.`,
       });
-    } catch (err) {
-      setEspInfo(null);
+    } else {
       setNotice({
         type: "error",
         title: "Tidak merespon",
-        message: err.response?.data?.message || "ESP di IP tersebut tidak bisa dijangkau.",
+        message: "ESP di IP tersebut tidak bisa dijangkau.",
       });
-    } finally {
-      setChecking(false);
     }
   };
 
@@ -140,34 +157,36 @@ export default function PerangkatIoT() {
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center gap-2 py-4">
-            <Radio className="size-4 text-muted-foreground" />
+            <Wifi className="size-4 text-muted-foreground" />
             <CardTitle className="text-sm font-semibold">
-              Koneksi Realtime
+              Status Perangkat
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              {status === "live" ? (
+              {deviceOnline ? (
                 <>
                   <span className="size-2.5 rounded-full bg-emerald-500" aria-hidden="true" />
-                  <Badge className="rounded-md badge-status-aktif">Stream Aktif</Badge>
+                  <Badge className="rounded-md badge-status-aktif">Terhubung</Badge>
                 </>
               ) : (
                 <>
-                  <WifiOff className="size-4 text-amber-500" />
-                  <Badge className="rounded-md badge-status-nonaktif">
-                    {status === "reconnecting" ? "Menyambungkan Ulang" : "Menyambungkan"}
-                  </Badge>
+                  <WifiOff className="size-4 text-rose-500" />
+                  <Badge className="rounded-md badge-status-nonaktif">Tidak</Badge>
                 </>
               )}
-              {status === "live" ? (
+              {deviceOnline ? (
                 <Wifi className="ms-auto size-4 text-emerald-500" />
               ) : null}
             </div>
             <small className="mt-2 block text-muted-foreground">
-              {status === "live"
-                ? "Dashboard menerima event realtime dari perangkat."
-                : "Stream SSE belum aktif. Perangkat akan terdeteksi otomatis saat tap pertama diterima."}
+              {espConnected
+                ? "ESP32 terhubung langsung ke server."
+                : recentEvent
+                  ? "Terdeteksi aktif dari absensi terakhir."
+                  : espIp
+                    ? "ESP32 tidak merespon. Cek IP dan pastikan satu jaringan."
+                    : "Belum ada aktivitas absensi terbaru. Isi IP ESP untuk cek langsung."}
             </small>
           </CardContent>
         </Card>

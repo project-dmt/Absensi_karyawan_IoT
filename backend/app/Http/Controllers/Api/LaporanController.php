@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LaporanRequest;
 use App\Models\Attendance;
+use App\Models\Division;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -43,6 +44,200 @@ class LaporanController extends Controller
             ->paginate((int) $request->input('per_page', 100));
 
         return $this->successResponse($laporan, 'Laporan absensi berhasil diambil');
+    }
+
+    public function grafik(Request $request)
+    {
+        $validated = $request->validate([
+            'dari' => 'required|date',
+            'sampai' => 'required|date|after_or_equal:dari',
+            'periode' => 'required|in:harian,mingguan,bulanan',
+            'divisi_id' => 'nullable|exists:divisions,id',
+        ]);
+
+        $dari = Carbon::parse($validated['dari'])->startOfDay();
+        $sampai = Carbon::parse($validated['sampai'])->startOfDay();
+        $periode = $validated['periode'];
+        $divisiId = $validated['divisi_id'] ?? null;
+
+        $buckets = $this->buildGrafikBuckets($dari, $sampai, $periode);
+        $bucketIndex = [];
+        foreach ($buckets as $index => $bucket) {
+            $bucketIndex[$bucket['key']] = $index;
+        }
+
+        $divisionQuery = Division::query()->orderBy('nama_divisi');
+        if ($divisiId) {
+            $divisionQuery->whereKey($divisiId);
+        }
+        $divisions = $divisionQuery->get(['id', 'nama_divisi']);
+
+        $records = Attendance::query()
+            ->with('employee:id,divisi_id')
+            ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
+            ->when($divisiId, function ($query) use ($divisiId) {
+                $query->whereHas('employee', fn ($q) => $q->where('divisi_id', $divisiId));
+            })
+            ->get(['id', 'employee_id', 'tanggal', 'status']);
+
+        $statuses = config('absensi.statuses', ['Hadir', 'Terlambat', 'Alpha', 'Izin', 'Sakit']);
+        $divisionSeries = [];
+
+        foreach ($divisions as $division) {
+            $divisionSeries[$division->id] = [
+                'id' => $division->id,
+                'nama_divisi' => $division->nama_divisi,
+                'counts' => array_fill(0, count($buckets), 0),
+                'total' => 0,
+                'status_counts' => array_fill_keys($statuses, 0),
+                'total_records' => 0,
+            ];
+        }
+
+        $totals = array_fill_keys($statuses, 0);
+
+        foreach ($records as $record) {
+            $employeeDivisionId = $record->employee?->divisi_id;
+
+            if ($employeeDivisionId === null) {
+                if ($divisiId) {
+                    continue;
+                }
+
+                if (! isset($divisionSeries[0])) {
+                    $divisionSeries[0] = [
+                        'id' => 0,
+                        'nama_divisi' => 'Tanpa Divisi',
+                        'counts' => array_fill(0, count($buckets), 0),
+                        'total' => 0,
+                        'status_counts' => array_fill_keys($statuses, 0),
+                        'total_records' => 0,
+                    ];
+                }
+
+                $employeeDivisionId = 0;
+            }
+
+            if (! isset($divisionSeries[$employeeDivisionId])) {
+                continue;
+            }
+
+            $bucketKey = $this->grafikBucketKey(Carbon::parse($record->tanggal), $periode);
+            $bucketPosition = $bucketIndex[$bucketKey] ?? null;
+
+            if ($bucketPosition === null) {
+                continue;
+            }
+
+            $status = $record->status;
+            $totals[$status] = ($totals[$status] ?? 0) + 1;
+            $divisionSeries[$employeeDivisionId]['status_counts'][$status] =
+                ($divisionSeries[$employeeDivisionId]['status_counts'][$status] ?? 0) + 1;
+            $divisionSeries[$employeeDivisionId]['total_records']++;
+
+            if (in_array($status, ['Hadir', 'Terlambat'], true)) {
+                $divisionSeries[$employeeDivisionId]['counts'][$bucketPosition]++;
+                $divisionSeries[$employeeDivisionId]['total']++;
+            }
+        }
+
+        $divisionsOut = array_values($divisionSeries);
+        usort($divisionsOut, function (array $a, array $b) {
+            if ($a['id'] === 0) {
+                return 1;
+            }
+            if ($b['id'] === 0) {
+                return -1;
+            }
+
+            return strcmp($a['nama_divisi'], $b['nama_divisi']);
+        });
+
+        $maxValue = 1;
+        $maxTotal = 1;
+        foreach ($divisionsOut as $series) {
+            $maxValue = max($maxValue, ...$series['counts']);
+            $maxTotal = max($maxTotal, $series['total']);
+        }
+
+        $totalRecords = array_sum($totals);
+        $totalKehadiran = ($totals['Hadir'] ?? 0) + ($totals['Terlambat'] ?? 0);
+        $totals['total_kehadiran'] = $totalKehadiran;
+        $totals['total_records'] = $totalRecords;
+
+        return $this->successResponse([
+            'periode' => $periode,
+            'dari' => $dari->toDateString(),
+            'sampai' => $sampai->toDateString(),
+            'buckets' => $buckets,
+            'divisions' => $divisionsOut,
+            'totals' => $totals,
+            'max_value' => $maxValue,
+            'max_total' => $maxTotal,
+        ], 'Data grafik kehadiran berhasil diambil');
+    }
+
+    private function buildGrafikBuckets(Carbon $dari, Carbon $sampai, string $periode): array
+    {
+        $buckets = [];
+
+        if ($periode === 'harian') {
+            $cursor = $dari->copy();
+            while ($cursor->lte($sampai)) {
+                $buckets[] = [
+                    'key' => $cursor->toDateString(),
+                    'label' => $cursor->copy()->locale('id')->translatedFormat('d M'),
+                    'start' => $cursor->toDateString(),
+                    'end' => $cursor->toDateString(),
+                ];
+                $cursor->addDay();
+            }
+
+            return $buckets;
+        }
+
+        if ($periode === 'mingguan') {
+            $cursor = $dari->copy()->startOfWeek(Carbon::MONDAY);
+            $last = $sampai->copy()->startOfWeek(Carbon::MONDAY);
+
+            while ($cursor->lte($last)) {
+                $weekEnd = $cursor->copy()->endOfWeek(Carbon::SUNDAY);
+                $buckets[] = [
+                    'key' => $cursor->toDateString(),
+                    'label' => $cursor->copy()->locale('id')->translatedFormat('d M')
+                        .' - '.$weekEnd->copy()->locale('id')->translatedFormat('d M'),
+                    'start' => $cursor->toDateString(),
+                    'end' => $weekEnd->toDateString(),
+                ];
+                $cursor->addWeek();
+            }
+
+            return $buckets;
+        }
+
+        $cursor = $dari->copy()->startOfMonth();
+        $last = $sampai->copy()->startOfMonth();
+
+        while ($cursor->lte($last)) {
+            $buckets[] = [
+                'key' => $cursor->format('Y-m'),
+                'label' => $cursor->copy()->locale('id')->translatedFormat('M Y'),
+                'start' => $cursor->toDateString(),
+                'end' => $cursor->copy()->endOfMonth()->toDateString(),
+            ];
+            $cursor->addMonth();
+        }
+
+        return $buckets;
+    }
+
+    private function grafikBucketKey(Carbon $date, string $periode): string
+    {
+        return match ($periode) {
+            'harian' => $date->toDateString(),
+            'mingguan' => $date->copy()->startOfWeek(Carbon::MONDAY)->toDateString(),
+            'bulanan' => $date->format('Y-m'),
+        };
     }
 
     public function export(Request $request)

@@ -1,7 +1,15 @@
 import axios from "axios";
 
+const envBaseUrl = import.meta.env.VITE_API_URL;
+const isLocalBaseUrl =
+  !envBaseUrl || /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(envBaseUrl);
+
+const baseURL = isLocalBaseUrl
+  ? `${window.location.protocol}//${window.location.hostname}:8000/api`
+  : envBaseUrl;
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000/api",
+  baseURL,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",

@@ -351,6 +351,16 @@ bool connectStoredWiFi() {
 
     Serial.printf("Menghubungkan WiFi: %s\n", ssid.c_str());
     WiFi.mode(WIFI_STA);
+    int scanCount = WiFi.scanNetworks();
+    Serial.printf("[WIFI] scan=%d\n", scanCount);
+    for (int i = 0; i < scanCount; i++) {
+        if (WiFi.SSID(i) == ssid) {
+            Serial.printf("[WIFI] target rssi=%d ch=%d enc=%d\n",
+                WiFi.RSSI(i), WiFi.channel(i), (int)WiFi.encryptionType(i));
+        }
+    }
+    WiFi.scanDelete();
+    Serial.printf("[WIFI] begin ssid=%s pass_len=%u\n", ssid.c_str(), appConfig.password().length());
     WiFi.begin(ssid.c_str(), appConfig.password().c_str());
 
     unsigned long start = millis();
@@ -501,6 +511,15 @@ void handleResponse(const String &json) {
 // =====================================================
 void setup() {
     Serial.begin(115200);
+    WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
+        if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+            Serial.printf("[WIFI] Disconnected reason=%u\n", info.wifi_sta_disconnected.reason);
+        } else if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+            Serial.println("[WIFI] Associated");
+        } else if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
+            Serial.printf("[WIFI] Got IP: %s\n", WiFi.localIP().toString().c_str());
+        }
+    });
     Serial.println("\n=== Sistem Absensi Karyawan IoT RFID ===");
 
     appConfig.begin();
@@ -601,16 +620,16 @@ void setup() {
             }
         }
 
-        lcdShowWifiStatus(wifiOk && WiFi.status() == WL_CONNECTED);
-
-        if (WiFi.status() != WL_CONNECTED) {
+        if (portalActive) {
             lcd.clear();
-            lcdLine(0, "WiFi Gagal!");
-            lcdLine(1, "Buka 192.168.4.1");
-        } else {
+            lcdLine(0, "SET KONFIG");
+            lcdLine(1, "192.168.4.1");
+        } else if (WiFi.status() == WL_CONNECTED) {
             lcd.clear();
             lcdLine(0, "WiFi Terhubung");
             lcdLine(1, WiFi.localIP().toString());
+        } else {
+            lcdShowWifiStatus(false);
         }
 
         delay(1500);

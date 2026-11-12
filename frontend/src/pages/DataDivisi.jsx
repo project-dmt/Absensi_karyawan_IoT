@@ -13,7 +13,7 @@ import {
   useUpdateDivisi,
   useDeleteDivisi,
 } from "../api/queries";
-import { Check, Eye, Loader2, Network, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Eye, Loader2, Network, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +34,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const PAGE_SIZE = 20;
+
 export default function DataDivisi() {
   const router = useRouter();
   const { data = [], isPending } = useDivisiList();
@@ -41,6 +43,7 @@ export default function DataDivisi() {
   const updateDivisi = useUpdateDivisi();
   const deleteDivisi = useDeleteDivisi();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const debouncedSearch = useDebounce(search);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -52,6 +55,13 @@ export default function DataDivisi() {
 
   const filtered = data.filter((item) =>
     item.nama_divisi.toLowerCase().includes(debouncedSearch.toLowerCase())
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = filtered.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE
   );
 
   const openAdd = () => {
@@ -110,7 +120,10 @@ export default function DataDivisi() {
             type="text"
             placeholder="Cari divisi..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </InputGroup>
       </div>
@@ -136,9 +149,11 @@ export default function DataDivisi() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((item, idx) => (
+                  {pageRows.map((item, idx) => (
                     <TableRow key={item.id}>
-                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell>
+                        {(safePage - 1) * PAGE_SIZE + idx + 1}
+                      </TableCell>
                       <TableCell className="font-medium">
                         {item.nama_divisi}
                       </TableCell>
@@ -182,6 +197,31 @@ export default function DataDivisi() {
                 </TableBody>
               </Table>
             </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
+                <small className="text-muted-foreground">
+                  Halaman {safePage} dari {totalPages}
+                </small>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  title="Sebelumnya"
+                >
+                  <ChevronLeft />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  title="Berikutnya"
+                >
+                  <ChevronRight />
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

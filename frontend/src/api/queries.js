@@ -28,7 +28,8 @@ export const laporanKeys = {
 export function useKaryawanList() {
   return useQuery({
     queryKey: karyawanKeys.all,
-    queryFn: async () => normalizeList(await api.get("/karyawan")),
+    // Backend sudah paginate; ambil satu halaman besar biar pencarian client-side tetap kena semua data.
+    queryFn: async () => normalizeList(await api.get("/karyawan", { params: { per_page: 500 } })),
   });
 }
 
@@ -44,9 +45,13 @@ export function useKaryawanAbsensi(id) {
   return useQuery({
     queryKey: karyawanKeys.absensi(id),
     queryFn: async () => {
-      const res = await api.get(`/karyawan/${id}/absensi`);
-      const riwayat = res.data.data?.riwayat;
-      return Array.isArray(riwayat?.data) ? riwayat.data : [];
+      const res = await api.get(`/karyawan/${id}/absensi`, {
+        params: { per_page: 500 },
+      });
+      // Backend kirim { employee, absensi, summary }
+      const payload = res.data.data;
+      const list = payload?.absensi ?? payload?.riwayat;
+      return Array.isArray(list) ? list : Array.isArray(list?.data) ? list.data : [];
     },
     enabled: Boolean(id),
   });
@@ -72,6 +77,15 @@ export function useLaporan(params, options = {}) {
     queryKey: laporanKeys.filtered(params),
     queryFn: async () => normalizeList(await api.get("/laporan", { params })),
     enabled: Boolean(params?.dari && params?.sampai),
+    ...options,
+  });
+}
+
+export function useLaporanGrafik(params, options = {}) {
+  return useQuery({
+    queryKey: ["laporan", "grafik", params],
+    queryFn: async () => (await api.get("/laporan/grafik", { params })).data.data,
+    enabled: Boolean(params?.dari && params?.sampai && params?.periode),
     ...options,
   });
 }

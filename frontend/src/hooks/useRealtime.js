@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../api/axios';
 
-// status: "connecting" | "live" | "reconnecting"
 export function useRealtime(enabled = true) {
   const [events, setEvents] = useState([]);
-  const [status, setStatus] = useState('connecting');
   const lastIdRef = useRef(0);
   const reconnectTimeoutRef = useRef(null);
 
@@ -21,10 +19,6 @@ export function useRealtime(enabled = true) {
       const url = `${api.defaults.baseURL}/absensi/stream?lastId=${lastIdRef.current}&token=${token}`;
 
       eventSource = new EventSource(url);
-
-      eventSource.onopen = () => {
-        setStatus('live');
-      };
 
       const handleEvent = (e) => {
         try {
@@ -49,7 +43,6 @@ export function useRealtime(enabled = true) {
 
       eventSource.onerror = () => {
         eventSource.close();
-        setStatus('reconnecting');
         if (isActive) {
           reconnectTimeoutRef.current = setTimeout(connect, 3000);
         }
@@ -65,5 +58,5 @@ export function useRealtime(enabled = true) {
     };
   }, [enabled]);
 
-  return { events, status };
+  return { events };
 }

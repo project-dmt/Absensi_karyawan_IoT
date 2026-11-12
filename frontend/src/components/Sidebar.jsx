@@ -1,18 +1,20 @@
 import { Link } from "@tanstack/react-router";
 import {
+  Activity,
+  BarChart3,
   Building2,
   CalendarDays,
   ChevronRight,
   Clock,
-  Cloud,
   Cpu,
   FileBarChart,
   LayoutDashboard,
   PenLine,
-  SearchX,
   Settings,
+  Timer,
   User,
   UserCog,
+  UserX,
   Users,
 } from "lucide-react";
 import {
@@ -23,18 +25,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const NAV_MAIN = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/live-monitoring", label: "Live Monitoring", icon: Cloud },
-];
-
 const NAV_GROUPS = [
+  {
+    label: "RINGKASAN",
+    items: [
+      { to: "/", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/live-monitoring", label: "Live Monitoring", icon: Activity },
+    ],
+  },
   {
     label: "ABSENSI",
     items: [
       { to: "/semua-absensi", label: "Semua Absensi", icon: CalendarDays },
       { to: "/dashboard/terlambat", label: "Terlambat", icon: Clock },
-      { to: "/dashboard/tidak-hadir", label: "Tidak Hadir", icon: SearchX },
+      { to: "/dashboard/tidak-hadir", label: "Tidak Hadir", icon: UserX },
       { to: "/input-absensi-manual", label: "Absensi Manual", icon: PenLine },
     ],
   },
@@ -43,18 +47,21 @@ const NAV_GROUPS = [
     items: [
       { to: "/data-karyawan", label: "Data Karyawan", icon: Users },
       { to: "/data-divisi", label: "Data Divisi", icon: Building2 },
-    ],
-  },
-  {
-    label: "PENGATURAN",
-    items: [
-      { to: "/jam-kerja", label: "Jam Kerja", icon: Clock },
-      { to: "/perangkat-iot", label: "Perangkat IoT", icon: Cpu },
+      { to: "/jam-kerja", label: "Jam Kerja", icon: Timer },
     ],
   },
   {
     label: "LAPORAN",
-    items: [{ to: "/laporan-absensi", label: "Laporan Absensi", icon: FileBarChart }],
+    items: [
+      { to: "/laporan-absensi", label: "Laporan Absensi", icon: FileBarChart },
+      { to: "/laporan-grafik", label: "Grafik Kehadiran", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "PERANGKAT",
+    items: [
+      { to: "/perangkat-iot", label: "Perangkat IoT", icon: Cpu },
+    ],
   },
 ];
 
@@ -106,15 +113,7 @@ export default function Sidebar({ isOpen, onClose, user, onLogout }) {
         </div>
 
         {/* Navigation */}
-        <nav className="sidebar__nav">
-          {/* Main */}
-          <div className="flex flex-col gap-1">
-            {NAV_MAIN.map((item) => (
-              <NavLink key={item.to} {...item} onClose={onClose} />
-            ))}
-          </div>
-
-          {/* Groups */}
+        <nav className="sidebar__nav" aria-label="Navigasi utama">
           {NAV_GROUPS.map((group) => (
             <div key={group.label} className="sidebar__group">
               <div className="sidebar__group-label">{group.label}</div>
@@ -137,7 +136,6 @@ export default function Sidebar({ isOpen, onClose, user, onLogout }) {
           >
             <Settings className="size-4 shrink-0" />
             <span>Pengaturan Sistem</span>
-            <ChevronRight className="ms-auto size-3.5 shrink-0 opacity-60" />
           </Link>
 
           <DropdownMenu>

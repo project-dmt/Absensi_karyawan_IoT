@@ -12,6 +12,8 @@ import FormInput from "../components/FormInput";
 import {
   CalendarX,
   Check,
+  ChevronLeft,
+  ChevronRight,
   FileSpreadsheet,
   FileText,
   Funnel,
@@ -48,6 +50,8 @@ const STATUS_OPTIONS = [
   { value: "Sakit", label: "Sakit" },
 ];
 
+const PAGE_SIZE = 20;
+
 export default function LaporanAbsensi() {
   const today = new Date().toISOString().split("T")[0];
   const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
@@ -64,6 +68,7 @@ export default function LaporanAbsensi() {
     sampai: today,
     divisi_id: "",
   });
+  const [page, setPage] = useState(1);
   const { data: divisi = [] } = useDivisiList();
   const { data = [], isFetching: loading } = useLaporan({
     dari: appliedFilter.dari,
@@ -72,6 +77,13 @@ export default function LaporanAbsensi() {
     per_page: 500,
   });
   const updateAbsensi = useUpdateAbsensi();
+
+  const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = data.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE
+  );
 
   const [editItem, setEditItem] = useState(null);
   const [editMessage, setEditMessage] = useState({ type: "", text: "" });
@@ -194,7 +206,10 @@ export default function LaporanAbsensi() {
           />
           <div className="md:col-span-3">
             <Button
-              onClick={() => setAppliedFilter(filter)}
+              onClick={() => {
+                setAppliedFilter(filter);
+                setPage(1);
+              }}
               disabled={loading}
               className="w-full md:w-auto"
             >
@@ -248,51 +263,80 @@ export default function LaporanAbsensi() {
       ) : data.length === 0 ? (
         <EmptyState message="Tidak ada data absensi untuk rentang tanggal ini" icon={<CalendarX className="size-10" />} />
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>No</TableHead>
-                <TableHead>Nama</TableHead>
-                <TableHead>NIP</TableHead>
-                <TableHead>Tanggal</TableHead>
-                <TableHead>Jam Masuk</TableHead>
-                <TableHead>Jam Pulang</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Keterangan</TableHead>
-                <TableHead>Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((item, idx) => (
-                <TableRow key={item.id}>
-                  <TableCell>{idx + 1}</TableCell>
-                  <TableCell className="font-medium">{item.employee?.nama}</TableCell>
-                  <TableCell>
-                    <code>{item.employee?.nip}</code>
-                  </TableCell>
-                  <TableCell>{item.tanggal}</TableCell>
-                  <TableCell>{item.jam_masuk || "-"}</TableCell>
-                  <TableCell>{item.jam_pulang || "-"}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={item.status} />
-                  </TableCell>
-                  <TableCell>{item.keterangan || "-"}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="icon-sm"
-                      className="text-primary"
-                      title="Edit Absensi"
-                      onClick={() => openEdit(item)}
-                    >
-                      <Pencil />
-                    </Button>
-                  </TableCell>
+        <div className="rounded-lg border bg-card">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>No</TableHead>
+                  <TableHead>Nama</TableHead>
+                  <TableHead>NIP</TableHead>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Jam Masuk</TableHead>
+                  <TableHead>Jam Pulang</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Keterangan</TableHead>
+                  <TableHead>Aksi</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {pageRows.map((item, idx) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      {(safePage - 1) * PAGE_SIZE + idx + 1}
+                    </TableCell>
+                    <TableCell className="font-medium">{item.employee?.nama}</TableCell>
+                    <TableCell>
+                      <code>{item.employee?.nip}</code>
+                    </TableCell>
+                    <TableCell>{item.tanggal}</TableCell>
+                    <TableCell>{item.jam_masuk || "-"}</TableCell>
+                    <TableCell>{item.jam_pulang || "-"}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={item.status} />
+                    </TableCell>
+                    <TableCell>{item.keterangan || "-"}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
+                        className="text-primary"
+                        title="Edit Absensi"
+                        onClick={() => openEdit(item)}
+                      >
+                        <Pencil />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
+              <small className="text-muted-foreground">
+                Halaman {safePage} dari {totalPages}
+              </small>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                title="Sebelumnya"
+              >
+                <ChevronLeft />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                title="Berikutnya"
+              >
+                <ChevronRight />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

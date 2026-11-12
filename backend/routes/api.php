@@ -102,6 +102,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Laporan
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
+    Route::get('/laporan/grafik', [LaporanController::class, 'grafik'])->name('laporan.grafik');
     Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
 
     // Konfigurasi ESP32 dari web admin (proxy ke listener LAN port 8080)

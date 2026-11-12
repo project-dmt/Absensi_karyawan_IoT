@@ -22,6 +22,7 @@ const PAGE_TITLES = {
   "/jam-kerja": "Jam Kerja",
   "/input-absensi-manual": "Input Absensi Manual",
   "/laporan-absensi": "Laporan Absensi",
+  "/laporan-grafik": "Grafik Kehadiran",
   "/live-monitoring": "Live Monitoring",
   "/semua-absensi": "Semua Absensi",
   "/perangkat-iot": "Perangkat IoT",

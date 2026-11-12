@@ -131,7 +131,7 @@ body {
 .sidebar__nav {
   flex: 1;
   padding: 10px 10px 8px;
-  overflow-y: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;

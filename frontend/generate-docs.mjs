@@ -1,14 +1,13 @@
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
   Table, TableRow, TableCell, WidthType, AlignmentType,
-  BorderStyle, ShadingType, PageBreak, TabStopPosition, TabStopType
+  ShadingType, PageBreak
 } from "docx";
 import fs from "fs";
 
 const BLUE = "2B5797";
 const DARK = "333333";
 const GRAY = "666666";
-const LIGHT_BG = "F2F2F2";
 
 function title(text) {
   return new Paragraph({
