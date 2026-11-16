@@ -34,6 +34,7 @@ unsigned long lastWifiAttempt = 0;
 String lastDisplayedUID = "";
 bool rfidDetected = false;
 bool lcdPresent = false;
+volatile uint8_t wifiLastReason = 0;
 
 // =====================================================
 // Buzzer Helpers
@@ -123,6 +124,63 @@ String lcdShortJam(const String &jam) {
     return jam;
 }
 
+String wifiReasonText(uint8_t reason) {
+    switch (reason) {
+        case 200: return "Beacon timeout / sinyal lemah";
+        case 201: return "SSID tidak ditemukan / 5GHz";
+        case 202: return "Auth gagal / password salah";
+        case 203: return "Assoc gagal / router menolak";
+        case 204: return "Handshake timeout / WPA3";
+        case 205: return "Koneksi gagal";
+        case 15:  return "Handshake timeout / password";
+        case 2:   return "Auth expired";
+        case 3:   return "Auth leave";
+        case 4:   return "Assoc expired";
+        case 5:   return "Terlalu banyak client";
+        case 6:   return "Belum authenticated";
+        case 7:   return "Belum associated";
+        case 8:   return "Assoc leave";
+        case 9:   return "Assoc belum auth";
+        case 10:  return "Power capability";
+        case 11:  return "Channel tidak didukung";
+        case 12:  return "IE invalid";
+        case 13:  return "MIC failure";
+        case 14:  return "Handshake timeout";
+        case 16:  return "Group key timeout";
+        case 17:  return "IE 4-way mismatch";
+        case 18:  return "IE group key mismatch";
+        case 19:  return "IE 4-way invalid";
+        default:  return "Kode " + String((unsigned int)reason);
+    }
+}
+
+String wifiReasonShort(uint8_t reason) {
+    switch (reason) {
+        case 200: return "Sinyal lemah";
+        case 201: return "SSID/5GHz?";
+        case 202: return "Password salah";
+        case 203: return "Router menolak";
+        case 204: return "WPA3/Password";
+        case 15:  return "Password/WPA3";
+        case 5:   return "Client penuh";
+        case 11:  return "Channel?";
+        default:  return "Kode " + String((unsigned int)reason);
+    }
+}
+
+String wifiReasonHint(uint8_t reason) {
+    switch (reason) {
+        case 200: return "Sinyal lemah atau router tidak merespons. Dekatkan ESP ke router.";
+        case 201: return "SSID tidak ditemukan. Pastikan nama WiFi benar dan pakai band 2.4GHz.";
+        case 202:
+        case 203: return "Auth/assoc gagal. Cek password dan gunakan WPA2, bukan WPA3/enterprise.";
+        case 204:
+        case 15:  return "Handshake gagal. Coba WPA2 dan pastikan password benar.";
+        case 5:   return "Router menolak client baru. Cek batas client atau MAC filtering.";
+        default:  return "Cek SSID, password, dan pastikan WiFi 2.4GHz dengan WPA2.";
+    }
+}
+
 void lcdShowReady() {
     Serial.println("[LCD] Ready - Tempel Kartu RFID");
     if (!lcdPresent) return;
@@ -181,8 +239,9 @@ void lcdShowWifiStatus(bool connected) {
         lcdLine(0, "WiFi Terhubung");
         lcdLine(1, WiFi.SSID());
     } else {
-        lcdLine(0, "WiFi Gagal!");
-        lcdLine(1, "Cek koneksi");
+        uint8_t reason = wifiLastReason;
+        lcdLine(0, "WiFi Gagal");
+        lcdLine(1, reason ? wifiReasonShort(reason) : "Cek koneksi");
     }
 }
 
@@ -204,22 +263,25 @@ label{font-weight:600;font-size:13px}
 input{width:100%;box-sizing:border-box;padding:11px;margin:5px 0 12px;border:1px solid #ccc;border-radius:6px;font-size:15px}
 button{width:100%;padding:13px;background:#2563eb;color:#fff;border:0;border-radius:6px;font-size:16px}
 small{color:#666}
+.err{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;padding:10px 12px;border-radius:6px;font-size:13px;margin:0 0 14px;line-height:1.45}
+.err b{display:block;margin-bottom:4px}
 </style>
 </head>
 <body>
 <h1>Konfigurasi Absensi RFID</h1>
+{{ERROR}}
 <form method="POST" action="/save">
   <label>WiFi SSID</label>
-  <input name="ssid" required placeholder="Nama WiFi">
+  <input name="ssid" required value="{{SSID}}" placeholder="Nama WiFi">
   <label>WiFi Password</label>
-  <input name="pass" type="password" placeholder="Password WiFi">
+  <input name="pass" type="password" placeholder="Kosongkan jika WiFi tanpa password">
   <label>Server URL</label>
-  <input name="server" required placeholder="http://192.168.1.100:8000">
+  <input name="server" value="{{SERVER}}" placeholder="http://192.168.1.100:8000">
   <label>API Key</label>
-  <input name="apikey" required placeholder="API Key backend">
+  <input name="apikey" placeholder="Kosongkan untuk memakai API key tersimpan">
   <button type="submit">Simpan &amp; Restart</button>
 </form>
-<small>Setelah disimpan, alat restart sendiri dan langsung terkoneksi. LCD akan menampilkan status.</small>
+<small>Server URL dan API Key cukup diisi sekali. Kosongkan saat ganti WiFi untuk memakai nilai yang sudah tersimpan.</small>
 </body>
 </html>
 )rawliteral";
@@ -230,21 +292,67 @@ void loadAppConfig() {
     Serial.printf("[CFG] WiFi: %s | Server: %s | Key: %s%s\n",
         appConfig.ssid().length() > 0 ? appConfig.ssid().c_str() : "(kosong)",
         apiBaseUrl.length() > 0 ? apiBaseUrl.c_str() : "(kosong)",
-        apiKey.length() > 0 ? apiKey.c_str() : "(kosong)",
+        apiKey.length() > 0 ? "OK" : "(kosong)",
         appConfig.isConfigured() ? "" : " [BELUM DIKONFIGURASI]");
+}
+
+String htmlEscape(const String &value) {
+    String out = value;
+    out.replace("&", "&amp;");
+    out.replace("<", "&lt;");
+    out.replace(">", "&gt;");
+    out.replace("\"", "&quot;");
+    return out;
 }
 
 void handlePortalRoot() {
     Serial.println("[PORTAL] HTTP GET / diterima");
-    portalServer.send(200, "text/html", FPSTR(PORTAL_HTML));
+
+    String page = FPSTR(PORTAL_HTML);
+    page.replace("{{SSID}}", htmlEscape(appConfig.ssid()));
+    page.replace("{{SERVER}}", htmlEscape(appConfig.serverUrl()));
+
+    uint8_t reason = wifiLastReason;
+    String error = "";
+    if (reason != 0) {
+        String currentSsid = appConfig.ssid();
+        if (currentSsid.length() == 0) currentSsid = "(belum diset)";
+        error = "<div class='err'><b>Gagal konek WiFi terakhir</b>";
+        error += "SSID: " + htmlEscape(currentSsid) + "<br>";
+        error += "Kode: " + String((unsigned int)reason) + " - " + wifiReasonText(reason) + "<br>";
+        error += "<small>" + wifiReasonHint(reason) + "</small></div>";
+    }
+    page.replace("{{ERROR}}", error);
+    portalServer.send(200, "text/html", page);
 }
 
 void handlePortalSave() {
-    appConfig.setAll(
-        portalServer.arg("ssid").c_str(),
-        portalServer.arg("pass").c_str(),
-        portalServer.arg("server").c_str(),
-        portalServer.arg("apikey").c_str());
+    String ssid = portalServer.arg("ssid");
+    String pass = portalServer.arg("pass");
+    String server = portalServer.arg("server");
+    String key = portalServer.arg("apikey");
+    ssid.trim(); server.trim(); key.trim();
+
+    if (ssid.length() == 0) {
+        portalServer.send(400, "text/html",
+            "<html><body style='font-family:sans-serif;text-align:center;margin-top:80px'>"
+            "<h2>SSID wajib diisi</h2></body></html>");
+        return;
+    }
+    if (server.length() == 0 && appConfig.serverUrl().length() == 0) {
+        portalServer.send(400, "text/html",
+            "<html><body style='font-family:sans-serif;text-align:center;margin-top:80px'>"
+            "<h2>Server URL wajib diisi pertama kali</h2></body></html>");
+        return;
+    }
+    if (key.length() == 0 && appConfig.apiKey().length() == 0) {
+        portalServer.send(400, "text/html",
+            "<html><body style='font-family:sans-serif;text-align:center;margin-top:80px'>"
+            "<h2>API Key wajib diisi pertama kali</h2></body></html>");
+        return;
+    }
+
+    appConfig.setAll(ssid.c_str(), pass.c_str(), server.c_str(), key.c_str());
     Serial.println("[CFG] Konfigurasi disimpan. Restart...");
     portalServer.send(200, "text/html",
         "<html><body style='font-family:sans-serif;text-align:center;margin-top:80px'>"
@@ -260,6 +368,13 @@ void startConfigPortal() {
 
     Serial.println("[CFG] AP: '" CONFIG_AP_NAME "' -> http://192.168.4.1");
     if (lcdPresent) {
+        uint8_t reason = wifiLastReason;
+        if (reason != 0) {
+            lcd.clear();
+            lcdLine(0, "WiFi Gagal");
+            lcdLine(1, wifiReasonShort(reason));
+            delay(2000);
+        }
         lcd.clear();
         lcdLine(0, "SET KONFIG");
         lcdLine(1, "192.168.4.1");
@@ -300,6 +415,10 @@ void handleConfigStatus() {
     doc["configured"] = appConfig.isConfigured();
     doc["server"] = appConfig.serverUrl();
     doc["key_set"] = appConfig.apiKey().length() > 0;
+    doc["wifi_ssid"] = appConfig.ssid();
+    doc["wifi_status"] = (int)WiFi.status();
+    doc["wifi_reason"] = (unsigned int)wifiLastReason;
+    doc["wifi_error"] = wifiLastReason ? wifiReasonText(wifiLastReason) : "";
     String out;
     serializeJson(doc, out);
     configSrv.send(200, "application/json", out);
@@ -345,10 +464,14 @@ void handleConfigSet() {
 }
 
 bool connectStoredWiFi() {
-    if (WiFi.status() == WL_CONNECTED) return true;
+    if (WiFi.status() == WL_CONNECTED) {
+        wifiLastReason = 0;
+        return true;
+    }
     String ssid = appConfig.ssid();
     if (ssid.length() == 0) return false;
 
+    wifiLastReason = 0;
     Serial.printf("Menghubungkan WiFi: %s\n", ssid.c_str());
     WiFi.mode(WIFI_STA);
     int scanCount = WiFi.scanNetworks();
@@ -371,10 +494,23 @@ bool connectStoredWiFi() {
     Serial.println();
 
     if (WiFi.status() == WL_CONNECTED) {
+        wifiLastReason = 0;
         Serial.printf("WiFi connected! IP: %s\n", WiFi.localIP().toString().c_str());
         return true;
     }
-    Serial.println("WiFi connection failed!");
+
+    // Event callback biasanya sudah mengisi reason. Ini fallback kalau event
+    // tidak sempat tercatat.
+    if (wifiLastReason == 0) {
+        switch (WiFi.status()) {
+            case WL_NO_SSID_AVAIL:  wifiLastReason = 201; break;
+            case WL_CONNECT_FAILED: wifiLastReason = 202; break;
+            case WL_CONNECTION_LOST: wifiLastReason = 200; break;
+            default:                wifiLastReason = 205; break;
+        }
+    }
+    Serial.printf("WiFi connection failed! reason=%u (%s)\n",
+        (unsigned int)wifiLastReason, wifiReasonText(wifiLastReason).c_str());
     return false;
 }
 
@@ -513,10 +649,19 @@ void setup() {
     Serial.begin(115200);
     WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
         if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
-            Serial.printf("[WIFI] Disconnected reason=%u\n", info.wifi_sta_disconnected.reason);
+            uint8_t reason = info.wifi_sta_disconnected.reason;
+            // 3/8 = leave, biasanya muncul saat kita sendiri pindah ke mode AP.
+            // Jangan timpa error handshake/password yang sudah tercatat.
+            if (!((reason == 3 || reason == 8) && wifiLastReason != 0)) {
+                wifiLastReason = reason;
+            }
+            Serial.printf("[WIFI] Disconnected reason=%u (%s)\n",
+                (unsigned int)reason, wifiReasonText(reason).c_str());
         } else if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+            wifiLastReason = 0;
             Serial.println("[WIFI] Associated");
         } else if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
+            wifiLastReason = 0;
             Serial.printf("[WIFI] Got IP: %s\n", WiFi.localIP().toString().c_str());
         }
     });
@@ -664,21 +809,21 @@ void loop() {
             lcdPresent ? "OK" : "NO");
     }
 
-    // Tahan tombol BOOT (GPIO0) 5 detik -> reset config & buka portal
+    // Tahan tombol BOOT (GPIO0) 5 detik -> reset WiFi saja & buka portal
     static unsigned long bootBtnHoldStart = 0;
     static bool configResetTriggered = false;
     if (digitalRead(CONFIG_BUTTON_PIN) == LOW) {
         if (bootBtnHoldStart == 0) bootBtnHoldStart = millis();
         if (!configResetTriggered && millis() - bootBtnHoldStart > CONFIG_RESET_HOLD_MS) {
             configResetTriggered = true;
-            Serial.println("[CFG] Tombol BOOT 5s -> RESET KONFIGURASI, buka portal");
+            Serial.println("[CFG] Tombol BOOT 5s -> RESET WIFI (API key tetap), buka portal");
             if (lcdPresent) {
                 lcd.clear();
-                lcdLine(0, "RESET CONFIG");
+                lcdLine(0, "RESET WIFI");
                 lcdLine(1, "Buka portal...");
             }
             beep(3, 200, 150);
-            appConfig.reset();
+            appConfig.clearWifi();
             WiFi.disconnect(true);
             delay(300);
             ESP.restart();

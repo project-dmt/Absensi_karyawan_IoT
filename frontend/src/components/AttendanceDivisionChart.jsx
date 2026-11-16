@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export const DIVISION_COLORS = [
   "#2563eb",
@@ -20,7 +20,11 @@ export default function AttendanceDivisionChart({
   colorById,
 }) {
   const [hovered, setHovered] = useState(null);
-  const series = divisions.filter((division) => division.total > 0);
+  const scrollerRef = useRef(null);
+  const series = useMemo(
+    () => divisions.filter((division) => division.total > 0),
+    [divisions]
+  );
   const yMax = Math.max(1, Number(maxValue) || 1);
 
   const tickValues = useMemo(() => {
@@ -32,9 +36,38 @@ export default function AttendanceDivisionChart({
     return [...new Set(values)];
   }, [yMax]);
 
+  const lastActiveBucket = useMemo(() => {
+    for (let index = buckets.length - 1; index >= 0; index--) {
+      if (series.some((division) => (division.counts?.[index] ?? 0) > 0)) {
+        return index;
+      }
+    }
+    return -1;
+  }, [buckets, series]);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || lastActiveBucket < 0) return;
+
+    const target = scroller.querySelector(
+      `[data-bucket-index="${lastActiveBucket}"]`
+    );
+    if (!target) return;
+
+    const scrollerRect = scroller.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const targetLeft =
+      targetRect.left - scrollerRect.left + scroller.scrollLeft;
+
+    scroller.scrollLeft = Math.max(
+      0,
+      targetLeft - scroller.clientWidth + targetRect.width + 16
+    );
+  }, [buckets, lastActiveBucket, series]);
+
   const minWidth = Math.max(
     560,
-    buckets.length * Math.max(52, series.length * 14 + 20)
+    buckets.length * Math.max(36, series.length * 8 + 10)
   );
 
   const colorFor = (division) => {
@@ -64,7 +97,7 @@ export default function AttendanceDivisionChart({
           ))}
         </div>
 
-        <div className="min-w-0 flex-1 overflow-x-auto">
+        <div ref={scrollerRef} className="min-w-0 flex-1 overflow-x-auto">
           <div style={{ minWidth }}>
             <div className="relative h-[280px]">
               {tickValues.map((value) => (
@@ -79,6 +112,7 @@ export default function AttendanceDivisionChart({
                 {buckets.map((bucket, bucketIndex) => (
                   <div
                     key={bucket.key}
+                    data-bucket-index={bucketIndex}
                     className="flex h-full flex-1 flex-col justify-end"
                   >
                     <div className="flex flex-1 items-end justify-center gap-1">

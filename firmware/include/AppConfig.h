@@ -43,16 +43,34 @@ public:
         String p = String(pass);
         String u = String(server);
         String k = String(key);
-        s.trim(); p.trim(); u.trim(); k.trim();
+        s.trim(); u.trim(); k.trim();
 
-        _ssid = s; _password = p; _serverUrl = u; _apiKey = k;
+        // Password jangan di-trim: spasi bisa jadi bagian password WiFi.
+        _ssid = s;
+        _password = p;
+
+        // Server/API key kosong = pertahankan nilai yang sudah tersimpan.
+        if (u.length() > 0) _serverUrl = u;
+        if (k.length() > 0) _apiKey = k;
 
         _prefs.begin("appcfg", false);
         if (_ssid.length() > 0)      _prefs.putString("ssid", _ssid);
+        else                         _prefs.remove("ssid");
         if (_password.length() > 0)  _prefs.putString("pass", _password);
-        if (_serverUrl.length() > 0) _prefs.putString("server", _serverUrl);
-        if (_apiKey.length() > 0)    _prefs.putString("apikey", _apiKey);
+        else                         _prefs.remove("pass");
+        if (u.length() > 0)          _prefs.putString("server", _serverUrl);
+        if (k.length() > 0)          _prefs.putString("apikey", _apiKey);
         _prefs.end();
+    }
+
+    // Reset WiFi saja. Server URL & API key tetap tersimpan.
+    void clearWifi() {
+        _prefs.begin("appcfg", false);
+        _prefs.remove("ssid");
+        _prefs.remove("pass");
+        _prefs.end();
+        _ssid = "";
+        _password = "";
     }
 
     // Update hanya server URL & API key (WiFi tidak berubah)
