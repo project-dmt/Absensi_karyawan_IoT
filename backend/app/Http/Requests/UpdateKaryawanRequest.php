@@ -19,7 +19,7 @@ class UpdateKaryawanRequest extends FormRequest
             'nama' => 'sometimes|required|string|max:100',
             'nip' => 'sometimes|required|string|max:50|unique:employees,nip,' . $employeeId,
             'jabatan' => 'nullable|string|max:100',
-            'divisi_id' => 'nullable|exists:divisions,id',
+            'divisi_id' => 'sometimes|required|integer|exists:divisions,id',
             'rfid_uid' => 'sometimes|required|string|max:50|unique:employees,rfid_uid,' . $employeeId,
             'status' => 'sometimes|in:aktif,nonaktif',
         ];

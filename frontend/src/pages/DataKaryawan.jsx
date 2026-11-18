@@ -1,9 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useKaryawanList,
   useDivisiList,
+  useCreateDivisi,
   useDeleteKaryawan,
+  divisiKeys,
   karyawanKeys,
 } from "../api/queries";
 import api from "../api/axios";
@@ -69,16 +71,25 @@ export default function DataKaryawan() {
   const queryClient = useQueryClient();
   const { data = [], isPending } = useKaryawanList();
   const { data: divisi = [] } = useDivisiList();
+  const createDivisi = useCreateDivisi();
   const deleteKaryawan = useDeleteKaryawan();
+  const divisiItems = useMemo(
+    () => divisi.map((d) => ({ value: String(d.id), label: d.nama_divisi })),
+    [divisi]
+  );
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  const [showDivisiModal, setShowDivisiModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [formError, setFormError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
+  const [namaDivisiBaru, setNamaDivisiBaru] = useState("");
+  const [divisiError, setDivisiError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingDivisi, setSavingDivisi] = useState(false);
   const [notice, setNotice] = useState(null);
 
   // ==== State Scan Kartu ====
@@ -203,11 +214,55 @@ export default function DataKaryawan() {
     setFieldErrors({});
   };
 
+  const openDivisiModal = () => {
+    stopScan();
+    setNamaDivisiBaru("");
+    setDivisiError("");
+    setShowDivisiModal(true);
+  };
+
+  const closeDivisiModal = () => {
+    if (savingDivisi) return;
+    setShowDivisiModal(false);
+    setDivisiError("");
+  };
+
+  const handleCreateDivisi = async () => {
+    const nama = namaDivisiBaru.trim();
+    if (!nama) {
+      setDivisiError("Nama divisi wajib diisi");
+      return;
+    }
+
+    setSavingDivisi(true);
+    setDivisiError("");
+    try {
+      const res = await createDivisi.mutateAsync({ nama_divisi: nama });
+      const created = res?.data?.data;
+      await queryClient.invalidateQueries({ queryKey: divisiKeys.all });
+      if (created?.id) {
+        setField("divisi_id", String(created.id));
+      }
+      setShowDivisiModal(false);
+      setNamaDivisiBaru("");
+    } catch (err) {
+      const serverErrors = err.response?.data?.errors || {};
+      setDivisiError(
+        serverErrors.nama_divisi?.[0] ||
+          err.response?.data?.message ||
+          "Gagal menambah divisi. Coba lagi."
+      );
+    } finally {
+      setSavingDivisi(false);
+    }
+  };
+
   // Validaasi manual yang jelas
   const validate = () => {
     const e = {};
     if (!form.nama.trim()) e.nama = "Nama wajib diisi";
     if (!form.nip.trim()) e.nip = "NIP wajib diisi";
+    if (!form.divisi_id) e.divisi_id = "Divisi wajib dipilih";
     if (!form.rfid_uid.trim()) e.rfid_uid = "RFID UID wajib diisi (scan atau isi manual)";
     setFieldErrors(e);
     return Object.keys(e).length === 0;
@@ -221,7 +276,7 @@ export default function DataKaryawan() {
       nama: form.nama.trim(),
       nip: form.nip.trim(),
       jabatan: form.jabatan.trim(),
-      divisi_id: form.divisi_id || null,
+      divisi_id: form.divisi_id ? Number(form.divisi_id) : null,
       rfid_uid: form.rfid_uid.trim(),
       status: form.status,
     };
@@ -485,25 +540,45 @@ export default function DataKaryawan() {
                 onChange={(e) => setField("jabatan", e.target.value)}
               />
             </Field>
-            <Field>
+            <Field data-invalid={fieldErrors.divisi_id ? true : undefined}>
               <FieldLabel>Divisi</FieldLabel>
-              <Select
-                value={form.divisi_id || undefined}
-                onValueChange={(v) => setField("divisi_id", v)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Pilih divisi..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {divisi.map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.nama_divisi}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select
+                  items={divisiItems}
+                  value={form.divisi_id || null}
+                  onValueChange={(v) => setField("divisi_id", v)}
+                >
+                  <SelectTrigger
+                    className="w-full"
+                    aria-invalid={fieldErrors.divisi_id ? true : undefined}
+                  >
+                    <SelectValue placeholder="Pilih divisi..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {divisi.map((d) => (
+                        <SelectItem key={d.id} value={String(d.id)}>
+                          {d.nama_divisi}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={openDivisiModal}
+                  title="Tambah divisi baru"
+                  aria-label="Tambah divisi baru"
+                >
+                  <Plus />
+                </Button>
+              </div>
+              {fieldErrors.divisi_id && (
+                <FieldError>{fieldErrors.divisi_id}</FieldError>
+              )}
             </Field>
             <Field data-invalid={fieldErrors.rfid_uid ? true : undefined}>
               <FieldLabel htmlFor="rfid_uid">RFID UID</FieldLabel>
@@ -592,6 +667,60 @@ export default function DataKaryawan() {
                 <>
                   <Check data-icon="inline-start" />
                   Simpan
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        show={showDivisiModal}
+        onClose={closeDivisiModal}
+        title="Tambah Divisi Baru"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleCreateDivisi();
+          }}
+          noValidate
+        >
+          <Field data-invalid={divisiError ? true : undefined}>
+            <FieldLabel htmlFor="nama_divisi_baru">Nama Divisi</FieldLabel>
+            <Input
+              id="nama_divisi_baru"
+              placeholder="Contoh: Produksi"
+              value={namaDivisiBaru}
+              onChange={(e) => {
+                setNamaDivisiBaru(e.target.value);
+                setDivisiError("");
+              }}
+              aria-invalid={divisiError ? true : undefined}
+              autoFocus
+            />
+            {divisiError && <FieldError>{divisiError}</FieldError>}
+          </Field>
+          <Separator className="my-4" />
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={closeDivisiModal}
+              disabled={savingDivisi}
+            >
+              Batal
+            </Button>
+            <Button type="submit" disabled={savingDivisi}>
+              {savingDivisi ? (
+                <>
+                  <Loader2 data-icon="inline-start" className="animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <Check data-icon="inline-start" />
+                  Simpan Divisi
                 </>
               )}
             </Button>

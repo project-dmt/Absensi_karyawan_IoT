@@ -95,7 +95,21 @@ class KaryawanTest extends TestCase
         $response = $this->actingAs($user)->postJson('/api/karyawan', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['nama', 'nip', 'rfid_uid']);
+            ->assertJsonValidationErrors(['nama', 'nip', 'divisi_id', 'rfid_uid']);
+    }
+
+    public function test_store_requires_divisi(): void
+    {
+        $user = \App\Models\User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/api/karyawan', [
+            'nama' => 'Tanpa Divisi',
+            'nip' => 'NIP123456789013',
+            'rfid_uid' => 'RFID002',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['divisi_id']);
     }
 
     public function test_show_returns_karyawan(): void
@@ -126,6 +140,19 @@ class KaryawanTest extends TestCase
             ->assertJson(['success' => true]);
 
         $this->assertDatabaseHas('employees', ['id' => $karyawan->id, 'nama' => 'Nama Updated']);
+    }
+
+    public function test_update_rejects_null_divisi(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $karyawan = Employee::factory()->create();
+
+        $response = $this->actingAs($user)->putJson("/api/karyawan/{$karyawan->id}", [
+            'divisi_id' => null,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['divisi_id']);
     }
 
     public function test_destroy_karyawan(): void

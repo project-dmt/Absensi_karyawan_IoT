@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('nama', 100);
             $table->string('nip', 50)->unique();
             $table->string('jabatan', 100)->nullable();
-            $table->foreignId('divisi_id')->nullable()->constrained('divisions')->onDelete('set null')->onUpdate('cascade');
+            $table->foreignId('divisi_id')->constrained('divisions')->restrictOnDelete()->cascadeOnUpdate();
             $table->string('rfid_uid', 50)->unique();
             $table->enum('status', ['aktif', 'nonaktif'])->default('aktif');
             $table->timestamps();

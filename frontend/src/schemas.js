@@ -24,7 +24,7 @@ export const karyawanSchema = z.object({
   nama: z.string().min(1, "Nama wajib diisi"),
   nip: z.string().min(1, "NIP wajib diisi"),
   jabatan: z.string().optional(),
-  divisi_id: z.string().optional(),
+  divisi_id: z.string().min(1, "Divisi wajib dipilih"),
   rfid_uid: z.string().min(1, "RFID UID wajib diisi"),
   status: z.string().default("aktif"),
 });
