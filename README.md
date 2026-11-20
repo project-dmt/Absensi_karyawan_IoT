@@ -705,4 +705,5 @@ Mock server frontend: `node mock-server.cjs` → login `admin@example.com` / `pa
 - [Fitur AI Chatbot](backend/docs_dokumentasi/11_Fitur_AI_Chatbot.docx) — guard 3-layer + backup provider
 - [Laporan PKL (BAB 1–7)](backend/docs_laporan_pkl/) — dokumen .docx
 - Diagram: [DFD Level 0 & 1](docs/dfd/), [ERD](docs/erd/), [Use Case](docs/usecase/), [UI Mockup](docs/ui-mockup/ — 8 PDF + drawio)
+- copy right 2026
 
