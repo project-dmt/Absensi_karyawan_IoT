@@ -83,6 +83,8 @@ export default function Dashboard() {
     const merged = [...realtimeEvents, ...laporan].filter(
       (v, i, a) => a.findIndex((t) => t.id === v.id) === i
     );
+    // Hanya karyawan aktif yang dihitung (nonaktif bukan beban absensi)
+    const aktif = karyawan.filter((k) => k.status === "aktif");
     const hadir = merged.filter((l) => l.status === "Hadir").length;
     const terlambat = merged.filter((l) => l.status === "Terlambat").length;
     const izin = merged.filter((l) => l.status === "Izin").length;
@@ -90,9 +92,9 @@ export default function Dashboard() {
     // Izin/Sakit bukan "tidak hadir" — karyawan mengajukan ketidakhadiran
     const tidakHadir = Math.max(
       0,
-      karyawan.length - hadir - terlambat - izin - sakit
+      aktif.length - hadir - terlambat - izin - sakit
     );
-    return { totalKaryawan: karyawan.length, hadir, terlambat, tidakHadir };
+    return { totalKaryawan: aktif.length, hadir, terlambat, tidakHadir };
   }, [karyawan, laporan, realtimeEvents]);
 
   if (isPending) return <LoadingSpinner />;

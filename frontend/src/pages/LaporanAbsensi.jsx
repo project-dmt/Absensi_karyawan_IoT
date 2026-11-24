@@ -23,6 +23,16 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useQueryClient } from "@tanstack/react-query";
+import { laporanKeys } from "../api/queries";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -86,6 +96,8 @@ export default function LaporanAbsensi() {
   );
 
   const [editItem, setEditItem] = useState(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const queryClient = useQueryClient();
   const [editMessage, setEditMessage] = useState({ type: "", text: "" });
 
   const {
@@ -102,6 +114,20 @@ export default function LaporanAbsensi() {
 
   const handleChange = (e) => {
     setFilter((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleClearToday = async () => {
+    setConfirmReset(false);
+    try {
+      const res = await api.delete("/absensi/clear-today", {
+        params: { tanggal: appliedFilter.sampai },
+      });
+      const deleted = res.data?.data?.deleted ?? 0;
+      window.alert(`Berhasil menghapus ${deleted} absensi`);
+      await queryClient.invalidateQueries({ queryKey: laporanKeys.all });
+    } catch (err) {
+      window.alert(err.response?.data?.message || "Gagal hapus — butuh role admin/superadmin");
+    }
   };
 
   const handleExport = async (format) => {
@@ -236,26 +262,31 @@ export default function LaporanAbsensi() {
           Export CSV
         </Button>
         {/* ponytail: testing helper — hapus absensi hari ini */}
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={async () => {
-            const today = new Date().toISOString().split("T")[0];
-            const msg = `Hapus SEMUA absensi tanggal ${today} (testing)?\nIni akan menghapus ${data.filter((d) => d.tanggal === today).length || data.length} record.`;
-            if (!window.confirm(msg)) return;
-            try {
-              const res = await api.delete("/absensi/clear-today", { params: { tanggal: today } });
-              alert(res.data?.message || `Berhasil hapus ${res.data?.data?.deleted ?? 0} record`);
-              setAppliedFilter({ ...appliedFilter });
-            } catch (err) {
-              alert(err.response?.data?.message || "Gagal hapus — butuh role admin/superadmin");
-            }
-          }}
-          title="Testing: hapus absensi hari ini"
-        >
+        <Button variant="destructive" size="sm" onClick={() => setConfirmReset(true)}>
           <Trash2 data-icon="inline-start" className="size-4" />
-          Hapus Hari Ini (Testing)
+          Reset Absensi Hari Ini
         </Button>
+        <Dialog open={confirmReset} onOpenChange={setConfirmReset}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reset Absensi Hari Ini</DialogTitle>
+              <DialogDescription>
+                Hapus semua absensi tanggal {appliedFilter.sampai} (testing).
+                Record yang akan terhapus: {data.filter((d) => d.tanggal === appliedFilter.sampai).length || data.length}.
+                Tindakan ini tidak bisa dibatalkan.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setConfirmReset(false)}>
+                Batal
+              </Button>
+              <Button variant="destructive" size="sm" onClick={handleClearToday}>
+                <Trash2 data-icon="inline-start" className="size-4" />
+                Ya, Hapus
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {loading ? (

@@ -29,7 +29,9 @@
  *
  *   - IDEMPOTENT  : aman dijalankan berkali-kali, patch yang sudah ada tidak di-patch lagi.
  *   - NON-DESTRUCTIF: kalau pola tidak ditemukan (versi package berubah), file vendor
- *                     TIDAK disentuh dan script hanya memberi peringatan.
+ *                     TIDAK disentuh dan script memberi peringatan lalu gagal (exit 1).
+ *   - VERSION GUARD: cek versi ter-install dari vendor/composer/installed.json; kalau
+ *                     tidak ada di $knownVersions, exit 1 dengan pesan jelas.
  *
  * Kalau pola hilang, biasanya artinya `laravel/ai` versi baru sudah memperbaiki
  * kode aslinya -> hapus script ini + hook Composer-nya. Cek dengan:
@@ -47,6 +49,38 @@ $path = dirname(__DIR__).'/'.$relativePath;
 if (! is_file($path)) {
     fwrite(STDOUT, "[laravel/ai] Package tidak terinstall, patch dilewati.\n");
     exit(0);
+}
+
+/**
+ * Guard versi: patch ini hanya diketahui cocok untuk versi terdaftar di bawah.
+ * Kalau versi ter-install beda, JANGAN lanjut — patch vendor yang salah versi
+ * bisa merusak file atau gagal silent, dan chat akan rusak di runtime tanpa tanda.
+ * Exit non-zero supaya hook Composer `post-autoload-dump` terlihat gagal.
+ */
+$knownVersions = ['v0.10.3'];
+
+$installedJson = dirname(__DIR__).'/vendor/composer/installed.json';
+$installedVersion = null;
+
+if (is_file($installedJson)) {
+    $data = json_decode((string) file_get_contents($installedJson), true);
+
+    foreach (($data['packages'] ?? []) as $pkg) {
+        if (($pkg['name'] ?? null) === 'laravel/ai') {
+            $installedVersion = $pkg['version'] ?? null;
+            break;
+        }
+    }
+}
+
+if ($installedVersion === null || ! in_array($installedVersion, $knownVersions, true)) {
+    fwrite(STDERR, sprintf(
+        "[laravel/ai] ERROR: laravel/ai versi %s tidak cocok dengan patch (dikenal: %s) — review scripts/patch-laravel-ai.php\n",
+        $installedVersion ?? 'tidak diketahui',
+        implode(', ', $knownVersions)
+    ));
+
+    exit(1);
 }
 
 $file = file_get_contents($path);

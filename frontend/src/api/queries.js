@@ -8,6 +8,21 @@ export const normalizeList = (res) => {
   return Array.isArray(raw?.data) ? raw.data : [];
 };
 
+// Ambil semua karyawan dengan loop pagination (ceiling 500 hardcoded bisa memotong karyawan ke-501+)
+export async function fetchAllKaryawan(params = {}) {
+  const perPage = 100;
+  let page = 1;
+  const all = [];
+  while (true) {
+    const res = await api.get("/karyawan", { params: { ...params, per_page: perPage, page } });
+    const items = normalizeList(res);
+    all.push(...items);
+    // ponytail: loop sampai halaman terakhir; pakai meta.last_page jika butuh lebih tepat
+    if (items.length < perPage) return all;
+    page++;
+  }
+}
+
 export const karyawanKeys = {
   all: ["karyawan"],
   detail: (id) => ["karyawan", id],
@@ -29,7 +44,7 @@ export function useKaryawanList() {
   return useQuery({
     queryKey: karyawanKeys.all,
     // Backend sudah paginate; ambil satu halaman besar biar pencarian client-side tetap kena semua data.
-    queryFn: async () => normalizeList(await api.get("/karyawan", { params: { per_page: 500 } })),
+    queryFn: () => fetchAllKaryawan(),
   });
 }
 
@@ -45,13 +60,22 @@ export function useKaryawanAbsensi(id) {
   return useQuery({
     queryKey: karyawanKeys.absensi(id),
     queryFn: async () => {
-      const res = await api.get(`/karyawan/${id}/absensi`, {
-        params: { per_page: 500 },
-      });
-      // Backend kirim { employee, absensi, summary }
-      const payload = res.data.data;
-      const list = payload?.absensi ?? payload?.riwayat;
-      return Array.isArray(list) ? list : Array.isArray(list?.data) ? list.data : [];
+      const perPage = 100;
+      let page = 1;
+      let list = [];
+      while (true) {
+        const res = await api.get(`/karyawan/${id}/absensi`, {
+          params: { per_page: perPage, page },
+        });
+        // Backend kirim { employee, absensi, summary }
+        const payload = res.data.data;
+        const data = payload?.absensi ?? payload?.riwayat;
+        const items = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+        list = [...list, ...items];
+        if (items.length < perPage) break;
+        page++;
+      }
+      return list;
     },
     enabled: Boolean(id),
   });
