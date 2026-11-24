@@ -1,0 +1,159 @@
+' ERD Sistem Absensi Karyawan IoT
+' Sumber kebenaran: backend/database/migrations/* + schema DB absensi_iot (MySQL 8)
+' Dibuat dari dump SHOW CREATE TABLE, bukan dari foto.
+' Render: plantuml erd_absensi.puml
+@startuml ERD_Absensi_IoT
+hide circle
+skinparam linetype ortho
+skinparam entity {
+  BackgroundColor White
+  BorderColor Black
+}
+
+entity "users" as users {
+  * id : bigint <<PK>>
+  --
+  * nama : varchar(100)
+  * email : varchar(100) <<UK>>
+  * password : varchar(255)
+  * role : enum(admin, superadmin)
+  created_at / updated_at
+}
+
+entity "divisions" as divisions {
+  * id : bigint <<PK>>
+  --
+  * nama_divisi : varchar(100)
+  created_at / updated_at
+}
+
+entity "employees" as employees {
+  * id : bigint <<PK>>
+  --
+  * nama : varchar(100)
+  * nip : varchar(50) <<UK>>
+  jabatan : varchar(100)
+  divisi_id : bigint <<FK>>
+  * rfid_uid : varchar(50) <<UK>>
+  * status : enum(aktif, nonaktif)
+  created_at / updated_at
+}
+
+entity "schedules" as schedules {
+  * id : bigint <<PK>>
+  --
+  * jam_masuk_standar : time = 08:00
+  * jam_pulang_standar : time = 17:00
+  * toleransi_menit : int = 15
+  created_at / updated_at
+}
+
+entity "attendance" as attendance {
+  * id : bigint <<PK>>
+  --
+  * employee_id : bigint <<FK>>
+  * tanggal : date <<UK(employee_id,tanggal)>>
+  jam_masuk : time
+  jam_pulang : time
+  * status : enum(Hadir, Terlambat, Alpha, Izin, Sakit)
+  keterangan : varchar(255)
+  input_by : bigint <<FK, users.id>>
+  created_at / updated_at
+}
+
+entity "rfid_scans" as rfid_scans {
+  * id : bigint <<PK>>
+  --
+  * token : varchar(64) <<UK>>
+  * status : enum(waiting, completed, expired)
+  uid : varchar(50)
+  expires_at : timestamp
+  created_at / updated_at
+}
+
+entity "realtime_events" as realtime_events {
+  * id : bigint <<PK>>
+  --
+  * event_type : varchar(50)
+  * employee_name : varchar(100)
+  employee_nip : varchar(50)
+  * status : varchar(20)
+  * jam : varchar(20)
+  created_at / updated_at
+}
+
+entity "audit_logs" as audit_logs {
+  * id : bigint <<PK>>
+  --
+  user_id : bigint <<FK, users.id>>
+  * action : varchar(255)
+  model_type / model_id <<polymorphic>>
+  old_values / new_values : json
+  ip_address : varchar(45)
+  user_agent : text
+  created_at / updated_at
+}
+
+entity "personal_access_tokens" as tokens {
+  * id : bigint <<PK>>
+  --
+  * tokenable_type / tokenable_id <<polymorphic>>
+  * name : text
+  * token : varchar(64) <<UK>>
+  abilities : text
+  last_used_at / expires_at
+  created_at / updated_at
+}
+
+entity "sessions" as sessions {
+  * id : varchar(255) <<PK>>
+  --
+  user_id : bigint <<FK, users.id>>
+  ip_address : varchar(45)
+  user_agent : text
+  * payload : longtext
+  * last_activity : int
+}
+
+entity "password_reset_tokens" as reset_tokens {
+  * email : varchar(255) <<PK>>
+  --
+  * token : varchar(255)
+  created_at
+}
+
+entity "cache" as cache {
+  * key : varchar(255) <<PK>>
+  --
+  * value : mediumtext
+  * expiration : bigint
+}
+
+divisions ||--o{ employees : "divisi_id"
+employees ||--o{ attendance : "employee_id\nunique (employee_id, tanggal)"
+users ||--o{ attendance : "input_by"
+users |o--o{ audit_logs : "user_id"
+users |o--o{ sessions : "user_id"
+users ||--o{ tokens : "tokenable (morphMany,\nSanctum)"
+
+note bottom of schedules
+  Tabel singleton - satu baris
+  jadwal kerja global
+end note
+
+note bottom of realtime_events
+  Tanpa FK - snapshot event SSE,
+  cleanup otomatis 24 jam
+end note
+
+note bottom of rfid_scans
+  Sesi registrasi kartu dari admin;
+  UID ditangkap AbsensiService
+  saat status waiting
+end note
+
+note bottom of cache
+  cache_locks: tabel companion
+  rate limiter (login, api)
+end note
+@enduml
