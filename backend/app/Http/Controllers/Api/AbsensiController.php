@@ -73,8 +73,10 @@ class AbsensiController extends Controller
             $label = $request->tanggal;
         } else {
             $today = now('Asia/Jakarta')->toDateString();
-            $query = Attendance::whereDate('tanggal', $today)
-                ->orWhereDate('created_at', $today);
+            $query = Attendance::where(function ($q) use ($today) {
+                $q->whereDate('tanggal', $today)
+                    ->orWhereDate('created_at', $today);
+            });
             $label = 'hari ini';
         }
         $count = $query->count();

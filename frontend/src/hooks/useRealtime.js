@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { fetchEventSource } from '@microsoft/fetch-event-source';
 import api from '../api/axios';
 
 export function useRealtime(enabled = true) {
@@ -9,16 +10,15 @@ export function useRealtime(enabled = true) {
   useEffect(() => {
     if (!enabled) return;
 
-    let eventSource = null;
+    let abortController = null;
     let isActive = true;
 
     function connect() {
       if (!isActive) return;
 
       const token = localStorage.getItem('token');
-      const url = `${api.defaults.baseURL}/absensi/stream?lastId=${lastIdRef.current}&token=${token}`;
-
-      eventSource = new EventSource(url);
+      const url = `${api.defaults.baseURL}/absensi/stream?lastId=${lastIdRef.current}`;
+      abortController = new AbortController();
 
       const handleEvent = (e) => {
         try {
@@ -38,23 +38,34 @@ export function useRealtime(enabled = true) {
         }
       };
 
-      eventSource.addEventListener('check_in', handleEvent);
-      eventSource.addEventListener('checkout', handleEvent);
-
-      eventSource.onerror = () => {
-        eventSource.close();
-        if (isActive) {
-          reconnectTimeoutRef.current = setTimeout(connect, 3000);
-        }
-      };
+      // Bearer header: token tidak bocor ke query string / log proxy
+      fetchEventSource(url, {
+        method: 'GET',
+        openWhenHidden: true,
+        signal: abortController.signal,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        onmessage: (msg) => {
+          if (msg.event === 'check_in' || msg.event === 'checkout') {
+            handleEvent(msg);
+          }
+        },
+        onerror: (err) => {
+          // default library melempar ulang error — kita tangani reconnect sendiri
+          abortController.abort();
+          if (isActive) {
+            reconnectTimeoutRef.current = setTimeout(connect, 3000);
+          }
+          // jangan throw: reconnect sudah dijadwalkan, throw hanya buat unhandled rejection
+        },
+      });
     }
 
     connect();
 
     return () => {
       isActive = false;
-      if (eventSource) eventSource.close();
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      abortController?.abort();
+      clearTimeout(reconnectTimeoutRef.current);
     };
   }, [enabled]);
 

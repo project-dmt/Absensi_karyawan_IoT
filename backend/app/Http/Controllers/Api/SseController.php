@@ -12,7 +12,11 @@ class SseController extends Controller
 {
     public function stream(Request $request): StreamedResponse
     {
-        $token = PersonalAccessToken::findToken((string) $request->query('token', ''));
+        // Token via Bearer header dulu (tidak masuk log proxy), fallback
+        // query param untuk kompatibilitas EventSource lama.
+        $token = PersonalAccessToken::findToken(
+            (string) ($request->bearerToken() ?: $request->query('token', ''))
+        );
 
         if (! $token || ! $token->can('*')) {
             abort(401, 'Unauthorized');

@@ -111,6 +111,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/esp/{ip}/status', [EspConfigController::class, 'check'])->name('esp.status');
 });
 
-// Realtime SSE Stream (token via query string — EventSource tidak bisa pakai header)
+// Realtime SSE Stream (auth via Bearer header; fallback query param untuk klien lama)
 Route::get('/absensi/stream', [SseController::class, 'stream'])
     ->name('api.absensi.stream');
