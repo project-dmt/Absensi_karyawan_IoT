@@ -64,13 +64,22 @@ class QueryDatabaseTool implements Tool
     {
         $trimmed = trim(preg_replace('/--[^\n]*|\/\*.*?\*\//s', '', $sql));
 
-        // Allowlist tabel — cegah akses ke tabel sensitif (users, password hash, dsb.)
-        if (! preg_match('/\b(FROM|JOIN)\s+(employees|divisions|schedules|attendance|rfid_scans)\b/i', $trimmed)) {
-            throw new RuntimeException('Tabel tidak diizinkan. Gunakan: employees, divisions, schedules, attendance, rfid_scans.');
-        }
-
         if (! preg_match('/^SELECT\b/i', $trimmed)) {
             throw new RuntimeException('Query harus dimulai dengan SELECT (read-only).');
+        }
+
+        // Blokir UNION dan subquery FROM/JOIN — vektor bypass allowlist
+        if (preg_match('/\bUNION\b|\b(FROM|JOIN)\s*\(/i', $trimmed)) {
+            throw new RuntimeException('UNION dan subquery tidak diizinkan.');
+        }
+
+        // Allowlist tabel — ekstrak SEMUA tabel setelah FROM/JOIN, tolak jika ada di luar daftar
+        preg_match_all('/\b(?:FROM|JOIN)\s+([`"\w.]+)/i', $trimmed, $tables);
+        $allowed = ['employees', 'divisions', 'schedules', 'attendance', 'rfid_scans'];
+        foreach ($tables[1] as $table) {
+            if (! in_array(strtolower(trim($table, '`"')), $allowed, true)) {
+                throw new RuntimeException('Tabel tidak diizinkan. Gunakan: employees, divisions, schedules, attendance, rfid_scans.');
+            }
         }
 
         // Tolak multi-statement — izinkan 1 trailing ; tapi blokir statement tambahan

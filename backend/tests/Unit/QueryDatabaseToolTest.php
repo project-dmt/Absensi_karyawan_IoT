@@ -46,4 +46,20 @@ class QueryDatabaseToolTest extends TestCase
 
         $this->assertSame($sql, $this->assertReadOnly($sql));
     }
+
+    public function test_union_ke_users_ditolak(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('UNION');
+
+        $this->assertReadOnly('SELECT nama FROM employees UNION SELECT password FROM users');
+    }
+
+    public function test_subquery_ke_users_ditolak(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Tabel tidak diizinkan');
+
+        $this->assertReadOnly('SELECT (SELECT password FROM users LIMIT 1) AS p FROM employees LIMIT 1');
+    }
 }

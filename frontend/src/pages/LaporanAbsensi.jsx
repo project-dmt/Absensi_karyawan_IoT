@@ -84,7 +84,7 @@ export default function LaporanAbsensi() {
     dari: appliedFilter.dari,
     sampai: appliedFilter.sampai,
     divisi_id: appliedFilter.divisi_id || undefined,
-    per_page: 500,
+    per_page: 1000, // ponytail: ceiling backend /laporan; loop pagination kalau perlu >1000
   });
   const updateAbsensi = useUpdateAbsensi();
 

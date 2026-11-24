@@ -55,7 +55,7 @@ export function useRealtime(enabled = true) {
           if (isActive) {
             reconnectTimeoutRef.current = setTimeout(connect, 3000);
           }
-          throw err;
+          // jangan throw: reconnect sudah dijadwalkan, throw hanya buat unhandled rejection
         },
       });
     }
