@@ -85,10 +85,13 @@ export default function Dashboard() {
     );
     // Hanya karyawan aktif yang dihitung (nonaktif bukan beban absensi)
     const aktif = karyawan.filter((k) => k.status === "aktif");
-    const hadir = merged.filter((l) => l.status === "Hadir").length;
-    const terlambat = merged.filter((l) => l.status === "Terlambat").length;
-    const izin = merged.filter((l) => l.status === "Izin").length;
-    const sakit = merged.filter((l) => l.status === "Sakit").length;
+    const nipAktif = new Set(aktif.map((k) => k.nip));
+    const milikAktif = (l) =>
+      nipAktif.has(l.employee?.nip ?? l.nip ?? "");
+    const hadir = merged.filter((l) => l.status === "Hadir" && milikAktif(l)).length;
+    const terlambat = merged.filter((l) => l.status === "Terlambat" && milikAktif(l)).length;
+    const izin = merged.filter((l) => l.status === "Izin" && milikAktif(l)).length;
+    const sakit = merged.filter((l) => l.status === "Sakit" && milikAktif(l)).length;
     // Izin/Sakit bukan "tidak hadir" — karyawan mengajukan ketidakhadiran
     const tidakHadir = Math.max(
       0,
