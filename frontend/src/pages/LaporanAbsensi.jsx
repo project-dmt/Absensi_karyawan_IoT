@@ -231,6 +231,26 @@ export default function LaporanAbsensi() {
           <Funnel className="size-4 text-muted-foreground" />
           <span className="text-sm font-semibold">Filter Laporan</span>
         </div>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium">Periode :</span>
+          {[['day', 'Hari ini'], ['week', 'Minggu ini'], ['month', 'Bulan ini']].map(([value, label]) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={period === value ? "default" : "outline"}
+              onClick={() => {
+                const range = getPeriodRange(value);
+                setPeriod(value);
+                setFilter((current) => ({ ...current, ...range }));
+                setAppliedFilter((current) => ({ ...current, ...range }));
+                setPage(1);
+              }}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
         <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
           <FormInput
             label="Dari Tanggal"

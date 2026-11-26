@@ -38,9 +38,9 @@ import {
 } from "@/components/ui/table";
 
 const PERIODE_OPTIONS = [
-  { value: "harian", label: "Per Hari", minDays: 6 },
-  { value: "mingguan", label: "Per Minggu", minDays: 55 },
-  { value: "bulanan", label: "Per Bulan", minDays: 180 },
+  { value: "harian", label: "Hari ini", minDays: 6 },
+  { value: "mingguan", label: "Minggu ini", minDays: 55 },
+  { value: "bulanan", label: "Bulan ini", minDays: 180 },
 ];
 
 const STATUS_COLUMNS = [
