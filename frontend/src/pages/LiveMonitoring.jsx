@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useRealtime } from "../hooks/useRealtime";
-import { useEspStatus } from "../hooks/useEspStatus";
+import { isEspOnline, useEspStatus } from "../hooks/useEspStatus";
 import StatusBadge from "../components/StatusBadge";
 import EmptyState from "../components/EmptyState";
 import {
@@ -48,7 +48,7 @@ function formatJam(ev) {
 export default function LiveMonitoring() {
   const { events } = useRealtime(true);
   const { status: espStatus } = useEspStatus();
-  const espConnected = espStatus === "connected";
+  const espConnected = isEspOnline(espStatus, events[0]);
   const ui = espConnected
     ? {
         label: "Terhubung",

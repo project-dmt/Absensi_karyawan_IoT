@@ -204,9 +204,11 @@ export function useUpdateAbsensi() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...payload }) => api.put(`/absensi/${id}`, payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: laporanKeys.all });
-      qc.invalidateQueries({ queryKey: karyawanKeys.all });
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: laporanKeys.all }),
+        qc.invalidateQueries({ queryKey: karyawanKeys.all }),
+      ]);
     },
   });
 }

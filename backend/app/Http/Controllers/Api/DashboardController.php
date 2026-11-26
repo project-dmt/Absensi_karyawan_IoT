@@ -69,10 +69,12 @@ class DashboardController extends Controller
             )
             ->orderBy('attendance.jam_masuk', 'asc')
             ->get()
-            ->map(function ($item) use ($jamStandar) {
-                $jamMasuk = Carbon::parse($item->jam_masuk);
-                $jamStandarCarbon = Carbon::parse($jamStandar);
-                $selisihMenit = $jamMasuk->diffInMinutes($jamStandarCarbon);
+            ->map(function ($item) use ($jamStandar, $today) {
+                $timezone = config('app.timezone');
+                $jamMasuk = Carbon::createFromFormat('Y-m-d H:i:s', "{$today} {$item->jam_masuk}", $timezone);
+                $jamStandarCarbon = Carbon::createFromFormat('Y-m-d H:i:s', "{$today} {$jamStandar}", $timezone);
+                $selisihDetik = $jamMasuk->getTimestamp() - $jamStandarCarbon->getTimestamp();
+                $selisihMenit = intdiv(max(0, $selisihDetik), 60);
 
                 return [
                     'id' => $item->id,

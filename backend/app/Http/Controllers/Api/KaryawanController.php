@@ -75,8 +75,8 @@ class KaryawanController extends Controller
 
     public function destroy(Request $request, Employee $karyawan)
     {
-        if ($karyawan->attendances()->exists()) {
-            throw new ApiException('Karyawan masih memiliki data absensi, tidak bisa dihapus', 422);
+        if ($karyawan->status === 'aktif' && $karyawan->attendances()->exists()) {
+            throw new ApiException('Karyawan aktif masih memiliki data absensi, ubah status menjadi nonaktif sebelum menghapus', 422);
         }
 
         $old = $karyawan->toArray();

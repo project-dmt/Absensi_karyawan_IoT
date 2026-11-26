@@ -3,19 +3,20 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { absensiUpdateSchema } from "../schemas";
 import api from "../api/axios";
+import { formatTanggalIndo } from "../lib/dates";
 import { useDivisiList, useLaporan, useUpdateAbsensi } from "../api/queries";
 import StatusBadge from "../components/StatusBadge";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Modal from "../components/Modal";
 import FormInput from "../components/FormInput";
+import SuccessPopup from "../components/SuccessPopup";
 import {
   AlertTriangle,
   CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
-  FileSpreadsheet,
   Loader2,
   Pencil,
   Search,
@@ -52,28 +53,33 @@ const STATUS_OPTIONS = [
 
 const PAGE_SIZE = 20;
 
-function firstDayOfMonth() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .split("T")[0];
+function getJakartaDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function getPeriodRange(period) {
+  const today = getJakartaDate();
+  const [year, month, day] = today.split("-").map(Number);
+  const start = new Date(Date.UTC(year, month - 1, day));
+  start.setUTCDate(start.getUTCDate() - ({ day: 0, week: 6, month: 29 }[period] ?? 0));
+  return { dari: start.toISOString().slice(0, 10), sampai: today };
 }
 
 export default function SemuaAbsensi() {
-  const [filter, setFilter] = useState({
-    dari: firstDayOfMonth(),
-    sampai: new Date().toISOString().split("T")[0],
-    divisi_id: "",
-  });
-  const [appliedFilter, setAppliedFilter] = useState(filter);
+  const defaultRange = getPeriodRange("day");
+  const [filter, setFilter] = useState({ ...defaultRange, divisi_id: "" });
+  const [appliedFilter, setAppliedFilter] = useState({ ...defaultRange, divisi_id: "" });
+  const [period, setPeriod] = useState("day");
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [exporting, setExporting] = useState(false);
-
   const { data: divisi = [] } = useDivisiList();
-  const {
-    data = [],
+  const { data = [],
     isFetching: loading,
     isError,
   } = useLaporan({
@@ -86,6 +92,7 @@ export default function SemuaAbsensi() {
 
   const [editItem, setEditItem] = useState(null);
   const [editMessage, setEditMessage] = useState({ type: "", text: "" });
+  const [successInfo, setSuccessInfo] = useState(null);
 
   const {
     register,
@@ -125,40 +132,6 @@ export default function SemuaAbsensi() {
     setFilter((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const params = {
-        dari: filter.dari,
-        sampai: filter.sampai,
-        format: "xlsx",
-      };
-      if (filter.divisi_id) params.divisi_id = filter.divisi_id;
-      if (statusFilter) params.status = statusFilter;
-      if (search.trim()) params.search = search.trim().slice(0, 100);
-
-      const res = await api.get("/laporan/export", {
-        params,
-        responseType: "blob",
-      });
-
-      const url = window.URL.createObjectURL(res.data);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `semua_absensi_${filter.dari}_sd_${filter.sampai}.xlsx`
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-    } catch {
-      alert("Gagal export Excel. Coba lagi.");
-    } finally {
-      setExporting(false);
-    }
-  };
 
   const openEdit = (item) => {
     setEditItem(item);
@@ -183,7 +156,11 @@ export default function SemuaAbsensi() {
       if (formData.jam_pulang) payload.jam_pulang = formData.jam_pulang + ":00";
 
       await updateAbsensi.mutateAsync({ id: editItem.id, ...payload });
-      setEditMessage({ type: "success", text: "Absensi berhasil diupdate" });
+      closeEdit();
+      setSuccessInfo({
+        title: "Perubahan tersimpan",
+        description: "Absensi berhasil diperbarui.",
+      });
     } catch (err) {
       if (err.response?.status === 422) {
         if (err.response.data.message) {
@@ -215,6 +192,26 @@ export default function SemuaAbsensi() {
         <div className="mb-3 flex items-center gap-2">
           <CalendarDays className="size-4 text-muted-foreground" />
           <span className="text-sm font-semibold">Filter</span>
+        </div>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium">Periode:</span>
+          {[['day', 'Hari ini'], ['week', 'Minggu ini'], ['month', 'Bulan ini']].map(([value, label]) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={period === value ? "default" : "outline"}
+              onClick={() => {
+                const range = getPeriodRange(value);
+                setPeriod(value);
+                setFilter((current) => ({ ...current, ...range }));
+                setAppliedFilter((current) => ({ ...current, ...range }));
+                setPage(1);
+              }}
+            >
+              {label}
+            </Button>
+          ))}
         </div>
         <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3">
           <FormInput
@@ -291,23 +288,6 @@ export default function SemuaAbsensi() {
             </SelectContent>
           </Select>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExport}
-          disabled={exporting || loading}
-          title="Export Excel sesuai filter"
-        >
-          {exporting ? (
-            <Loader2 className="animate-spin" />
-          ) : (
-            <FileSpreadsheet
-              data-icon="inline-start"
-              className="size-4 text-green-600"
-            />
-          )}
-          Export Excel
-        </Button>
         <small className="ms-auto text-muted-foreground">
           {filtered.length} record
         </small>
@@ -355,7 +335,7 @@ export default function SemuaAbsensi() {
                       <TableCell>
                         <code>{item.employee?.nip}</code>
                       </TableCell>
-                      <TableCell>{item.tanggal}</TableCell>
+                      <TableCell>{formatTanggalIndo(item.tanggal)}</TableCell>
                       <TableCell>{item.jam_masuk || "-"}</TableCell>
                       <TableCell>{item.jam_pulang || "-"}</TableCell>
                       <TableCell>
@@ -415,7 +395,7 @@ export default function SemuaAbsensi() {
                 {editItem.employee?.nama} ({editItem.employee?.nip})
               </div>
               <small className="text-muted-foreground">
-                Tanggal: {editItem.tanggal} | Jam Masuk:{" "}
+                Tanggal: {formatTanggalIndo(editItem.tanggal)} | Jam Masuk:{" "}
                 {editItem.jam_masuk || "-"}
               </small>
             </div>
@@ -509,6 +489,13 @@ export default function SemuaAbsensi() {
           </>
         )}
       </Modal>
+
+      <SuccessPopup
+        open={!!successInfo}
+        title={successInfo?.title}
+        description={successInfo?.description}
+        onClose={() => setSuccessInfo(null)}
+      />
     </div>
   );
 }

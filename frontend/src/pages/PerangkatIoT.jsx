@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRealtime } from "../hooks/useRealtime";
-import { useEspStatus } from "../hooks/useEspStatus";
+import { isEspOnline, useEspStatus } from "../hooks/useEspStatus";
 import api from "../api/axios";
 import {
   Activity,
@@ -23,7 +23,6 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-const EVENT_ONLINE_WINDOW_MS = 15 * 60 * 1000;
 
 const FIRMWARE_CONFIG = [
   { key: "WIFI_SSID / WIFI_PASSWORD", value: "Kredensial WiFi lokal" },
@@ -59,14 +58,8 @@ export default function PerangkatIoT() {
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState(null);
   const espConnected = espStatus === "connected";
-  const lastEventTime = lastEvent?.created_at
-    ? new Date(lastEvent.created_at).getTime()
-    : 0;
-  const recentEvent =
-    Number.isFinite(lastEventTime) &&
-    lastEventTime > 0 &&
-    now - lastEventTime <= EVENT_ONLINE_WINDOW_MS;
-  const deviceOnline = espConnected || recentEvent;
+  const deviceOnline = isEspOnline(espStatus, lastEvent, now);
+  const recentEvent = deviceOnline && !espConnected;
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30_000);

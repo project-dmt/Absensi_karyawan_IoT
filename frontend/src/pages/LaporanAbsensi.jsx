@@ -9,6 +9,7 @@ import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Modal from "../components/Modal";
 import FormInput from "../components/FormInput";
+import SuccessPopup from "../components/SuccessPopup";
 import {
   CalendarX,
   Check,
@@ -33,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { laporanKeys } from "../api/queries";
+import { formatTanggalIndo } from "../lib/dates";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -62,22 +64,36 @@ const STATUS_OPTIONS = [
 
 const PAGE_SIZE = 20;
 
-export default function LaporanAbsensi() {
-  const today = new Date().toISOString().split("T")[0];
-  const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
+function getJakartaDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
 
+function getPeriodRange(period) {
+  const today = getJakartaDate();
+  const [year, month, day] = today.split("-").map(Number);
+  const start = new Date(Date.UTC(year, month - 1, day));
+  const days = { day: 0, week: 6, month: 29 }[period] ?? 0;
+  start.setUTCDate(start.getUTCDate() - days);
+  return { dari: start.toISOString().slice(0, 10), sampai: today };
+}
+
+export default function LaporanAbsensi() {
+  const today = getJakartaDate();
+  const defaultRange = getPeriodRange("day");
   const [filter, setFilter] = useState({
-    dari: sevenDaysAgo,
-    sampai: today,
+    ...defaultRange,
     divisi_id: "",
   });
   const [appliedFilter, setAppliedFilter] = useState({
-    dari: sevenDaysAgo,
-    sampai: today,
+    ...defaultRange,
     divisi_id: "",
   });
+  const [period, setPeriod] = useState("day");
   const [page, setPage] = useState(1);
   const { data: divisi = [] } = useDivisiList();
   const { data = [], isFetching: loading } = useLaporan({
@@ -99,6 +115,7 @@ export default function LaporanAbsensi() {
   const [confirmReset, setConfirmReset] = useState(false);
   const queryClient = useQueryClient();
   const [editMessage, setEditMessage] = useState({ type: "", text: "" });
+  const [successInfo, setSuccessInfo] = useState(null);
 
   const {
     register,
@@ -119,12 +136,17 @@ export default function LaporanAbsensi() {
   const handleClearToday = async () => {
     setConfirmReset(false);
     try {
-      const res = await api.delete("/absensi/clear-today", {
-        params: { tanggal: appliedFilter.sampai },
-      });
+      const res = await api.delete("/absensi/clear-today");
       const deleted = res.data?.data?.deleted ?? 0;
       window.alert(`Berhasil menghapus ${deleted} absensi`);
       await queryClient.invalidateQueries({ queryKey: laporanKeys.all });
+      window.dispatchEvent(new Event("absensi:cleared"));
+      const resetDate = getJakartaDate();
+      const resetFilter = { dari: resetDate, sampai: resetDate, divisi_id: "" };
+      setPeriod("day");
+      setFilter(resetFilter);
+      setAppliedFilter(resetFilter);
+      setPage(1);
     } catch (err) {
       window.alert(err.response?.data?.message || "Gagal hapus — butuh role admin/superadmin");
     }
@@ -171,12 +193,18 @@ export default function LaporanAbsensi() {
   const onEditSubmit = async (formData) => {
     setEditMessage({ type: "", text: "" });
     try {
-      const payload = { status: formData.status };
-      if (formData.keterangan) payload.keterangan = formData.keterangan;
-      if (formData.jam_pulang) payload.jam_pulang = formData.jam_pulang + ":00";
+      const payload = {
+        status: formData.status,
+        keterangan: formData.keterangan?.trim() || null,
+        jam_pulang: formData.jam_pulang ? `${formData.jam_pulang}:00` : null,
+      };
 
       await updateAbsensi.mutateAsync({ id: editItem.id, ...payload });
-      setEditMessage({ type: "success", text: "Absensi berhasil diupdate" });
+      closeEdit();
+      setSuccessInfo({
+        title: "Perubahan tersimpan",
+        description: `Absensi ${editItem.employee?.nama ?? ""} berhasil diperbarui.`,
+      });
     } catch (err) {
       if (err.response?.status === 422) {
         if (err.response.data.message) {
@@ -271,8 +299,8 @@ export default function LaporanAbsensi() {
             <DialogHeader>
               <DialogTitle>Reset Absensi Hari Ini</DialogTitle>
               <DialogDescription>
-                Hapus semua absensi tanggal {appliedFilter.sampai} (testing).
-                Record yang akan terhapus: {data.filter((d) => d.tanggal === appliedFilter.sampai).length || data.length}.
+                Hapus semua absensi hari ini ({today}).
+                Record yang akan terhapus: {data.filter((d) => d.tanggal === today).length}.
                 Tindakan ini tidak bisa dibatalkan.
               </DialogDescription>
             </DialogHeader>
@@ -320,7 +348,7 @@ export default function LaporanAbsensi() {
                     <TableCell>
                       <code>{item.employee?.nip}</code>
                     </TableCell>
-                    <TableCell>{item.tanggal}</TableCell>
+                    <TableCell>{formatTanggalIndo(item.tanggal)}</TableCell>
                     <TableCell>{item.jam_masuk || "-"}</TableCell>
                     <TableCell>{item.jam_pulang || "-"}</TableCell>
                     <TableCell>
@@ -379,7 +407,7 @@ export default function LaporanAbsensi() {
                 {editItem.employee?.nama} ({editItem.employee?.nip})
               </div>
               <small className="text-muted-foreground">
-                Tanggal: {editItem.tanggal} | Jam Masuk: {editItem.jam_masuk || "-"}
+                Tanggal: {formatTanggalIndo(editItem.tanggal)} | Jam Masuk: {editItem.jam_masuk || "-"}
               </small>
             </div>
 
@@ -465,6 +493,13 @@ export default function LaporanAbsensi() {
           </>
         )}
       </Modal>
+
+      <SuccessPopup
+        open={!!successInfo}
+        title={successInfo?.title}
+        description={successInfo?.description}
+        onClose={() => setSuccessInfo(null)}
+      />
     </div>
   );
 }

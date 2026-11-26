@@ -9,7 +9,9 @@ use App\Models\Attendance;
 use App\Models\Employee;
 use App\Services\AbsensiService;
 use App\Services\AuditLogService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AbsensiController extends Controller
 {
@@ -43,14 +45,15 @@ class AbsensiController extends Controller
         return $this->successResponse($absensi, 'Absensi manual berhasil ditambahkan', 201);
     }
 
-    public function update(UpdateAbsensiRequest $request, Attendance $absensi)
+    public function update(UpdateAbsensiRequest $request, Attendance $attendance)
     {
-        $old = $absensi->toArray();
-        $absensi->update($request->validated());
+        $old = $attendance->toArray();
+        $attendance->update($request->validated());
+        $updated = $attendance->fresh();
 
-        AuditLogService::log('update_absensi', $absensi, $old, $absensi->fresh()->toArray(), $request);
+        AuditLogService::log('update_absensi', $attendance, $old, $updated?->toArray(), $request);
 
-        return $this->successResponse($absensi->fresh(), 'Absensi berhasil diupdate');
+        return $this->successResponse($updated?->toArray() ?? $attendance->toArray(), 'Absensi berhasil diupdate');
     }
 
     public function destroy(Request $request, Attendance $absensi)
@@ -63,31 +66,39 @@ class AbsensiController extends Controller
         return $this->successResponse(null, 'Absensi berhasil dihapus');
     }
 
-    // ponytail: testing helper — hapus absensi hari ini (bulk), dipakai tombol Testing di Laporan
-    // handle offset UTC vs Asia/Jakarta: hapus tanggal WIB + fallback created_at hari ini
+    // ponytail: testing helper — clear only the requested Jakarta calendar day.
     public function clearToday(Request $request)
     {
-        if ($request->filled('tanggal')) {
-            $request->validate(['tanggal' => 'date']);
-            $query = Attendance::whereDate('tanggal', $request->tanggal);
-            $label = $request->tanggal;
-        } else {
-            $today = now('Asia/Jakarta')->toDateString();
-            $query = Attendance::where(function ($q) use ($today) {
-                $q->whereDate('tanggal', $today)
-                    ->orWhereDate('created_at', $today);
-            });
-            $label = 'hari ini';
-        }
-        $count = $query->count();
-        if ($count === 0) {
-            return $this->successResponse(['deleted' => 0], 'Tidak ada absensi hari ini');
-        }
-        $old = $query->get()->toArray();
-        $query->delete();
-        AuditLogService::log('clear_absensi_today', null, ['count' => $count, 'sample' => array_slice($old, 0, 3)], null, $request);
+        $request->validate(['tanggal' => 'nullable|date']);
+        $timezone = 'Asia/Jakarta';
+        $hasRequestedDate = $request->filled('tanggal');
+        $date = $hasRequestedDate
+            ? Carbon::parse($request->input('tanggal'), $timezone)->toDateString()
+            : now($timezone)->toDateString();
+        $label = $hasRequestedDate ? $date : 'hari ini';
+        $start = Carbon::parse($date, $timezone)->startOfDay();
+        $end = $start->copy()->endOfDay();
 
-        return $this->successResponse(['deleted' => $count], "Berhasil hapus {$count} absensi {$label}");
+        [$count, $eventsDeleted] = DB::transaction(function () use ($date, $start, $end, $request) {
+            $query = Attendance::whereDate('tanggal', $date);
+            $count = $query->count();
+            $old = $query->limit(3)->get()->toArray();
+            $query->delete();
+            $eventsDeleted = DB::table('realtime_events')
+                ->whereBetween('created_at', [$start, $end])
+                ->delete();
+            AuditLogService::log('clear_absensi_today', null, [
+                'count' => $count,
+                'events_count' => $eventsDeleted,
+                'sample' => $old,
+            ], null, $request);
+            return [$count, $eventsDeleted];
+        });
+
+        return $this->successResponse([
+            'deleted' => $count,
+            'events_deleted' => $eventsDeleted,
+        ], "Berhasil hapus {$count} absensi {$label}");
     }
 
     public function index(Request $request)

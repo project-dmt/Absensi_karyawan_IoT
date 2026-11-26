@@ -189,9 +189,25 @@ class KaryawanTest extends TestCase
         $response->assertStatus(422)
             ->assertJson([
                 'success' => false,
-                'message' => 'Karyawan masih memiliki data absensi, tidak bisa dihapus',
+                'message' => 'Karyawan aktif masih memiliki data absensi, ubah status menjadi nonaktif sebelum menghapus',
             ]);
 
         $this->assertDatabaseHas('employees', ['id' => $karyawan->id]);
+    }
+
+    public function test_destroy_nonaktif_karyawan_with_attendance_is_allowed(): void
+    {
+        $user = \App\Models\User::factory()->superadmin()->create();
+        $karyawan = Employee::factory()
+            ->has(Attendance::factory()->count(1))
+            ->create(['status' => 'nonaktif']);
+
+        $response = $this->actingAs($user)->deleteJson("/api/karyawan/{$karyawan->id}");
+
+        $response->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertDatabaseMissing('employees', ['id' => $karyawan->id]);
+        $this->assertDatabaseMissing('attendance', ['employee_id' => $karyawan->id]);
     }
 }

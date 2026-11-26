@@ -5,6 +5,7 @@ import { divisiSchema } from "../schemas";
 import { useRouter } from "../router";
 import { useDebounce } from "../hooks/useDebounce";
 import Modal from "../components/Modal";
+import SuccessPopup from "../components/SuccessPopup";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 import {
@@ -46,6 +47,7 @@ export default function DataDivisi() {
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebounce(search);
   const [showModal, setShowModal] = useState(false);
+  const [successInfo, setSuccessInfo] = useState(null);
   const [editId, setEditId] = useState(null);
   const submitting = createDivisi.isPending || updateDivisi.isPending;
 
@@ -84,6 +86,10 @@ export default function DataDivisi() {
     try {
       await mutation;
       setShowModal(false);
+      setSuccessInfo({
+        title: editId ? "Divisi diperbarui" : "Divisi ditambahkan",
+        description: `${payload.nama_divisi} berhasil tersimpan.`,
+      });
     } catch (err) {
       if (err.response?.status === 422) {
         const serverErrors = err.response.data.errors || {};
@@ -96,8 +102,13 @@ export default function DataDivisi() {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
+    const nama = (data.find((d) => d.id === id) || {}).nama_divisi || "";
     try {
       await deleteDivisi.mutateAsync(id);
+      setSuccessInfo({
+        title: "Divisi dihapus",
+        description: `${nama} berhasil dihapus.`,
+      });
     } catch {}
   };
 
@@ -269,6 +280,13 @@ export default function DataDivisi() {
           </div>
         </form>
       </Modal>
+
+      <SuccessPopup
+        open={!!successInfo}
+        title={successInfo?.title}
+        description={successInfo?.description}
+        onClose={() => setSuccessInfo(null)}
+      />
     </div>
   );
 }

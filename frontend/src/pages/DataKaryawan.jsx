@@ -11,6 +11,7 @@ import {
 import api from "../api/axios";
 import StatusBadge from "../components/StatusBadge";
 import Modal from "../components/Modal";
+import SuccessPopup from "../components/SuccessPopup";
 import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 import {
@@ -91,6 +92,7 @@ export default function DataKaryawan() {
   const [saving, setSaving] = useState(false);
   const [savingDivisi, setSavingDivisi] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [successInfo, setSuccessInfo] = useState(null);
 
   // ==== State Scan Kartu ====
   const [scanning, setScanning] = useState(false);
@@ -290,10 +292,9 @@ export default function DataKaryawan() {
       }
       await queryClient.invalidateQueries({ queryKey: karyawanKeys.all });
       setShowModal(false);
-      setNotice({
-        type: "success",
+      setSuccessInfo({
         title: editId ? "Karyawan diperbarui" : "Karyawan ditambahkan",
-        message: `${payload.nama} (${payload.rfid_uid}) udah tersimpan.`,
+        description: `${payload.nama} (${payload.rfid_uid}) berhasil tersimpan.`,
       });
     } catch (err) {
       if (err.response?.status === 422) {
@@ -329,16 +330,17 @@ export default function DataKaryawan() {
     try {
       const nama = (data.find((d) => d.id === id) || {}).nama || "";
       await deleteKaryawan.mutateAsync(id);
-      setNotice({
-        type: "success",
+      setSuccessInfo({
         title: "Karyawan dihapus",
-        message: `${nama} dihapus dari data.`,
+        description: `${nama} berhasil dihapus dari data.`,
       });
-    } catch {
+    } catch (err) {
       setNotice({
         type: "error",
         title: "Gagal menghapus",
-        message: "Terjadi kesalahan saat menghapus.",
+        message:
+          err.response?.data?.message ||
+          "Terjadi kesalahan saat menghapus.",
       });
     }
   };
@@ -370,7 +372,8 @@ export default function DataKaryawan() {
       {notice && (
         <Alert
           variant={notice.type === "success" ? "default" : "destructive"}
-          className="mb-3"
+          role="alert"
+          className="fixed right-4 top-20 z-[100] w-[min(360px,calc(100vw-2rem))] shadow-lg"
         >
           {notice.type === "success" ? (
             <CheckCircle2 className="size-4" />
@@ -416,6 +419,7 @@ export default function DataKaryawan() {
                   <TableRow>
                     <TableHead>No</TableHead>
                     <TableHead>Nama</TableHead>
+                    <TableHead>Divisi</TableHead>
                     <TableHead>NIP</TableHead>
                     <TableHead>RFID UID</TableHead>
                     <TableHead>Status</TableHead>
@@ -429,6 +433,11 @@ export default function DataKaryawan() {
                         {(safePage - 1) * PAGE_SIZE + idx + 1}
                       </TableCell>
                       <TableCell className="font-medium">{item.nama}</TableCell>
+                      <TableCell>
+                        {item.division?.nama_divisi ??
+                          divisi.find((d) => d.id === item.divisi_id)?.nama_divisi ??
+                          "-"}
+                      </TableCell>
                       <TableCell>
                         <code>{item.nip}</code>
                       </TableCell>
@@ -727,6 +736,13 @@ export default function DataKaryawan() {
           </div>
         </form>
       </Modal>
+
+      <SuccessPopup
+        open={!!successInfo}
+        title={successInfo?.title}
+        description={successInfo?.description}
+        onClose={() => setSuccessInfo(null)}
+      />
     </div>
   );
 }

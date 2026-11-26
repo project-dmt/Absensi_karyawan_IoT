@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Attendance;
 use App\Models\Division;
+use App\Models\User;
 use App\Models\Employee;
 use App\Models\RfidScan;
 use App\Models\Schedule;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -304,6 +306,73 @@ class AbsensiDeviceTest extends TestCase
         $this->postJson('/api/absensi', ['uid' => 'ABC123'], $this->withApiKey())->assertStatus(400);
 
         $this->assertDatabaseCount('attendance', 1);
+    }
+
+    public function test_clear_today_removes_today_attendance_and_realtime_events_only(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-25 10:00:00', 'Asia/Jakarta'));
+        $today = Carbon::today('Asia/Jakarta')->toDateString();
+        $yesterday = Carbon::yesterday('Asia/Jakarta')->toDateString();
+        Attendance::factory()->create(['tanggal' => $today]);
+        Attendance::factory()->create(['tanggal' => $yesterday]);
+        DB::table('realtime_events')->insert([
+            ['event_type' => 'check_in', 'employee_name' => 'Today', 'employee_nip' => null, 'status' => 'Hadir', 'jam' => '08:00', 'created_at' => Carbon::parse('2026-11-25 08:00:00', 'Asia/Jakarta'), 'updated_at' => Carbon::parse('2026-11-25 08:00:00', 'Asia/Jakarta')],
+            ['event_type' => 'check_in', 'employee_name' => 'Yesterday', 'employee_nip' => null, 'status' => 'Hadir', 'jam' => '08:00', 'created_at' => Carbon::parse('2026-11-24 08:00:00', 'Asia/Jakarta'), 'updated_at' => Carbon::parse('2026-11-24 08:00:00', 'Asia/Jakarta')],
+        ]);
+
+        $this->actingAs(User::factory()->create())->deleteJson('/api/absensi/clear-today')
+            ->assertOk()
+            ->assertJsonPath('data.deleted', 1)
+            ->assertJsonPath('data.events_deleted', 1);
+
+        $this->assertDatabaseCount('attendance', 1);
+        $this->assertDatabaseCount('realtime_events', 1);
+        $this->assertTrue(Attendance::whereDate('tanggal', $yesterday)->exists());
+        $this->assertTrue(DB::table('realtime_events')->where('employee_name', 'Yesterday')->exists());
+    }
+
+    public function test_authenticated_user_can_update_attendance(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $attendance = Attendance::factory()->create(['status' => 'Hadir']);
+
+        $this->actingAs($user)
+            ->putJson('/api/absensi/' . $attendance->id, [
+                'status' => 'Terlambat',
+                'keterangan' => 'Koreksi jam masuk',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('attendance', [
+            'id' => $attendance->id,
+            'status' => 'Terlambat',
+            'keterangan' => 'Koreksi jam masuk',
+        ]);
+    }
+
+    public function test_authenticated_user_can_clear_attendance_optional_fields(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $attendance = Attendance::factory()->create([
+            'status' => 'Hadir',
+            'jam_pulang' => '17:00:00',
+            'keterangan' => 'Koreksi sebelumnya',
+        ]);
+
+        $this->actingAs($user)
+            ->putJson('/api/absensi/' . $attendance->id, [
+                'status' => 'Hadir',
+                'jam_pulang' => null,
+                'keterangan' => null,
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('attendance', [
+            'id' => $attendance->id,
+            'jam_pulang' => null,
+            'keterangan' => null,
+        ]);
     }
 
     private function skipIfNotMysql(string $message): void

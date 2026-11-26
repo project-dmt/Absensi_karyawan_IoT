@@ -3,6 +3,16 @@ import api from "../api/axios";
 
 const STORAGE_KEY = "esp_ip";
 const POLL_INTERVAL_MS = 10000;
+export const ESP_ONLINE_WINDOW_MS = 15 * 60 * 1000;
+
+export function isEspOnline(status, lastEvent, now = Date.now()) {
+  if (status === "connected") return true;
+
+  const eventTime = lastEvent?.created_at
+    ? new Date(lastEvent.created_at).getTime()
+    : 0;
+  return Number.isFinite(eventTime) && eventTime > 0 && now - eventTime <= ESP_ONLINE_WINDOW_MS;
+}
 
 // Status koneksi ESP dicek di latar belakang lewat backend.
 // SSE tetap jalan terpisah untuk event realtime.
@@ -23,7 +33,6 @@ export function useEspStatus() {
 
       if (!value) {
         setInfo(null);
-        setStatus("unknown");
         return false;
       }
 
@@ -46,7 +55,6 @@ export function useEspStatus() {
     },
     [pollIp]
   );
-
   useEffect(() => {
     if (!pollIp) {
       setStatus("unknown");

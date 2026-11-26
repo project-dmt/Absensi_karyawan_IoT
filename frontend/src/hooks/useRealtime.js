@@ -4,14 +4,33 @@ import api from '../api/axios';
 
 export function useRealtime(enabled = true) {
   const [events, setEvents] = useState([]);
+  const [connected, setConnected] = useState(false);
   const lastIdRef = useRef(0);
   const reconnectTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    const handleCleared = () => {
+      setEvents([]);
+      lastIdRef.current = 0;
+    };
+
+    window.addEventListener('absensi:cleared', handleCleared);
+    return () => window.removeEventListener('absensi:cleared', handleCleared);
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;
 
     let abortController = null;
     let isActive = true;
+
+    function scheduleReconnect(connect) {
+      if (!isActive || reconnectTimeoutRef.current) return;
+      reconnectTimeoutRef.current = setTimeout(() => {
+        reconnectTimeoutRef.current = null;
+        connect();
+      }, 3000);
+    }
 
     function connect() {
       if (!isActive) return;
@@ -45,18 +64,24 @@ export function useRealtime(enabled = true) {
         signal: abortController.signal,
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         onmessage: (msg) => {
+          setConnected(true);
           if (msg.event === 'check_in' || msg.event === 'checkout') {
             handleEvent(msg);
           }
         },
         onerror: (err) => {
           // default library melempar ulang error — kita tangani reconnect sendiri
+          setConnected(false);
           abortController.abort();
-          if (isActive) {
-            reconnectTimeoutRef.current = setTimeout(connect, 3000);
-          }
+          scheduleReconnect(connect);
           // jangan throw: reconnect sudah dijadwalkan, throw hanya buat unhandled rejection
         },
+      }).then(() => {
+        scheduleReconnect(connect);
+      }).catch(() => {
+        // onerror handles reconnects; prevent an unhandled rejection if the stream aborts
+        setConnected(false);
+        scheduleReconnect(connect);
       });
     }
 
@@ -66,8 +91,9 @@ export function useRealtime(enabled = true) {
       isActive = false;
       abortController?.abort();
       clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
     };
   }, [enabled]);
 
-  return { events };
+  return { events, connected };
 }
