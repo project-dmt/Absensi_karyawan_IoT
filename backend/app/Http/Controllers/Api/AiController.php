@@ -8,6 +8,7 @@ use App\Services\PromptInjectionGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Streaming\Events\TextDelta;
+use Laravel\Ai\Streaming\Events\ToolResult as ToolResultEvent;
 use RuntimeException;
 
 class AiController extends Controller
@@ -71,6 +72,18 @@ class AiController extends Controller
                         $hadOutput = true;
                         echo $event->delta;
                         flush();
+                    } elseif ($event instanceof ToolResultEvent
+                        && $event->successful
+                        && $event->toolResult->name === 'ExportAttendanceTool') {
+                        $result = is_string($event->toolResult->result)
+                            ? $event->toolResult->result
+                            : '';
+
+                        if (preg_match('/^\[\[EXPORT_EXCEL:\{"dari":"\d{4}-\d{2}-\d{2}","sampai":"\d{4}-\d{2}-\d{2}"(?:,"format":"(?:xlsx|csv)")?\}\]\]$/', $result)) {
+                            $hadOutput = true;
+                            echo $result;
+                            flush();
+                        }
                     }
                 }
 

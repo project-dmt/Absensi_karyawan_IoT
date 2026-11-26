@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { TextStreamChatTransport } from "ai";
-import { Bot, Send, TriangleAlert, X } from "lucide-react";
+import { Bot, Download, Loader2, Send, TriangleAlert, X } from "lucide-react";
+import api from "../api/axios";
+import { formatTanggalIndo } from "../lib/dates";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import MessageBubble from "./MessageBubble";
 import TypingIndicator from "./TypingIndicator";
 
@@ -16,6 +20,116 @@ const messageText = (message) =>
     .filter((part) => part.type === "text")
     .map((part) => part.text)
     .join("");
+
+const EXPORT_MARKER_PATTERN = /\[\[EXPORT_EXCEL:([\s\S]*?)\]\]/g;
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseIsoDate(value) {
+  if (typeof value !== "string" || !ISO_DATE_PATTERN.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const date = new Date(Date.UTC(2000, month - 1, day));
+  date.setUTCFullYear(year);
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+    ? date
+    : null;
+}
+
+function parseExportIntents(text) {
+  const intents = [];
+  for (const match of text.matchAll(EXPORT_MARKER_PATTERN)) {
+    try {
+      const value = JSON.parse(match[1]);
+      if (!value || Array.isArray(value) || typeof value !== "object") continue;
+      const keys = Object.keys(value).sort().join(",");
+      if (keys !== "dari,sampai" && keys !== "dari,format,sampai") continue;
+
+      const format = value.format === undefined ? "xlsx" : value.format;
+      if (format !== "xlsx" && format !== "csv") continue;
+      const dari = parseIsoDate(value.dari);
+      const sampai = parseIsoDate(value.sampai);
+      if (!dari || !sampai || dari > sampai) continue;
+      const calendarDays = (sampai.getTime() - dari.getTime()) / 86400000 + 1;
+      if (calendarDays > 31) continue;
+
+      const intent = { dari: value.dari, sampai: value.sampai, format };
+      if (!intents.some((item) =>
+        item.dari === intent.dari && item.sampai === intent.sampai && item.format === intent.format
+      )) {
+        intents.push(intent);
+      }
+    } catch {
+      // Ignore malformed markers; the marker is still removed from the UI.
+    }
+  }
+  return intents;
+}
+
+function stripExportMarkers(text) {
+  const visible = text.replace(EXPORT_MARKER_PATTERN, "");
+  const incompleteMarker = visible.indexOf("[[EXPORT_EXCEL:");
+  return (incompleteMarker >= 0 ? visible.slice(0, incompleteMarker) : visible).trim();
+}
+
+function exportFilename({ dari, sampai, format }) {
+  return `laporan_absensi_${dari}_sd_${sampai}.${format}`;
+}
+
+function ExportDownloadButton({ intent }) {
+  const [downloading, setDownloading] = useState(false);
+  const filename = exportFilename(intent);
+  const isCsv = intent.format === "csv";
+  const label = isCsv ? "CSV" : "Excel";
+  const mimeType = isCsv ? "text/csv" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  const rangeLabel = `${formatTanggalIndo(intent.dari)} – ${formatTanggalIndo(intent.sampai)}`;
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const response = await api.get("/laporan/export", {
+        params: { dari: intent.dari, sampai: intent.sampai, format: intent.format },
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
+      toast.success(`Laporan ${label} berhasil diunduh`);
+    } catch (downloadError) {
+      console.error("[AI export]", downloadError);
+      toast.error(`Gagal mengunduh laporan ${label}. Silakan coba lagi.`);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={handleDownload}
+        disabled={downloading}
+        aria-label={`Download ${label} laporan absensi ${rangeLabel}`}
+      >
+        {downloading ? <Loader2 className="animate-spin" /> : <Download />}
+        Download {label}
+      </Button>
+      <span className="text-xs text-muted-foreground" title={filename}>
+        File: {filename} · Periode: {rangeLabel}
+      </span>
+    </div>
+  );
+}
 
 function renderWithBold(text) {
   // ponytail: minimal **bold** parser, tanpa lib markdown
@@ -67,13 +181,15 @@ export default function AiChatWidget() {
   const [input, setInput] = useState("");
   const token = localStorage.getItem("token");
   const messagesRef = useRef(null);
-
-  const { messages, sendMessage, status, error } = useChat({
-    transport: new TextStreamChatTransport({
+  const transport = useMemo(
+    () => new TextStreamChatTransport({
       api: `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/ai/chat`,
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     }),
-  });
+    [token]
+  );
+
+  const { messages, sendMessage, status, error } = useChat({ transport });
 
   useEffect(() => {
     if (open) messagesRef.current?.scrollTo({ top: 1e9 });
@@ -120,10 +236,19 @@ export default function AiChatWidget() {
               </div>
             )}
             {messages.map((message) => {
-              const text = messageText(message);
+              const rawText = messageText(message);
+              const isAssistant = message.role === "assistant";
+              const text = isAssistant ? stripExportMarkers(rawText) : rawText;
+              const exportIntents = isAssistant ? parseExportIntents(rawText) : [];
               return (
                 <MessageBubble key={message.id} message={message}>
                   {text ? renderWithBold(text) : message.role === "assistant" && <TypingIndicator />}
+                  {exportIntents.map((intent) => (
+                    <ExportDownloadButton
+                      key={`${intent.dari}-${intent.sampai}-${intent.format}`}
+                      intent={intent}
+                    />
+                  ))}
                 </MessageBubble>
               );
             })}
