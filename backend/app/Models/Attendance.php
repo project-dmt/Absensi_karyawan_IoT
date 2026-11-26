@@ -15,7 +15,9 @@ class Attendance extends Model
     protected function casts(): array
     {
         return [
-            'tanggal' => 'date',
+            // date:Y-m-d agar JSON ter-serialisasi "Y-m-d" (cast "date" polos
+            // menghasilkan ISO UTC yang mundur 1 hari untuk zona Asia/Jakarta)
+            'tanggal' => 'date:Y-m-d',
             'jam_masuk' => 'string',
             'jam_pulang' => 'string',
         ];

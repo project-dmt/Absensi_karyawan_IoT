@@ -1,19 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
-import { useKaryawanList, useLaporan } from "../api/queries";
-import StatusBadge from "../components/StatusBadge";
-import LoadingSpinner from "../components/LoadingSpinner";
-import EmptyState from "../components/EmptyState";
-import { useRealtime } from "../hooks/useRealtime";
+import { useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle,
-  CalendarX,
-  CheckCircle,
+  Activity,
+  CalendarDays,
+  CheckCircle2,
   Clock3,
+  RefreshCw,
   Users,
   XCircle,
 } from "lucide-react";
+import { useKaryawanList, useLaporan, karyawanKeys, laporanKeys } from "../api/queries";
+import StatusBadge from "../components/StatusBadge";
+import LoadingSpinner from "../components/LoadingSpinner";
+import EmptyState from "../components/EmptyState";
+import AttendanceCompositionChart from "../components/dashboard/AttendanceCompositionChart";
+import HourlyAttendanceChart from "../components/dashboard/HourlyAttendanceChart";
+import DivisionAttendanceChart from "../components/dashboard/DivisionAttendanceChart";
+import { useRealtime } from "../hooks/useRealtime";
+import { buildDashboardData } from "../lib/dashboard-data";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -23,135 +36,239 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const CARDS = [
-  {
-    label: "Total Karyawan",
-    valueKey: "totalKaryawan",
+function getJakartaDate(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+const KPI_TONES = {
+  total: {
     icon: Users,
     bg: "linear-gradient(135deg, #4f6d7a, #7b9aab)",
+    accent: "#c0d6df",
   },
-  {
-    label: "Hadir",
-    valueKey: "hadir",
-    icon: CheckCircle,
+  hadir: {
+    icon: CheckCircle2,
     bg: "linear-gradient(135deg, #10b981, #34d399)",
+    accent: "#ffffff",
   },
-  {
-    label: "Terlambat",
-    valueKey: "terlambat",
-    icon: AlertTriangle,
+  terlambat: {
+    icon: Clock3,
     bg: "linear-gradient(135deg, #f59e0b, #fbbf24)",
+    accent: "#ffffff",
   },
-  {
-    label: "Tidak Hadir",
-    valueKey: "tidakHadir",
+  tidakHadir: {
     icon: XCircle,
     bg: "linear-gradient(135deg, #ef4444, #f87171)",
+    accent: "#ffffff",
   },
-];
+};
+
+function KpiCard({ label, value, hint, icon: Icon, bg, accent }) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-xl p-5 min-h-28 flex flex-col justify-center text-white shadow-sm transition-transform hover:-translate-y-0.5"
+      style={{ background: bg }}
+    >
+      <div
+        className="pointer-events-none absolute -top-5 -right-5 size-20 rounded-full bg-white/10"
+        aria-hidden="true"
+      />
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="text-3xl font-semibold tabular-nums">{value}</div>
+          <div className="mt-1 text-sm text-white/90">{label}</div>
+        </div>
+        <Icon className="size-10 opacity-80" aria-hidden="true" />
+      </div>
+      <p className="mt-1 text-xs" style={{ color: accent }}>
+        {hint}
+      </p>
+    </div>
+  );
+}
+
+function timeOf(item) {
+  if (item?.jam_masuk || item?.jam) return item.jam_masuk || item.jam;
+  if (item?.created_at) {
+    return new Date(item.created_at).toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Asia/Jakarta",
+    });
+  }
+  return "-";
+}
 
 export default function Dashboard() {
-  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const today = useMemo(() => getJakartaDate(), []);
+  const queryClient = useQueryClient();
   const {
     data: karyawan = [],
     isPending,
     isError: karyawanError,
   } = useKaryawanList();
-  const {
-    data: laporan = [],
-    isError: laporanError,
-  } = useLaporan({ dari: today, sampai: today });
+  const { data: laporan = [], isError: laporanError } = useLaporan({
+    dari: today,
+    sampai: today,
+  });
   const dataReady = !isPending;
-  const { events: realtimeEvents } = useRealtime(dataReady);
+  const { events: realtimeEvents, connected } = useRealtime(dataReady);
 
-  const [recent, setRecent] = useState([]);
+  const dashboard = useMemo(
+    () => buildDashboardData({ karyawan, laporan, realtimeEvents, today }),
+    [karyawan, laporan, realtimeEvents, today]
+  );
 
-  useEffect(() => {
-    const merged = [...realtimeEvents, ...laporan]
-      .filter((v, i, a) => a.findIndex((t) => t.id === v.id) === i)
-      .sort((a, b) => {
-        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return tb - ta;
-      });
-    setRecent(merged.slice(0, 10));
-  }, [laporan, realtimeEvents]);
+  const { stats, statusSeries, hourlySeries, divisionSeries, attendance } = dashboard;
+  const recent = useMemo(() => {
+    const sorted = [...attendance].sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return tb - ta;
+    });
+    return sorted.slice(0, 10);
+  }, [attendance]);
 
-  // Gabungkan laporan + event realtime (dedupe by id) lalu hitung dari
-  // hasil gabungan — event yang sudah ada di laporan tidak dihitung ganda.
-  const stats = useMemo(() => {
-    const merged = [...realtimeEvents, ...laporan].filter(
-      (v, i, a) => a.findIndex((t) => t.id === v.id) === i
-    );
-    // Hanya karyawan aktif yang dihitung (nonaktif bukan beban absensi)
-    const aktif = karyawan.filter((k) => k.status === "aktif");
-    const nipAktif = new Set(aktif.map((k) => k.nip));
-    const milikAktif = (l) =>
-      nipAktif.has(l.employee?.nip ?? l.nip ?? "");
-    const hadir = merged.filter((l) => l.status === "Hadir" && milikAktif(l)).length;
-    const terlambat = merged.filter((l) => l.status === "Terlambat" && milikAktif(l)).length;
-    const izin = merged.filter((l) => l.status === "Izin" && milikAktif(l)).length;
-    const sakit = merged.filter((l) => l.status === "Sakit" && milikAktif(l)).length;
-    // Izin/Sakit bukan "tidak hadir" — karyawan mengajukan ketidakhadiran
-    const tidakHadir = Math.max(
-      0,
-      aktif.length - hadir - terlambat - izin - sakit
-    );
-    return { totalKaryawan: aktif.length, hadir, terlambat, tidakHadir };
-  }, [karyawan, laporan, realtimeEvents]);
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: karyawanKeys.all });
+    queryClient.invalidateQueries({ queryKey: laporanKeys.all });
+  };
 
   if (isPending) return <LoadingSpinner />;
 
+  const hadirRate =
+    stats.totalKaryawan > 0
+      ? Math.round(((stats.hadir + stats.terlambat) / stats.totalKaryawan) * 100)
+      : 0;
+
+  const kpis = [
+    {
+      label: "Karyawan Aktif",
+      value: stats.totalKaryawan,
+      hint: "Karyawan berstatus aktif",
+      ...KPI_TONES.total,
+    },
+    {
+      label: "Hadir",
+      value: stats.hadir,
+      hint: `${hadirRate}% kehadiran hari ini`,
+      ...KPI_TONES.hadir,
+    },
+    {
+      label: "Terlambat",
+      value: stats.terlambat,
+      hint: "Masuk melewati toleransi jadwal",
+      ...KPI_TONES.terlambat,
+    },
+    {
+      label: "Tidak Hadir",
+      value: stats.tidakHadir,
+      hint: "Belum ada absensi hari ini",
+      ...KPI_TONES.tidakHadir,
+    },
+  ];
+
   return (
-    <div>
-      <div className="page-header">
-        <h4>Dashboard</h4>
-        <small className="text-muted-foreground">
-          {new Date().toLocaleDateString("id-ID", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </small>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h4>Ringkasan Hari Ini</h4>
+          <small className="text-muted-foreground">
+            {new Date().toLocaleDateString("id-ID", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </small>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="gap-1.5">
+            <span
+              className={`size-2 rounded-full ${
+                connected ? "bg-[color:var(--chart-1)]" : "bg-muted-foreground"
+              }`}
+              aria-hidden="true"
+            />
+            {connected ? "Live" : "Menyambung"}
+          </Badge>
+          <Button variant="outline" size="sm" onClick={refresh}>
+            <RefreshCw aria-hidden="true" />
+            Muat ulang
+          </Button>
+        </div>
       </div>
 
       {(karyawanError || laporanError) && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertTriangle />
+        <Alert variant="destructive">
+          <Activity />
           <AlertDescription>
             Gagal memuat data dashboard. Coba muat ulang halaman.
           </AlertDescription>
         </Alert>
       )}
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {CARDS.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div key={card.label} className="stat-card" style={{ background: card.bg }}>
-              <div className="stat-card__content">
-                <div className="stat-card__value">{stats[card.valueKey]}</div>
-                <div className="stat-card__label">{card.label}</div>
-              </div>
-              <Icon className="stat-card__icon size-10" />
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {kpis.map((kpi) => (
+          <KpiCard key={kpi.label} {...kpi} />
+        ))}
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <AttendanceCompositionChart data={statusSeries} total={stats.totalKaryawan} />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Pulse Realtime</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Tap kartu terbaru dari perangkat.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {recent.length === 0 ? (
+              <EmptyState
+                message="Belum ada tap hari ini"
+                icon={<CalendarDays className="size-10" />}
+              />
+            ) : (
+              <ul className="divide-y">
+                {recent.slice(0, 5).map((item) => (
+                  <li key={item.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <span className="w-11 shrink-0 text-xs text-muted-foreground tabular-nums">
+                      {timeOf(item)}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {item.employee?.nama || item.nama || "-"}
+                    </span>
+                    <StatusBadge status={item.status} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <HourlyAttendanceChart data={hourlySeries} />
+        <DivisionAttendanceChart data={divisionSeries} />
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center gap-2 py-4">
-          <Clock3 className="size-4 text-muted-foreground" />
-          <CardTitle className="text-sm font-semibold">
-            Absensi Terbaru Hari Ini
-          </CardTitle>
+        <CardHeader className="flex flex-row items-center gap-2">
+          <Clock3 className="size-4 text-muted-foreground" aria-hidden="true" />
+          <CardTitle>Absensi Terbaru Hari Ini</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="px-0">
           {recent.length === 0 ? (
             <EmptyState
               message="Belum ada data absensi hari ini"
-              icon={<CalendarX className="size-10" />}
+              icon={<CalendarDays className="size-10" />}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -173,7 +290,7 @@ export default function Dashboard() {
                       <TableCell>
                         <code>{item.employee?.nip || item.nip || "-"}</code>
                       </TableCell>
-                      <TableCell>{item.jam_masuk || item.jam || "-"}</TableCell>
+                      <TableCell>{timeOf(item)}</TableCell>
                       <TableCell>
                         <StatusBadge status={item.status} />
                       </TableCell>

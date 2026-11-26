@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\LaporanRequest;
 use App\Models\Attendance;
 use App\Models\Division;
+use App\Models\Employee;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -55,8 +56,8 @@ class LaporanController extends Controller
             'divisi_id' => 'nullable|exists:divisions,id',
         ]);
 
-        $dari = Carbon::parse($validated['dari'])->startOfDay();
-        $sampai = Carbon::parse($validated['sampai'])->startOfDay();
+        $dari = Carbon::parse($validated['dari'], 'Asia/Jakarta')->startOfDay();
+        $sampai = Carbon::parse($validated['sampai'], 'Asia/Jakarta')->startOfDay();
         $periode = $validated['periode'];
         $divisiId = $validated['divisi_id'] ?? null;
 
@@ -72,84 +73,71 @@ class LaporanController extends Controller
         }
         $divisions = $divisionQuery->get(['id', 'nama_divisi']);
 
+        $employees = Employee::query()
+            ->where('status', 'aktif')
+            ->when($divisiId, fn ($query) => $query->where('divisi_id', $divisiId))
+            ->get(['id', 'divisi_id']);
+
         $records = Attendance::query()
             ->with('employee:id,divisi_id')
             ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
-            ->when($divisiId, function ($query) use ($divisiId) {
-                $query->whereHas('employee', fn ($q) => $q->where('divisi_id', $divisiId));
+            ->whereHas('employee', function ($query) use ($divisiId) {
+                $query->where('status', 'aktif')
+                    ->when($divisiId, fn ($q) => $q->where('divisi_id', $divisiId));
             })
+            ->orderBy('employee_id')->orderBy('tanggal')->orderBy('id')
             ->get(['id', 'employee_id', 'tanggal', 'status']);
+
+        $statusByEmployeeDate = [];
+        foreach ($records as $record) {
+            $date = $record->tanggal instanceof Carbon
+                ? $record->tanggal->toDateString()
+                : Carbon::parse($record->tanggal, 'Asia/Jakarta')->toDateString();
+            $statusByEmployeeDate[$record->employee_id][$date] ??= $record->status;
+        }
 
         $statuses = config('absensi.statuses', ['Hadir', 'Terlambat', 'Alpha', 'Izin', 'Sakit']);
         $divisionSeries = [];
-
         foreach ($divisions as $division) {
             $divisionSeries[$division->id] = [
-                'id' => $division->id,
-                'nama_divisi' => $division->nama_divisi,
-                'counts' => array_fill(0, count($buckets), 0),
-                'total' => 0,
-                'status_counts' => array_fill_keys($statuses, 0),
-                'total_records' => 0,
+                'id' => $division->id, 'nama_divisi' => $division->nama_divisi,
+                'counts' => array_fill(0, count($buckets), 0), 'total' => 0,
+                'status_counts' => array_fill_keys($statuses, 0), 'total_records' => 0,
             ];
         }
 
         $totals = array_fill_keys($statuses, 0);
+        foreach ($employees as $employee) {
+            $divisionId = $employee->divisi_id ?? 0;
+            if (!isset($divisionSeries[$divisionId])) {
+                if ($divisiId) continue;
+                $divisionSeries[0] ??= [
+                    'id' => 0, 'nama_divisi' => 'Tanpa Divisi',
+                    'counts' => array_fill(0, count($buckets), 0), 'total' => 0,
+                    'status_counts' => array_fill_keys($statuses, 0), 'total_records' => 0,
+                ];
+                $divisionId = 0;
+            }
 
-        foreach ($records as $record) {
-            $employeeDivisionId = $record->employee?->divisi_id;
-
-            if ($employeeDivisionId === null) {
-                if ($divisiId) {
-                    continue;
+            for ($date = $dari->copy(); $date->lte($sampai); $date->addDay()) {
+                $dateKey = $date->toDateString();
+                $status = $statusByEmployeeDate[$employee->id][$dateKey] ?? 'Alpha';
+                $totals[$status] = ($totals[$status] ?? 0) + 1;
+                $divisionSeries[$divisionId]['status_counts'][$status] =
+                    ($divisionSeries[$divisionId]['status_counts'][$status] ?? 0) + 1;
+                $divisionSeries[$divisionId]['total_records']++;
+                $position = $bucketIndex[$this->grafikBucketKey($date, $periode)] ?? null;
+                if ($position !== null && in_array($status, ['Hadir', 'Terlambat'], true)) {
+                    $divisionSeries[$divisionId]['counts'][$position]++;
+                    $divisionSeries[$divisionId]['total']++;
                 }
-
-                if (! isset($divisionSeries[0])) {
-                    $divisionSeries[0] = [
-                        'id' => 0,
-                        'nama_divisi' => 'Tanpa Divisi',
-                        'counts' => array_fill(0, count($buckets), 0),
-                        'total' => 0,
-                        'status_counts' => array_fill_keys($statuses, 0),
-                        'total_records' => 0,
-                    ];
-                }
-
-                $employeeDivisionId = 0;
-            }
-
-            if (! isset($divisionSeries[$employeeDivisionId])) {
-                continue;
-            }
-
-            $bucketKey = $this->grafikBucketKey(Carbon::parse($record->tanggal), $periode);
-            $bucketPosition = $bucketIndex[$bucketKey] ?? null;
-
-            if ($bucketPosition === null) {
-                continue;
-            }
-
-            $status = $record->status;
-            $totals[$status] = ($totals[$status] ?? 0) + 1;
-            $divisionSeries[$employeeDivisionId]['status_counts'][$status] =
-                ($divisionSeries[$employeeDivisionId]['status_counts'][$status] ?? 0) + 1;
-            $divisionSeries[$employeeDivisionId]['total_records']++;
-
-            if (in_array($status, ['Hadir', 'Terlambat'], true)) {
-                $divisionSeries[$employeeDivisionId]['counts'][$bucketPosition]++;
-                $divisionSeries[$employeeDivisionId]['total']++;
             }
         }
 
         $divisionsOut = array_values($divisionSeries);
         usort($divisionsOut, function (array $a, array $b) {
-            if ($a['id'] === 0) {
-                return 1;
-            }
-            if ($b['id'] === 0) {
-                return -1;
-            }
-
+            if ($a['id'] === 0) return 1;
+            if ($b['id'] === 0) return -1;
             return strcmp($a['nama_divisi'], $b['nama_divisi']);
         });
 
@@ -159,6 +147,7 @@ class LaporanController extends Controller
             $maxValue = max($maxValue, ...$series['counts']);
             $maxTotal = max($maxTotal, $series['total']);
         }
+
 
         $totalRecords = array_sum($totals);
         $totalKehadiran = ($totals['Hadir'] ?? 0) + ($totals['Terlambat'] ?? 0);

@@ -11,6 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useDivisiList, useLaporanGrafik } from "../api/queries";
+import { getJakartaDate } from "../lib/dashboard-data";
 import AttendanceDivisionChart, {
   DIVISION_COLORS,
 } from "../components/AttendanceDivisionChart";
@@ -51,23 +52,23 @@ const STATUS_COLUMNS = [
 ];
 
 const formatDateInput = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
 
 const addDays = (dateString, days) => {
-  const date = new Date(`${dateString}T00:00:00`);
-  date.setDate(date.getDate() + days);
+  const date = new Date(`${dateString}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
   return formatDateInput(date);
 };
 
 const defaultFilter = () => {
-  const sampai = formatDateInput(new Date());
+  const today = getJakartaDate();
   return {
-    dari: addDays(sampai, -29),
-    sampai,
+    dari: today,
+    sampai: today,
     divisi_id: "",
     periode: "harian",
   };
@@ -75,11 +76,12 @@ const defaultFilter = () => {
 
 const formatDisplayDate = (value) => {
   if (!value) return "-";
-  return new Date(`${value}T00:00:00`).toLocaleDateString("id-ID", {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
     day: "2-digit",
     month: "short",
     year: "numeric",
-  });
+  }).format(new Date(`${value}T00:00:00Z`));
 };
 
 const number = (value) => Number(value) || 0;
@@ -159,7 +161,7 @@ export default function LaporanGrafik() {
       bg: "linear-gradient(135deg, #f59e0b, #fbbf24)",
     },
     {
-      label: "Tidak Hadir",
+      label: "Tidak Hadir (Alpha/Izin/Sakit)",
       value: tidakHadir,
       icon: XCircle,
       bg: "linear-gradient(135deg, #ef4444, #f87171)",
@@ -174,10 +176,14 @@ export default function LaporanGrafik() {
   const handlePeriodeChange = (periode) => {
     const option = PERIODE_OPTIONS.find((item) => item.value === periode);
     setFilter((prev) => {
+      if (periode === "harian") {
+        const today = getJakartaDate();
+        return { ...prev, periode, dari: today, sampai: today };
+      }
+
       if (prev.periode === periode) {
         return prev;
       }
-
       if (!prev.dari || !prev.sampai || !option) {
         return { ...prev, periode };
       }
@@ -277,8 +283,7 @@ export default function LaporanGrafik() {
 
         <div className="mt-3">
           <Button type="button" variant="outline" size="sm" onClick={resetFilter}>
-            <RotateCcw data-icon="inline-start" className="size-3.5" />
-            Reset ke 30 Hari Terakhir
+            Reset ke Hari Ini
           </Button>
         </div>
       </div>
@@ -419,7 +424,8 @@ export default function LaporanGrafik() {
           <CardHeader>
             <CardTitle>Ringkasan Status per Divisi</CardTitle>
             <CardDescription>
-              Kehadiran = Hadir + Terlambat. Total Data mencakup semua status.
+              Kehadiran = Hadir + Terlambat. Tidak Hadir = Alpha + Izin +
+              Sakit dari total backend.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -435,7 +441,9 @@ export default function LaporanGrafik() {
                     <TableHead>Divisi</TableHead>
                     {STATUS_COLUMNS.map((column) => (
                       <TableHead key={column.key} className="text-right">
-                        {column.label}
+                        {column.key === "Alpha"
+                          ? "Alpha (Tidak Hadir)"
+                          : column.label}
                       </TableHead>
                     ))}
                     <TableHead className="text-right">Total Data</TableHead>

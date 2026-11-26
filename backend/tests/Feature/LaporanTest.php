@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\User;
 use App\Models\Employee;
 use App\Models\Division;
+use App\Models\Attendance;
 use Carbon\Carbon;
 
 class LaporanTest extends TestCase
@@ -66,6 +67,37 @@ class LaporanTest extends TestCase
             ->assertJsonStructure(['data' => ['data', 'current_page', 'total']]);
 
         $this->assertGreaterThan(0, $response->json('data.total'));
+    }
+
+    public function test_grafik_counts_implicit_alpha_per_active_employee_date_and_division(): void
+    {
+        $user = User::factory()->create();
+        $division = Division::factory()->create();
+        $otherDivision = Division::factory()->create();
+        $missing = Employee::factory()->create(['divisi_id' => $division->id]);
+        $present = Employee::factory()->create(['divisi_id' => $division->id]);
+        $izin = Employee::factory()->create(['divisi_id' => $division->id]);
+        $sakit = Employee::factory()->create(['divisi_id' => $division->id]);
+        $inactive = Employee::factory()->nonaktif()->create(['divisi_id' => $division->id]);
+        $outside = Employee::factory()->create(['divisi_id' => $otherDivision->id]);
+
+        foreach ([$present, $inactive, $outside] as $employee) {
+            Attendance::factory()->create(['employee_id' => $employee->id, 'tanggal' => '2026-01-01', 'status' => 'Hadir']);
+        }
+        Attendance::factory()->create(['employee_id' => $present->id, 'tanggal' => '2026-01-02', 'status' => 'Hadir']);
+        Attendance::factory()->create(['employee_id' => $izin->id, 'tanggal' => '2026-01-01', 'status' => 'Izin']);
+        Attendance::factory()->create(['employee_id' => $sakit->id, 'tanggal' => '2026-01-01', 'status' => 'Sakit']);
+
+        $response = $this->actingAs($user)->getJson('/api/laporan/grafik?dari=2026-01-01&sampai=2026-01-02&periode=harian&divisi_id='.$division->id);
+
+        $response->assertOk();
+        $this->assertSame(4, $response->json('data.totals.Alpha'));
+        $this->assertSame(2, $response->json('data.totals.Hadir'));
+        $this->assertSame(1, $response->json('data.totals.Izin'));
+        $this->assertSame(1, $response->json('data.totals.Sakit'));
+        $this->assertSame(8, $response->json('data.totals.total_records'));
+        $this->assertSame(4, $response->json('data.divisions.0.status_counts.Alpha'));
+        $this->assertSame(8, $response->json('data.divisions.0.total_records'));
     }
 
     public function test_export_returns_xlsx(): void
